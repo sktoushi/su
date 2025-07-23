@@ -1,0 +1,77 @@
+{
+  "sliderValue": 50,
+  "records": [
+    {
+      "id": 1727264965785.7405,
+      "selected": true,
+      "name": "xperimental-features",
+      "link": "https://docs.drools.org/8.44.0.Final/drools-docs/drools/experimental-features/index.html#experimental-traits_experimental-features",
+      "type": "Generator",
+      "frequency": 10,
+      "lastPicked": 1727270463552
+    },
+    {
+      "id": 1727264965785.1863,
+      "selected": true,
+      "name": "mode-con_rule-engine",
+      "link": "https://docs.drools.org/8.44.0.Final/drools-docs/drools/rule-engine/index.html#phreak-sequential-mode-con_rule-engine",
+      "type": "Generator",
+      "frequency": 10,
+      "lastPicked": 1727270457490
+    },
+    {
+      "id": 1727264965785.4055,
+      "selected": false,
+      "name": "ners-con_rule-engine",
+      "link": "https://docs.drools.org/8.44.0.Final/drools-docs/drools/rule-engine/index.html#property-change-listeners-con_rule-engine",
+      "type": "Generator",
+      "frequency": 10,
+      "lastPicked": 1727270421641
+    },
+    {
+      "id": 1727264965785.2527,
+      "selected": true,
+      "name": "odes-con_rule-engine",
+      "link": "https://docs.drools.org/8.44.0.Final/drools-docs/drools/rule-engine/index.html#rule-execution-modes-con_rule-engine",
+      "type": "Generator",
+      "frequency": 10,
+      "lastPicked": 1727264965785
+    },
+    {
+      "id": 1727264965785.1646,
+      "selected": true,
+      "name": "tion-con_rule-engine",
+      "link": "https://docs.drools.org/8.44.0.Final/drools-docs/drools/rule-engine/index.html#rule-base-configuration-con_rule-engine",
+      "type": "Generator",
+      "frequency": 10,
+      "lastPicked": 1727264965785
+    }
+  ],
+  "topRecords": [
+    {
+      "id": 1727264965785.4055,
+      "totalCount": 1,
+      "reviewCount": 0,
+      "generatorCount": 1
+    },
+    {
+      "id": 1727264965785.1863,
+      "totalCount": 1,
+      "reviewCount": 0,
+      "generatorCount": 1
+    },
+    {
+      "id": 1727264965785.7405,
+      "totalCount": 1,
+      "reviewCount": 0,
+      "generatorCount": 1
+    }
+  ],
+  "totalRolls": 21,
+  "totalReviewRolls": 5,
+  "totalGeneratorRolls": 6,
+  "storageDestination": "https://github.com/sktoushi/stash-utils/upload/main",
+  "localStorageKey": "lsk240925drools",
+  "maxRecordsShown": 5,
+  "jsonPrefix": "drools"
+}
