@@ -1,0 +1,306 @@
+Question,Answer
+What is a way to deter threats before they are made?,"By taking preemptive actions, such as avoiding contact or demonstrating resilience, a party can signal that the threat would be futile, discouraging the adversary from issuing it."
+Why is it important to show disbelief or obstinacy before a threat is made?,"Once a threat is formally communicated, the committing party has already invested credibility in its execution. Resistance at this stage risks triggering the threatened action, whereas early defiance undermines the adversary’s incentive to commit in the first place."
+Why are commitments in threats and bargaining often unclear?,"Uncertainty about the adversary’s priorities creates a 'fog of bargaining,' where both sides may misjudge the stakes, leading to unintended escalation."
+How do commitments acquire firmness in bargaining?,"Commitments may strengthen progressively through a sequence of actions, such as imposing sanctions, mobilizing troops, and issuing ultimatums."
+What are two ways commitment can be communicated?,"Certain evidence of commitment can be communicated directly, such as through public declarations, while other evidence must be demonstrated by actions, like military drills reported by the media."
+Why does simultaneous commitment increase the risk of conflict?,"If both sides escalate in response to each other’s actions, they may create a collision course, as seen when nations mobilize armies without intending war."
+What happens when a threat fails to deter its target?,"Both parties may seek to undo the commitment because the deterrence value is lost, though they risk appearing weak if they back down first."
+How can isolation tactics nullify threats?,"By removing the means for the threatener to extract concessions, such as preventing communication with relatives in a kidnapping case, the leverage of the threat is nullified."
+Why does randomizing official assignments help prevent bribery and threats?,"Randomization introduces unpredictability, making it harder for corrupt actors to establish patterns of coercion or bribery."
+Why is there no universal way to assume commitments in bargaining?,"Unlike formal contracts, commitments in bargaining rely on informal signals, which lack standardized enforcement mechanisms and may be interpreted differently by each side."
+What is the formula for the Current Ratio?,Current Assets / Current Liabilities
+What does the Current Ratio indicate?,It shows if a company can pay short-term liabilities with its short-term assets.
+What is the formula for the Acid Test Ratio?,(Current Assets - Inventory - Other Current Assets) / Current Liabilities
+Why is the Acid Test Ratio stricter than the Current Ratio?,It removes inventory and non-liquid assets to give a more accurate measure of liquidity.
+What is the Solvency Ratio formula?,(Net Income After Tax + Depreciation & Amortization) / Total Liabilities
+What does the Solvency Ratio measure?,It measures if the company generates enough income to cover its debts in the long run.
+What is the Asset to Equity Ratio formula?,Total Assets / Total Equity
+What does a high Asset to Equity Ratio indicate?,The company is heavily leveraged with debt.
+What is the Gross Basis Debt-to-Equity Ratio formula?,Total Interest-Bearing Debt / (Total Equity + Total Interest-Bearing Debt)
+Why does the Net Basis Debt-to-Equity Ratio adjust for cash and investments?,Because those assets can be used to pay off debt immediately.
+What is the Revenue Growth formula?,(Total Revenues (Current Period) - Total Revenues (Prior Period)) / Total Revenues (Prior Period)
+What does the Net Margin formula measure?,Net Income After Tax / Total Revenues
+What does a high Net Margin indicate?,The company is profitable and efficient in managing expenses.
+What is the Net Income Growth formula?,(Net Income Attributable to Owners of the Parent (Current Period) - Net Income Attributable to Owners of the Parent (Prior Period)) / Net Income Attributable to Owners of the Parent (Prior Period)
+What does Return on Equity (ROE) measure?,It measures how well the company uses shareholder equity to generate profits.
+What is the Return on Assets (ROA) formula?,Net Income After Tax / Total Assets
+Why is ROA important?,It shows how efficiently a company uses its assets to generate profit.
+What is EBITDA?,"Earnings Before Interest, Taxes, Depreciation, and Amortization"
+Why do investors use EBITDA?,It removes the impact of financing and accounting decisions to evaluate core profitability.
+What is the Interest Cover Ratio formula?,EBITDA / Interest Expense
+What does a low Interest Cover Ratio mean?,"The company might struggle to pay interest on its debt, increasing financial risk."
+What is the purpose of identifying elements that must coordinate or remain independent in a system?,To ensure desired functionality while preventing unintended interference or errors.
+What are some properties of coordination in a system?,"Timeliness, currency, completeness, correctness, and consistency."
+How does timeliness affect system coordination?,It refers to how quickly elements coordinate to ensure prompt interactions.
+What does currency ensure in a system’s coordination?,It ensures that information is always up-to-date.
+Why is completeness important in system coordination?,It verifies that all necessary data is included for correct operations.
+How does correctness impact system coordination?,It guarantees the accuracy of the data being coordinated.
+What does consistency ensure in system coordination?,It ensures uniform behavior and data consistency across the system.
+What are common communication mechanisms used in systems?,"APIs, protocols, middleware, RESTful APIs, and WebSockets."
+What is the difference between stateful and stateless communication?,"Stateful maintains a connection between requests, while stateless treats each request independently."
+How does synchronous communication differ from asynchronous communication?,"Synchronous requires both parties to operate in lockstep, while asynchronous allows independent operation."
+What is guaranteed delivery in communication mechanisms?,"It ensures messages are received reliably, often at the cost of speed."
+What is the impact of throughput on communication?,"Throughput measures the amount of data processed in a given time, affecting system efficiency."
+What is the impact of latency on communication?,"Latency measures the delay between sending and receiving data, impacting responsiveness."
+What is a data model in a system?,"A blueprint for structuring, storing, and accessing system-wide data."
+What are some key decisions when defining a data model?,"Choosing data abstractions, defining operations, setting properties, and organizing data."
+Why is metadata important in data models?,"It ensures consistent interpretation of data, reducing errors across components."
+What factors should be considered in organizing data?,"Data structure, storage type (relational, hierarchical, hybrid), and mappings across different forms."
+What are some examples of hard resources in a system?,"CPU, memory, battery, hardware buffers, system clock, and I/O ports."
+What are soft resources in a system?,"System locks, software buffers, thread pools, and non-thread-safe code."
+What is the role of a resource manager in a system?,To allocate and monitor resource usage efficiently to prevent bottlenecks.
+Why is arbitration important in resource management?,To ensure fair access and avoid conflicts or system failures due to resource contention.
+What is the impact of resource saturation on a system?,"It can cause performance degradation, slow processing, or system crashes."
+What mitigation strategies can be used for resource saturation?,"Load balancing, scaling, and efficient resource allocation."
+What is surplus value?,"The unpaid labor extracted from workers, which is the source of profit."
+What does the average profit coincide with?,The average surplus value produced for each 100 of capital.
+What determines the rate of profit?,"The value of the advanced capital, which includes constant and variable capital."
+How can a capitalist achieve super-profits?,"By intensifying exploitation through overwork, wage reduction, or increased productivity."
+Why is surplus value important for all capitalists?,"Because profit derives from the total surplus value extracted across all sectors, not just their own workers."
+What are the factors determining the degree of exploitation of labor?,The average intensity of labor and the length of the working day.
+How is the rate of surplus value calculated?,Surplus value divided by variable capital.
+Why do capitalists rely on the productivity of social labor?,It determines both the mass of use values and the rate of profit.
+What is the dual role of profit?,It serves as a fund for capital accumulation and consumption.
+What does the value of total capital advanced determine?,"The rate of profit, given a fixed amount of surplus value."
+What is the Joseph Stiglitz problem?,"It refers to the lack of accountability for incorrect or harmful advice, leading to consequences for others."
+What is mental cherry-picking?,The selective use of evidence to support one’s belief while ignoring contradicting evidence.
+What does 'lack of skin in the game' imply?,It means giving advice or opinions without personally facing the consequences of those recommendations.
+What is Rational Optionality?,"Not being locked into a specific program, allowing adaptation based on new information or discovery."
+Who is a rational flâneur?,"Someone who explores with curiosity and openness, embracing discoveries without rigid plans."
+What is Ethical Inversion?,Justifying actions by modifying one’s moral framework instead of letting ethical principles guide behavior.
+What is the Narrative Fallacy?,"The human tendency to fit a story to a series of facts, even when the story may not be accurate."
+What is data mining in the context of Narrative Fallacy?,Finding patterns in large datasets that may be coincidental rather than causal.
+What is Narrative Discipline?,"Shaping historical events into a logical and appealing narrative, even if it’s not entirely accurate."
+How does Narrative Discipline differ from Experimental Discipline?,"Experimental discipline relies on testing and evidence, while Narrative Discipline shapes past events into stories."
+How are statistics used in Narrative Discipline?,By cherry-picking data to support a predetermined story and ignoring inconvenient evidence.
+What is the limitation of epidemiological studies in medicine?,They are more prone to misinterpretation compared to controlled experiments.
+Why are controlled experiments more reliable than epidemiological studies?,Because they are designed to eliminate bias and provide more rigorous evidence.
+What is non-narrative action?,An action that is valid regardless of whether a narrative supports it or not.
+What role do narratives play in motivating action?,They serve more as tools for persuasion rather than determinants of correctness.
+What is a Robust Narrative?,A narrative that remains valid and consistent across different scenarios or assumptions.
+What makes a narrative fragile?,A narrative that collapses when underlying assumptions change.
+What is an example of a robust model?,A business model that succeeds regardless of economic conditions.
+What is the reasoning behind asking certain questions in an interview?,To reinforce the view that the interview is a two-sided conversation and demonstrate that there are choices on both sides.
+How can you show off your knowledge about the company during an interview?,"By discussing company values, demonstrating you’ve done research, and asking thoughtful questions."
+When is it appropriate to ask personal questions of the interviewer?,"Only if great rapport has been built, as personal questions can be threatening to interviewers."
+What is the intent behind asking questions about company values?,To open up a discussion about company values and reiterate that you care about the job enough to research deeply.
+What are some examples of future pacing questions to ask in an interview?,"Examples include asking about the role's development over the next five years, potential opportunities, and challenges."
+What is the purpose of future pacing questions in an interview?,To encourage the interviewer to visualize you in the role and align their perception with your success.
+How can asking about challenges in the role benefit you as a candidate?,"It shows self-awareness, a proactive mindset, and willingness to address potential obstacles."
+Why is it important to ask about success metrics for a role during an interview?,"It demonstrates your focus on meeting expectations and delivering results, providing insight into key performance indicators."
+What does asking about team development signify to the interviewer?,"It shows investment in long-term growth and collaboration, helping the interviewer envision you as a positive contributor."
+"How do you capture and share experiences, lessons learned, technological decisions, techniques and methods, and knowledge about available tooling?",Identify and implement processes for systematic knowledge sharing across teams.
+Do you use any knowledge management tools?,"List and assess tools such as SharePoint, Confluence, or custom solutions."
+Is capture and use of architectural knowledge embedded in your processes?,Document how architectural knowledge is integrated into workflows.
+Where is the information about 'who knows what' captured and how is this information maintained?,Use central repositories or directories to track expertise within the organization.
+How complete and up to date is your architecture documentation? How widely disseminated is it?,Maintain regularly updated documentation and ensure its accessibility to all stakeholders.
+What evidence could you show us to support your answer?,Provide documentation examples like training curricula or software development plans.
+"How sustainable is your answer over time, over different systems, and across different architects?","Evaluate if practices remain effective despite personnel, system, or project changes."
+What is funding liquidity risk?,It is the risk that a firm cannot meet its cash flow and collateral needs without affecting daily operations or financial conditions.
+Why is reliance on capital market funding risky?,"Capital markets are more volatile and can dry up during crises, unlike retail deposits which are relatively stable."
+How much of Northern Rock's funding came from retail deposits?,30 billion British pounds came from retail deposits.
+What triggered Northern Rock's liquidity crisis in August 2007?,It faced difficulties rolling over its short-term debt and issuing securitized loans.
+Why did depositors withdraw funds en masse during the crisis?,"Deposits were only partially insured in Britain, leading to panic and a bank run."
+What emergency measure was taken to support Northern Rock?,"The Bank of England granted emergency financial support on September 13, 2007."
+What was the impact of the Bank of England's support announcement?,It started a bank run as depositors panicked and withdrew billions in deposits.
+What is the goal of segmenting software into modules?,"To ensure modules can be developed and evolved separately with minimal interaction, supporting portability, modifiability, and reuse."
+What does the term 'separation of concerns' mean in the layered pattern?,"It means dividing the system into distinct parts, each responsible for specific functions, reducing complexity."
+What does unidirectional relationship among layers mean?,"Higher layers can use the services of lower layers, but not vice versa, ensuring dependencies flow in one direction."
+What does it mean for layers to completely partition a set of software?,"Each layer is self-contained with defined boundaries, interacting with others through a public interface."
+What is the importance of strict ordering relation in layers?,"It ensures a clear hierarchy in which layers interact, eliminating circular dependencies and promoting clarity."
+What is layer bridging?,"It refers to higher layers directly using modules in nonadjacent lower layers, bypassing intermediate layers."
+What happens if many instances of layer bridging occur?,"It creates entangled dependencies, reducing the system’s adaptability and portability."
+Why are upward usages not allowed in the layered pattern?,To ensure higher-level abstractions remain independent of lower-level implementations.
+What are the challenges of designing a layered architecture?,"It requires significant up-front planning and effort, including identifying layers and defining clear boundaries."
+What is the performance penalty of using a layered architecture?,"Each layer adds overhead, such as context switching, which increases latency and reduces performance."
+How are layers visually represented?,Layers are typically drawn as a stack of boxes with dependency flow from top to bottom.
+What must be identified regarding system coordination?,"Identifying the elements of the system that must coordinate, or are prohibited from coordinating."
+What does determining the properties of coordination involve?,"It involves timeliness, currency, completeness, correctness, and consistency."
+What are examples of communication mechanisms?,"Examples include APIs, protocols, or middleware, such as RESTful APIs and WebSockets."
+What are important properties of communication mechanisms?,"Stateful vs stateless, synchronous vs asynchronous, guaranteed vs nonguaranteed delivery, throughput, and latency."
+What is a data model?,The collection of representations and their interpretation for system-wide data.
+What decisions are involved in choosing a data model?,"Choosing data abstractions, defining their operations, and determining lifecycle processes."
+What metadata is needed for consistent data interpretation?,Schema definitions or data dictionaries are examples of necessary metadata.
+What must be identified for resource management?,Identifying the resources that must be managed and determining their limits.
+Who manages each resource in a system?,Specific system elements like memory managers or thread pool managers handle resources.
+What are arbitration strategies for shared resources?,Rules like fair queuing or prioritizing critical processes to avoid deadlocks.
+What does 'foreign commerce' refer to?,"It refers to the exchange of goods, services, and capital between countries, enabling access to broader products and fostering competition."
+Why do domestic policies raising production costs affect foreign markets?,"They make local goods more expensive, resulting in weaker demand in global markets."
+What is the effect of prohibiting the exportation of money?,"It disrupts natural trade flows, reduces opportunities for investment abroad, and limits trade flexibility."
+Why did Spain and Portugal prohibit the exportation of money?,They believed monopolizing precious metals would grant them economic and political power in Europe.
+What happens when there is excessive currency circulation domestically?,"It can lead to inflation, reduce economic efficiency, and distort price structures."
+Why can't the exportation of gold and silver be wholly stopped?,The balance of trade deficit necessitates money flow to settle debts.
+What causes commodity prices to rise extravagantly?,Excessive currency and restricted trade flows inflate costs beyond natural market levels.
+Why do Portuguese pay a premium for English cloth?,Trade routes controlled by British merchants add costs like transport and risk.
+What effect did British merchants controlling trade have on Iberian markets?,"They controlled prices and terms, passing extra costs to consumers."
+How did trade prohibitions in Portugal affect British merchants?,"It increased financial risk, leading merchants to elevate prices to offset threats."
+What is the impact of high import prices on domestic industries?,It stifles local industry growth and weakens the domestic manufacturing base.
+Why was Spanish cloth rarely seen in foreign markets?,Restrictive policies hindered Spain from developing a robust export market.
+What did a general present to his majesty to highlight Spain's manufacturing potential?,"A regiment clothed in Spanish manufactures, showcasing rare Spanish-made goods."
+What were Spain's main exports apart from steel goods?,Raw or naturally occurring goods like fruits and wines.
+What belief underpinned British trade policy under King William?,"Money was thought to constitute opulence, so accumulating it became a priority."
+Why was free coinage in Britain counterproductive?,It encouraged the exportation of coined money as bullion for profit.
+Why is silver scarcer than gold in circulation?,New silver coins are often melted for profit due to market value differences.
+What is a data model in system architecture?,It is the blueprint for representing and manipulating system data.
+What are key properties of communication mechanisms in systems?,"Statefulness, synchronization, guaranteed delivery, throughput, and latency."
+What is resource management in system architecture?,"It involves allocating and arbitrating shared resources like CPU, memory, and thread pools."
+What does 'foreign commerce' refer to?,"The exchange of goods, services, and capital between countries, enabling access to broader variety of products and fostering competition."
+How do prohibitive regulations affect foreign commerce?,"They raise the cost of goods, reduce a country's competitiveness, and distort the benefits of international trade."
+What was a major cause of poverty in Spain and Portugal?,Prohibiting the exportation of money disrupted trade flows and limited opportunities for economic development.
+What was Spain's belief regarding precious metals?,"They believed monopolizing gold and silver from their colonies would give them economic power, ignoring principles of supply and demand."
+What happens when money is restricted from flowing out?,"It can lead to inflation, reduced trade dynamics, and stifled domestic industry by distorting price structures."
+Why can't the exportation of gold and silver be fully stopped?,Because the balance of trade requires money to flow out when a country imports more than it exports.
+What effect does excess currency have on commodity prices?,It pushes prices to extravagant heights due to supply and demand imbalances.
+Why do Portuguese pay a premium on English cloth?,"Because of logistical imbalances and risks in trade, compounded by prohibitive regulations."
+Who controlled the trade routes to Iberian markets?,"British merchants, who managed shipping and distribution, increasing costs for Iberian consumers."
+How do trade restrictions affect merchant pricing?,"They elevate prices to offset risks, such as potential confiscation or legal penalties."
+What effect do high prices for imports have on domestic industries?,They stifle local industry’s growth by redirecting capital away from domestic producers.
+Why didn’t Spain dominate the cloth trade despite having the best materials?,Restrictive policies prevented investment in manufacturing capabilities and export market development.
+What was the primary focus of Spain’s exports?,"Raw goods like fruits and wines, with few manufactured goods like steel products."
+How did Britain try to control wealth under King William III?,"By restricting the flow of coin and precious metals, absorbing the cost of coinage to increase money supply."
+What happened when exportation of bullion was allowed in Britain?,"Traders melted coins to export bullion, exploiting the difference in value between minted coins and raw metal."
+Why is silver coinage scarcer compared to gold?,New silver coins were melted quickly for profit due to higher bullion prices.
+What are key properties for system coordination?,"Timeliness, currency, completeness, correctness, and consistency in communication between components."
+What does a data model represent?,"It is the blueprint for system data, defining its structure, storage, and manipulation."
+What are examples of hard and soft resources in systems?,"Hard resources include CPU and memory, while soft resources include thread pools and system locks."
+What is the purpose of resource arbitration?,To prevent bottlenecks and ensure smooth system operation under heavy loads.
+What is foreign commerce?,"The exchange of goods, services, and capital between countries, enabling access to a broader variety of products and fostering economic growth."
+How do policies affect foreign commerce?,Prohibitive regulations or tariffs can raise the cost of goods and reduce a country's competitiveness in international markets.
+What is one great cause of the poverty of Spain and Portugal?,Prohibiting the exportation of money disrupted trade flows and reduced investment opportunities.
+What was the belief of Spain and Portugal regarding the mines of Mexico and Peru?,"They believed they could command Europe by monopolizing precious metals, ignoring principles of supply and demand."
+What happens when money is artificially restricted from export?,Excess domestic currency leads to inflation and stifles economic efficiency.
+Why is the exportation of gold and silver inevitable?,"A trade deficit must be settled, so money flows out inevitably."
+What happens when excess currency is present in a country?,It inflates prices for goods and services beyond natural market levels.
+Why do Portuguese pay additional costs for English cloth?,Trade route imbalances and risks lead to higher costs for Portuguese consumers.
+Who controls goods sent to Spain and Portugal?,"British merchants controlled shipping and distribution, increasing prices for consumers."
+What happens due to prohibitions on the export of money?,Merchants elevate prices to offset trade restrictions and risks.
+What effect do trade penalties have on goods?,Trade penalties are factored into higher commodity prices.
+What is the impact of high prices on domestic industry?,High import prices weaken local manufacturing industries.
+Why hasn't Spanish cloth been seen in other countries?,Restrictive economic policies prevented Spain from developing a robust export market.
+What did the general's presentation to his majesty demonstrate?,It showed the rarity and potential of Spanish manufacturing.
+What does Spain mainly export?,"Spain mainly exports raw goods like fruits and wines, with few manufactured commodities."
+What trade policies were made in Britain during King William's time?,King William III implemented policies to control coin and precious metal flow.
+What was the common belief about money in King William's era?,Money was seen as the measure of a nation's wealth and power.
+What was Britain's policy on coining money?,"Minting coins was free, encouraging traders to export coins as bullion."
+What did traders do with bullion and coins?,They melted coins to profit from the difference between bullion and coin values.
+Why is there a temptation to melt coins today?,The bullion price exceeding mint value creates a profit opportunity.
+What profit can be made by melting coins?,A profit of 4d. per ounce is made by melting coins.
+"Why are new shillings rare, and silver scarce?","Coins are melted for profit, reducing their circulation and creating scarcity."
+What are Mitigation and Enhancement strategies?,"These strategies involve changing the level of overall project risk to optimize the chances of achieving the project’s objectives. Mitigation addresses negative risks (threats), and enhancement addresses positive risks (opportunities). Examples include replanning the project, modifying project priority, or adjusting delivery times."
+When is the Accept strategy used in risk management?,"The Accept strategy is used when no proactive risk response strategy is possible or feasible. This can include active acceptance (e.g., establishing contingency reserves) or passive acceptance (e.g., monitoring risk trends without taking immediate action)."
+What is Alternatives Analysis in risk response?,"Alternatives analysis is a comparison of the characteristics and requirements of different risk response options to decide which is most appropriate, such as avoiding, transferring, or mitigating a specific risk."
+How is Cost-Benefit Analysis used in risk response?,Cost-benefit analysis quantifies the impact of a risk in monetary terms and evaluates the cost-effectiveness of response strategies. The ratio of change in impact level to implementation cost indicates the effectiveness of the strategy.
+What is Multicriteria Decision Analysis in risk management?,"Multicriteria decision analysis uses a decision matrix to evaluate and rank risk response strategies systematically based on criteria such as cost, effectiveness, urgency, and impact. It ensures decisions are not based solely on intuition."
+What criteria are considered for selecting risk response strategies?,"Criteria include cost of response, likely effectiveness, resource availability, timing constraints, level of impact, effect on related risks, and introduction of secondary risks. Flexibility to change strategies if ineffective is also key."
+What is the Incremental Commitment Model?,"A hybrid process model framework balancing agility (flexibility) and commitment (stability), based on six principles."
+Who are success-critical stakeholders?,"Individuals or groups essential for a project's success, such as customers, developers, and decision-makers."
+What does 'satisficing' mean in stakeholder management?,Achieving acceptable outcomes through practical compromises and addressing stakeholders' critical needs.
+What is incremental and evolutionary growth?,Developing the system in manageable portions to allow flexibility and foster gradual stakeholder buy-in.
+What is iterative system development?,Breaking work into cycles with tangible outputs for continuous progress and early issue identification.
+What does interleaved system definition and development emphasize?,Delivering core functionalities early to reduce time-to-market and enabling adaptability to changes.
+What is the role of risk management in the Incremental Commitment Model?,Proactively identifying challenges and using anchor point milestones to synchronize and stabilize activities.
+What does Grady Booch mean by agile architecture?,"Architectures that are adaptable, robust, and allow continuous evolution without breaking under change."
+What are the key principles of an agile architecture according to Booch?,"Decomposability, separation of concerns, and near-independence of parts."
+What is technical debt according to Ward Cunningham?,The cost of shortcuts in software development that must be repaid to maintain system health.
+How is technical debt 'repaid'?,"Through refactoring, which improves the code's structure without changing its external behavior."
+What is the strategy behind 'Look for Contrasts'?,"It suggests identifying and exploiting the opposite of overt traits, as people often conceal their true nature behind these traits."
+Who are typically the group’s weak link according to the text?,People behind-the-scenes who influence decision-makers superficially.
+What are the two main emotional voids discussed under 'Fill the Void'?,Insecurity and unhappiness.
+How can uncontrollable emotions be leveraged according to the text?,"By recognizing emotions like paranoia, lust, or hatred, and using them as control points since people in such states cannot control themselves."
+What was Cardinal Richelieu’s clever strategy in dealing with King Louis XIII?,He diverted from Church matters to focus on currying favor with King Louis XIII and Queen Mother Marie de' Médicis.
+What are the four main conversational maxims?,"Quantity, Quality, Relation, and Manner."
+What does the Quantity maxim require?,Providing all the information expected to avoid confusion or doubt.
+What happens when the Quality maxim is violated?,It creates uncertainty and unsettles the listener by making them unsure of the facts.
+Why is the Relation maxim important?,"Because it ensures the conversation stays relevant, avoiding confusion or distraction."
+What is the purpose of the Manner maxim?,To ensure speech is clear and understandable to avoid frustration or disorientation.
+How can disrupting conversational maxims influence someone?,"It creates cognitive dissonance, making the listener more susceptible to persuasion."
+What is priming in conversation?,A technique where someone is influenced to think a certain way by exposure to specific words or stimuli.
+How does priming work?,"It leverages the brain's tendency to associate ideas, influencing responses subliminally."
+What is an example of priming?,Mentioning 'success' repeatedly to subconsciously encourage positive thoughts about actions or choices.
+What is market power?,Market power is the ability of a firm (or group of firms) to raise and maintain a product’s price above the level that would prevail under perfect competition.
+How does market power differ from perfect competition?,"Market power allows firms to influence prices, unlike perfect competition where firms are price takers due to identical products and numerous competitors."
+What are the main causes of market power?,"Market power arises from few firms in the market, product differentiation, barriers to entry, and collusion or cartels."
+What is an oligopoly and how does it lead to market power?,"An oligopoly consists of a few dominant firms whose pricing decisions affect the overall market, leading to significant market power."
+What is product differentiation in the context of market power?,"Product differentiation occurs when firms make their products distinct through branding, quality, or other means, reducing substitutability and increasing pricing power."
+"What are barriers to entry, and how do they contribute to market power?","Barriers to entry, like high setup costs, patents, or regulations, prevent new competitors from entering the market, allowing existing firms to exert market power."
+What is a cartel? Provide an example.,A cartel is a group of firms that agree to restrict supply to keep prices elevated. Example: OPEC in the oil industry.
+What are the characteristics of perfect competition?,"Perfect competition features numerous firms, homogeneous products, no market power, and prices equal to marginal cost in the long run."
+What are the characteristics of monopolistic competition?,"Monopolistic competition involves many firms offering differentiated products, with some market power and downward-sloping demand curves."
+What defines an oligopoly?,"An oligopoly is defined by a few dominant firms, interdependent decision-making, and significant market power."
+What defines a monopoly?,"A monopoly exists when a single firm dominates the market, offering unique products with no close substitutes and complete pricing power."
+What are the consequences of market power on prices?,"Market power enables firms to reduce supply and raise prices above marginal cost, leading to higher consumer costs."
+"What is consumer surplus, and how is it affected by market power?",Consumer surplus is the difference between what consumers are willing to pay and what they actually pay. Market power reduces consumer surplus by increasing prices.
+"What is deadweight loss, and why does it occur with market power?","Deadweight loss occurs when transactions that would have occurred in a competitive market do not happen due to artificially high prices, leading to efficiency losses."
+How does market power affect resource allocation?,"Market power can lead to inefficient allocation of resources, with over-investment in advertising and under-investment in production efficiency."
+Does market power always reduce innovation? Explain.,"While market power can reduce competition and urgency for innovation, it may also provide resources for R&D, with mixed effects depending on the context."
+What is profit redistribution in the context of market power?,Profit redistribution occurs when firms with market power earn above-normal profits at the expense of consumers who pay more.
+How do antitrust laws address market power?,"Antitrust laws, like the Sherman Act, prevent cartels and monopolistic practices that restrain trade."
+"What are natural monopolies, and how are they regulated?","Natural monopolies, like utilities, are regulated to control prices and operations, ensuring consumer protection."
+How does deregulation impact market power?,"Deregulation can reduce barriers to entry and increase competition, but it may also consolidate power in certain cases."
+What role do international trade policies play in market power?,"International trade policies can reduce domestic market power by introducing foreign competition, or increase it through tariffs and quotas."
+What are some examples of market power in agriculture?,"Examples include the U.S. beef packing industry, where few firms control processing, and fruit/vegetable marketing orders that stabilize but elevate prices."
+What are some examples of market power in high-tech industries?,High-tech industries like operating systems and search engines leverage network effects and control over platforms to exert significant market power.
+What is the Cournot duopoly model?,"The Cournot duopoly model describes two firms deciding output simultaneously, affecting market prices and each other's decisions."
+What is the Bertrand duopoly model?,"The Bertrand duopoly model focuses on price-setting by firms, showing how competition can drive prices to marginal cost unless products are differentiated."
+How does monopolistic competition differ in the short and long run?,"In monopolistic competition, firms can price above marginal cost in the short run, but long-run profits tend to zero as new competitors enter."
+"What are price caps, and how do they limit market power?",Price caps are government-imposed maximum prices in essential service markets to protect consumers from excessive costs.
+What is the role of merger reviews in controlling market power?,"Merger reviews assess the impact of mergers on competition, preventing excessive market power consolidation."
+Why might governments break up monopolies?,"Governments may break up monopolies, as in the cases of Standard Oil and AT&T, to restore competition."
+How does global competition impact market power?,"Global competition can reduce domestic firms' market power by introducing alternatives, but multinational firms may still dominate in multiple regions."
+What does 'Retest All' involve in regression testing?,"Retesting the entirety of the software from top to bottom, often with automated tools but not necessarily always feasible or beneficial."
+What are the limitations of purely using automation in regression testing?,It ignores the benefits of human testers and the chance for exploratory testing.
+What is the advantage of crowd testing in regression testing?,It allows test cases to run in parallel across numerous testers and devices.
+What does 'Regression Test Selection' aim to achieve?,"Selecting representative tests that approximate full suite testing, reducing time and cost."
+Why is test case prioritization important?,It focuses on tests that impact both current and future software builds.
+What is a best practice for maintaining regression testing schedules?,Choosing a sustainable schedule throughout the software development lifecycle.
+How does a test management tool benefit regression testing?,It tracks all tests performed regularly and maintains historical records of test performance.
+Why should regression tests be broken down and categorized?,"Smaller, categorized tests make execution and sorting easier in the future, and refactoring becomes manageable."
+"What does the phrase 'I will always hail, ever conceal, and never reveal' signify in Masonic teachings?","It emphasizes loyalty and secrecy, where 'hailing' symbolizes acknowledgment and 'concealing' underscores protecting the secrets of the craft."
+What is the etymological origin of the word 'hail' in the context of Masonic teachings?,"It originates from the Anglo-Saxon verb 'elan' or 'helan,' meaning to cover, hide, or conceal."
+How is the word 'hele' represented in Latin?,"It is rendered by the Latin verb 'tegere,' meaning to cover or roof over."
+What are some historical examples that use the word 'hele'?,'That ye fro me no thynge woll hele' (Gower) and 'They hele fro me no priuyte' (Romaunt of the Rose) are examples.
+What does 'To heal a house' mean in Sussex?,"It means to cover a house with slates, connecting the term to protection or covering."
+What is the link between 'healing' and 'tiling' in Masonic symbolism?,"Both imply the act of covering, hiding, or ensuring privacy, with 'tiling' also referring to securing privacy during Masonic rituals."
+How is language similar to material symbols?,Both are subject to misinterpretation but hold profound meaning when properly understood.
+What led to the complexity of symbolism?,"The representation of divine attributes through earthly depictions created a mix of truth and misinterpretation, forming an intricate 'web' of traditions."
+How did Hebrew Theism become involved in symbolism?,"It adopted symbolic and idolatrous traditions, blending monotheism with earlier practices and representations."
+What was the division in Hebrew religious practices?,"The priests maintained theological purity (monotheists), while the people practiced idolatry."
+What is 'The Republic' by Plato often regarded as?,"One of the most influential works in Western philosophy, a Socratic dialogue outlining a vision of a just society governed by philosopher-kings."
+What does the IDPH edition of 'The Republic' include?,It potentially includes scholarly annotations and interpretive aids to deepen understanding of Plato’s arguments.
+What branches of philosophy does 'The Republic' blend?,"Metaphysics, ethics, and politics."
+What is metaphysics in the context of 'The Republic'?,"It refers to the fundamental nature of reality and being, underpinning concepts like the Forms."
+How does 'The Republic' address ethics?,"By examining how justice operates in individuals and societies, guiding moral conduct."
+What political vision does 'The Republic' present?,A society led by rulers possessing philosophical wisdom.
+What is Plato's ideal state?,"A society where social structures promote justice and harmony, reflecting the proper ordering of the soul’s faculties."
+How is justice defined in 'The Republic'?,"The principle of each part fulfilling its proper role, ensuring balance and virtue."
+What are the societal classes in 'The Republic' aligned with?,"The tripartite division of the soul: rational (rulers), spirited (auxiliaries), and appetitive (producers)."
+What is the allegory of the cave?,A metaphor illustrating the journey from ignorance to enlightenment and the obligation of the enlightened to guide others.
+What is the philosopher's responsibility according to 'The Republic'?,To lead others toward truth and virtue after achieving enlightenment.
+What is the main focus of the text?,The text focuses on the core motivations behind advertising and how marketers tailor messages to appeal to fundamental human desires.
+What are the three core desires people seek when buying products?,1. Become more attractive to a romantic partner. 2. Satisfy a basic need. 3. Be better than someone else.
+What are the key motivations behind advertising?,"Food, sex, health, money, and power are central human desires used in advertising."
+How do advertisements appeal to basic needs?,"By presenting products as solutions to everyday problems, e.g., cleaning products creating a stress-free household."
+How do advertisements appeal to attractiveness and romance?,"By showing attractive, confident individuals to imply buyers can gain similar glamour and confidence."
+How do advertisements appeal to competition or social standing?,"By highlighting how products put users ahead of others, e.g., luxury cars suggesting superiority."
+What is social proof and aspirational identity in advertising?,It’s when people aspire to emulate models or influencers who represent an ideal lifestyle in ads.
+What is associative learning in advertising?,"Associating products with positive emotions or images, e.g., a cleaner linked to a joyful home."
+How does FOMO (Fear of Missing Out) affect advertising?,By suggesting that missing out on a product means falling behind socially or technologically.
+How is self-enhancement and envy used in advertising?,By encouraging viewers to surpass peers in attractiveness or social status through product use.
+What example is given for liquor ads?,"Liquor ads portray attractive, classy individuals, implying the buyer can mirror their appeal."
+What example is given for cleaning product ads?,"Cleaning ads show calm, organized households, suggesting minimal effort for similar results."
+How should marketers identify the core desire of their audience?,"By analyzing their audience's primary motivators, such as security, romance, or status."
+Why should advertisements showcase a transformed life?,To create an emotional longing for a better life that the product can deliver.
+How do advertisers use subtle or overt comparisons?,"By contrasting life before and after using the product, often through side-by-side comparisons."
+What is the underlying message of effective advertising?,Effective advertising promises that the product will fulfill a fundamental human want.
+What are the critiques or limitations of the text?,"Oversimplification of desires, ethical concerns, and cultural differences in examples provided."
+What cultural considerations should be made in advertising?,Different cultures may not respond to the same advertising tactics as Western audiences.
+What is the conclusion of the text about effective advertising?,"Effective advertising appeals to core desires like attractiveness, basic needs, or competition, showcasing aspirational outcomes."
+What is Project Cost Management?,"Project Cost Management includes the processes involved in planning, estimating, budgeting, financing, funding, managing, and controlling costs to complete the project within the approved budget."
+What is the purpose of Plan Cost Management?,"It defines how project costs will be estimated, budgeted, managed, monitored, and controlled by establishing policies, procedures, and documentation formats."
+What does Estimate Costs involve?,"It involves developing an approximation of the monetary resources needed to complete project work, analyzing resources, labor, materials, equipment, and risk factors."
+What is the purpose of Determine Budget?,"It aggregates the estimated costs of activities or work packages to establish an authorized cost baseline, ensuring alignment with funding limits."
+What does Control Costs entail?,"It involves monitoring the project status to update costs, manage changes to the cost baseline, track actual expenditures, forecast future costs, and implement corrective actions."
+What does Figure 7-1 illustrate?,"It provides an overview of the Project Cost Management processes, showing the relationships and flow of activities within the processes."
+How are Project Cost Management processes presented?,"They are presented as discrete processes with defined interfaces, but in practice, they overlap and interact in ways not completely detailed in the PMBOK® Guide."
+Do these processes interact with other Knowledge Areas?,"Yes, they interact with each other and with processes in other Knowledge Areas."
