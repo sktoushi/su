@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>LoopTube Music</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding:1rem; background-color:#0d1117; color:#c9d1d9; }
+    #player{ width:100%; height:100%; }
+    .form-control{ background-color:#161b22; color:#c9d1d9; border-color:#30363d; }
+    .btn-secondary{ background-color:#21262d; color:#c9d1d9; border-color:#30363d; }
+    .btn-secondary:hover{ background-color:#30363d; color:#c9d1d9; border-color:#30363d; }
+    .btn-primary{ background-color:#238636; border-color:#2ea043; }
+    .btn-primary:hover{ background-color:#2ea043; border-color:#238636; }
+    .btn-success{ background-color:#2da44e; border-color:#2c974b; }
+    .btn-success:hover{ background-color:#2c974b; border-color:#2da44e; }
+  </style>
+</head>
+<body class="text-center" data-bs-theme="dark">
+<div class="container">
+  <div class="input-group mb-3">
+    <input id="urlInput" type="text" class="form-control" placeholder="YouTube Music URL">
+    <button id="loadBtn" class="btn btn-primary">Load</button>
+  </div>
+  <div class="ratio ratio-16x9 mb-3" id="player"></div>
+  <div id="controls" class="btn-group mb-3" role="group">
+    <button id="setStart" class="btn btn-secondary">Set A</button>
+    <button id="setEnd" class="btn btn-secondary">Set B</button>
+    <button id="toggleLoop" class="btn btn-secondary">Start Loop</button>
+    <button id="randomSeg" class="btn btn-secondary">Random Segment</button>
+    <button id="shareBtn" class="btn btn-success">Share</button>
+  </div>
+  <div class="mb-3">Minutes watched: <span id="minutesWatched">0</span>
+    <button id="clearStats" class="btn btn-success ms-2">Clear Stats</button>
+  </div>
+  <div id="watchStats" class="mb-3 text-start">
+    <div id="watchedToday"></div>
+    <div id="watchedWeek"></div>
+    <div id="watchedMonth"></div>
+    <div id="watchedYear"></div>
+    <div id="watchedAll"></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+/* ==== BEGIN Skyway algorithm helpers (copied from skyway.html) ==== */
+const urlParams   = new URLSearchParams(location.search);
+const targetCsv   = urlParams.get('target');
+let   distributionArr = null;
+const distributionStr = urlParams.get('distribution');
+if (distributionStr) {
+  distributionArr = distributionStr.split(/[-,]/).map(n => parseInt(n.trim(),10)).filter(n => !isNaN(n) && n>0);
+}
+let distributionPool = [];
+const distributionsStr = urlParams.get('distributions');
+if (distributionsStr) {
+  const distEntries = distributionsStr.split(/[;|]/);
+  for (const entry of distEntries) {
+    const [distPart,wPart] = entry.split(/[:=]/);
+    if (!distPart || !wPart) continue;
+    const w = parseInt(wPart.trim(),10);
+    if (w<=0 || isNaN(w)) continue;
+    const arr = distPart.split(/[-,]/).map(x => parseInt(x.trim(),10)).filter(x => !isNaN(x)&&x>0);
+    if (arr.length) distributionPool.push({arr,weight:w});
+  }
+}
+let randomMode = (urlParams.get('randomMode') || 'weighted').toLowerCase();
+const modeWeightsStr = urlParams.get('modeWeights');
+if (modeWeightsStr) {
+  const allowed = new Set(['weighted','uniform','contiguous','segments']);
+  const mwList = modeWeightsStr.split(/[;,]/).map(p=>p.trim()).filter(Boolean).map(p=>{const[k,v]=p.split(/[:=|]/);return{mode:k?.trim().toLowerCase(),w:parseInt(v?.trim(),10)}}).filter(o=>allowed.has(o.mode)&&o.w>0&&!isNaN(o.w));
+  if (mwList.length) {
+    const tot = mwList.reduce((s,m)=>s+m.w,0);
+    let rnd = randInt(1,tot);
+    for (const m of mwList){ if(rnd<=m.w){ randomMode=m.mode; break;} rnd-=m.w; }
+  }
+}
+if ((distributionArr && distributionArr.length) || distributionPool.length)
+  randomMode='segments';
+let configValues={};
+async function loadConfig(){ if(Object.keys(configValues).length) return configValues; try{ const resp=await fetch('config/values.json'); if(resp.ok){ const raw=await resp.json(); const base=raw.base||{}; let patch={}; if(Array.isArray(raw.patches)&&raw.patches.length){ const weights=raw.patches.map(p=>Number(p.distributionWeight)||1); const tot=weights.reduce((a,b)=>a+b,0); let rnd=Math.random()*tot; for(let i=0;i<raw.patches.length;i++){ if(rnd<weights[i]){ patch={...raw.patches[i]}; break;} rnd-=weights[i]; } delete patch.distributionWeight; } configValues=Object.assign({},base,patch); } }catch(err){ console.error('Config load failed:',err);} return configValues; }
+function getSecureRandomNumber(){ const a=new Uint32Array(1); crypto.getRandomValues(a); return a[0]/(0xFFFFFFFF+1); }
+function randInt(min,max){ return Math.floor(getSecureRandomNumber()*(max-min+1))+min; }
+function pickIdxByWeights(freq){ const tot=freq.reduce((s,v)=>s+v,0); let rnd=randInt(1,tot); for(let i=0;i<freq.length;i++){ if(rnd<=freq[i]) return i; rnd-=freq[i]; } return freq.length-1; }
+function cleanCell(c){ return c.trim().replace(/^["']+|["']+$/g,''); }
+function parseCsvLine(l){ const out=[]; let cell='',inQ=false; for(let i=0;i<l.length;i++){ const ch=l[i]; if(ch==='"'){ if(inQ&&l[i+1]==='"'){cell+='"';i++;} else inQ=!inQ;} else if(ch===','&&!inQ){ out.push(cell); cell=''; } else cell+=ch; } out.push(cell); return out; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(getSecureRandomNumber()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function tryEvalExpr(str){ if(!/^[0-9+\-*/ ().]+$/.test(str)) return str; try{ const v=Function('"use strict";return ('+str+')')(); return Number.isFinite(v)?String(v):str; }catch{ return str; } }
+function applyConfig(rows){ const re=/\{([^}]+)}/g; return rows.map(r=>r.map(c=>{ const sub=c.replace(re,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m); return tryEvalExpr(sub);})); }
+async function fetchCSV(name){ await loadConfig(); try{ const res=await fetch(name); if(!res.ok) throw new Error(`${res.status} ${res.statusText}`); const raw=(await res.text()).split('\n').map(l=>l.trim()).filter(Boolean); let rows=raw.map(l=>parseCsvLine(l).map(cleanCell)); rows=applyConfig(rows); if(!['contiguous','segments'].includes(randomMode)) shuffle(rows); return rows; }catch(e){ throw new Error('Error fetching "'+name+'": '+e.message); }}
+function pickUniform(rows){ return rows[randInt(0,rows.length-1)]; }
+function pickWeighted(rows){ const list=rows.map(r=>({r,w:Math.max(1,parseInt(r[1],10)||1)})); const tot=list.reduce((s,x)=>s+x.w,0); let rnd=getSecureRandomNumber()*tot; for(const x of list){ if(rnd<x.w) return x.r; rnd-=x.w; } return list[list.length-1].r; }
+function pickContiguous(rows){ const tot=rows.reduce((s,r)=>s+Math.max(1,parseInt(r[1],10)||1),0); let rnd=randInt(1,tot); for(const r of rows){ const w=Math.max(1,parseInt(r[1],10)||1); if(rnd<=w) return r; rnd-=w; } return rows[rows.length-1]; }
+function pickSegments(rows){ let freq=null; if(distributionPool.length){ const weights=distributionPool.map(d=>d.weight); freq=distributionPool[pickIdxByWeights(weights)].arr.slice(); } else if(distributionArr&&distributionArr.length){ freq=distributionArr.slice(); } else return pickUniform(rows); const nRows=rows.length; if(freq.length>nRows){ const extra=freq.slice(nRows).reduce((s,v)=>s+v,0); freq=freq.slice(0,nRows); freq[nRows-1]+=extra; } const nReg=freq.length; const base=Math.floor(nRows/nReg); let rem=nRows%nReg; const bounds=[]; let start=0; for(let i=0;i<nReg;i++){ const sz=base+(i<rem?1:0); bounds.push([start,start+sz-1]); start+=sz; } const regIdx=pickIdxByWeights(freq); const [l,r]=bounds[regIdx]; return rows[randInt(l,r)]; }
+function pickRow(rows){ switch(randomMode){ case 'uniform': return pickUniform(rows); case 'contiguous': return pickContiguous(rows); case 'segments': return pickSegments(rows); case 'weighted': default: return pickWeighted(rows); }}
+async function processRows(rows,depth=0){ if(depth>2000) return document.body.textContent='Max CSV nesting depth exceeded.'; if(!rows.length) return document.body.textContent='CSV empty.'; for(const r of rows){ if(r[0].trim()==='csv' && parseInt(r[1],10)===0){ try{ r[1]=(await fetchCSV(r[2])).length.toString(); }catch(e){ console.error(e); r[1]='1'; } } } const sel=pickRow(rows); const type=sel[0].trim(); if(type==='link'){ if(sel.length>=4 && /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/.test(sel[2])){ const seg=parseInt(sel[3],10); if(!isNaN(seg)&&seg>1){ const qs=new URLSearchParams(); qs.set('video',sel[2]); qs.set('segments',seg); location.href='looptube.html?'+qs.toString(); return; } } location.href=sel[2]; return; } if(type==='git-specific'){ const user=sel[2].split('=')[1], repo=sel[3].split('=')[1]; const list=sel[4].split('=')[1].split('_'); location.href=`https://github.com/${user}/${repo}/issues/${list[randInt(0,list.length-1)]}`; return; } if(type==='git-range'){ const user=sel[2].split('=')[1], repo=sel[3].split('=')[1]; const [min,max]=sel[4].split('=')[1].split('_').map(Number); if(isNaN(min)||isNaN(max)) return document.body.textContent='Bad git-range row'; location.href=`https://github.com/${user}/${repo}/issues/${randInt(min,max)}`; return; } if(type==='csv'){ try{ return processRows(await fetchCSV(sel[2]),depth+1); }catch(e){ return document.body.textContent=e.message; } } document.body.textContent='Unknown row type: '+type; }
+/* ==== END Skyway algorithm helpers ==== */
+</script>
+<script>
+let player;
+let startTime=0;
+let endTime=0;
+let loopActive=false;
+let watchLog=JSON.parse(localStorage.getItem("watchLog")||"{}");
+let watchedSeconds=0;
+let lastPlayerTime=null;
+let trackInterval=null;
+function addWatchTime(delta){
+  const d=new Date().toISOString().slice(0,10);
+  watchLog[d]=(watchLog[d]||0)+delta;
+  localStorage.setItem("watchLog",JSON.stringify(watchLog));
+}
+function formatDuration(sec){
+  const hrs=sec/3600;
+  return hrs>=1?hrs.toFixed(2)+" hours":(sec/60).toFixed(2)+" minutes";
+}
+function percentChange(curr,prev){
+  if(!prev) return "";
+  if(curr===prev) return " (--)";
+  const pct=((curr-prev)/prev*100).toFixed(0);
+  return ` (${curr>prev?'+':''}${pct}%)`;
+}
+function sumBetween(start,end){
+  let s=0;
+  for(const [k,v] of Object.entries(watchLog)){
+    const d=new Date(k);
+    if(d>=start&&d<end) s+=v;
+  }
+  return s;
+}
+function updateStatsDisplay(){
+  const now=new Date();
+  const dayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const yesterdayStart=new Date(dayStart); yesterdayStart.setDate(dayStart.getDate()-1);
+  const weekStart=new Date(dayStart); weekStart.setDate(dayStart.getDate()-dayStart.getDay());
+  const prevWeekStart=new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate()-7);
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+  const prevMonthStart=new Date(monthStart); prevMonthStart.setMonth(prevMonthStart.getMonth()-1);
+  const nextMonthStart=new Date(monthStart); nextMonthStart.setMonth(nextMonthStart.getMonth()+1);
+  const yearStart=new Date(now.getFullYear(),0,1);
+  const prevYearStart=new Date(yearStart); prevYearStart.setFullYear(prevYearStart.getFullYear()-1);
+  const nextYearStart=new Date(yearStart); nextYearStart.setFullYear(nextYearStart.getFullYear()+1);
+  const today=sumBetween(dayStart,new Date(dayStart.getTime()+86400000));
+  const yesterday=sumBetween(yesterdayStart,dayStart);
+  const thisWeek=sumBetween(weekStart,new Date(weekStart.getTime()+7*86400000));
+  const prevWeek=sumBetween(prevWeekStart,weekStart);
+  const thisMonth=sumBetween(monthStart,nextMonthStart);
+  const prevMonth=sumBetween(prevMonthStart,monthStart);
+  const thisYear=sumBetween(yearStart,nextYearStart);
+  const prevYear=sumBetween(prevYearStart,yearStart);
+  const allTime=Object.values(watchLog).reduce((a,b)=>a+b,0);
+  document.getElementById("watchedToday").textContent=formatDuration(today)+percentChange(today,yesterday);
+  document.getElementById("watchedWeek").textContent=formatDuration(thisWeek)+percentChange(thisWeek,prevWeek);
+  document.getElementById("watchedMonth").textContent=formatDuration(thisMonth)+percentChange(thisMonth,prevMonth);
+  document.getElementById("watchedYear").textContent=formatDuration(thisYear)+percentChange(thisYear,prevYear);
+  document.getElementById("watchedAll").textContent=formatDuration(allTime);
+}
+function startTracking(reset=false){
+  if(reset) lastPlayerTime=null;
+  if(trackInterval||!player) return;
+  trackInterval=setInterval(()=>{
+    if(player.getPlayerState&&player.getPlayerState()===YT.PlayerState.PLAYING){
+      const t=player.getCurrentTime();
+      if(lastPlayerTime===null){ lastPlayerTime=t; return; }
+      if(t>=lastPlayerTime){
+        const d=t-lastPlayerTime;
+        if(d>0 && d<5){
+          watchedSeconds+=d;
+          addWatchTime(d);
+        }
+      }
+      lastPlayerTime=t;
+      updateMinutesDisplay();
+    } else if(player) {
+      lastPlayerTime=player.getCurrentTime();
+    }
+  },1000);
+}
+function updateMinutesDisplay(){
+  document.getElementById("minutesWatched").textContent=(watchedSeconds/60).toFixed(2);
+  updateStatsDisplay();
+}
+function onYouTubeIframeAPIReady(){ createPlayer(initialVideoId()); }
+function createPlayer(id){ if(player) player.destroy(); player=new YT.Player('player',{height:'100%',width:'100%',videoId:id,events:{onReady:onPlayerReady}}); }
+function onPlayerReady(){
+  const s=parseFloat(urlParams.get('start'));
+  const e=parseFloat(urlParams.get('end'));
+  const segCount=parseInt(urlParams.get('segments')||'0',10);
+  if(!isNaN(s) && !isNaN(e)){
+    startTime=s; endTime=e; player.seekTo(startTime,true); loopActive=true; checkLoop();
+  } else if(segCount>1){
+    pickRandomSegment(segCount);
+  } else {
+    endTime=player.getDuration();
+  }
+  startTracking(true);
+}
+function initialVideoId(){ const direct=urlParams.get('video'); if(direct) return extractVideoId(direct); return ''; }
+function extractVideoId(url){ const m=url.match(/[?&]v=([^&]+)/); if(m) return m[1]; const m2=url.match(/youtu\.be\/([^?]+)/); if(m2) return m2[1]; return url; }
+function loadVideo(){ const url=document.getElementById('urlInput').value.trim(); if(!url) return; const id=extractVideoId(url); createPlayer(id); }
+document.getElementById('loadBtn').onclick=loadVideo;
+document.getElementById('setStart').onclick=()=>{ if(player){ startTime=player.getCurrentTime(); }};
+document.getElementById('setEnd').onclick=()=>{ if(player){ endTime=player.getCurrentTime(); }};
+document.getElementById('toggleLoop').onclick=()=>{ loopActive=!loopActive; if(loopActive) checkLoop(); };
+document.getElementById('randomSeg').onclick=()=>{ if(player){ const n=parseInt(prompt('Segments?'),10); if(n>1) pickRandomSegment(n); }};
+document.getElementById('shareBtn').onclick=async()=>{
+  await loadConfig();
+  const repo=(configValues.stashUsername&&configValues.stashRepository)?
+    `${configValues.stashUsername}/${configValues.stashRepository}`:
+    (configValues['current-era-stash']||'mdr19ganseki95cf/stash3');
+  const u=new URL(location.href);
+  if(!u.searchParams.get('video')&&player){
+    const id=extractVideoId(player.getVideoUrl()); u.searchParams.set('video','https://music.youtube.com/watch?v=' + id);
+  }
+  u.searchParams.set('start',Math.round(startTime));
+  u.searchParams.set('end',Math.round(endTime));
+  try{ await navigator.clipboard.writeText(u.toString()); }catch(e){ console.error('copy failed',e); }
+  location.href=`https://github.com/${repo}/issues/new/choose`;
+};
+document.getElementById('clearStats').onclick=()=>{
+  watchLog={};
+  localStorage.removeItem('watchLog');
+  watchedSeconds=0;
+  updateMinutesDisplay();
+};
+function pickRandomSegment(n){ const dur=player.getDuration(); if(!dur) return; const segLen=dur/n; const idx=randInt(0,n-1); startTime=idx*segLen; endTime=(idx+1)*segLen; player.seekTo(startTime,true); loopActive=true; checkLoop(); }
+function checkLoop(){ if(!loopActive) return; if(player.getCurrentTime()>=endTime){ player.seekTo(startTime,true); } requestAnimationFrame(checkLoop); }
+window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); if(player.getPlayerState()==YT.PlayerState.PLAYING) player.pauseVideo(); else player.playVideo(); } else if(e.key==='a'){ if(player) startTime=player.getCurrentTime(); } else if(e.key==='b'){ if(player) endTime=player.getCurrentTime(); } else if(e.key==='l'){ loopActive=!loopActive; if(loopActive) checkLoop(); } });
+window.onload=async ()=>{
+  await loadConfig();
+  updateMinutesDisplay();
+  if(targetCsv){
+    try{ await processRows(await fetchCSV(targetCsv)); }
+    catch(e){ document.body.textContent=e.message; }
+  } else if(urlParams.get('video')){
+    loadVideo();
+  }
+};
+</script>
+</body>
+</html>

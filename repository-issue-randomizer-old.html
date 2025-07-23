@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Issue Randomizer</title>
+    <script>
+
+
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            const username = params.get('username');
+            const repository = params.get('repository');
+            const issueNumbers = params.get('issueNumbers');
+
+            // New parameters
+            const specialIssueNumbersParam = params.get('specialIssueNumbers');
+            const specialIssueProbabilityParam = params.get('specialIssueProbability');
+
+            if (!username || !repository || !issueNumbers) {
+                alert('Missing required URL parameters.');
+                return null;
+            }
+
+            // Parse main issue list
+            const issueList = issueNumbers
+                .split(',')
+                .map(Number)
+                .filter(num => !isNaN(num));
+
+            // Parse specialIssueNumbers if provided
+            let specialIssueList = [];
+            if (specialIssueNumbersParam) {
+                specialIssueList = specialIssueNumbersParam
+                    .split(',')
+                    .map(Number)
+                    .filter(num => !isNaN(num));
+            }
+
+            // Parse specialIssueProbability if provided
+            let specialIssueProbability = 0;
+            if (specialIssueProbabilityParam) {
+                specialIssueProbability = parseFloat(specialIssueProbabilityParam);
+            }
+
+            if (issueList.length === 0) {
+                alert('No valid issue numbers found.');
+                return null;
+            }
+
+            // Combine/normalize the lists so that specialIssueList is n% of total, if applicable
+            let finalList = issueList.slice(); // start with normal issues
+
+            // Only adjust if we actually have specialIssueList items AND a valid probability 0<n<1
+            if (
+                specialIssueList.length > 0 &&
+                !isNaN(specialIssueProbability) &&
+                specialIssueProbability > 0 &&
+                specialIssueProbability < 1
+            ) {
+                const specialCount = specialIssueList.length;
+                // Desired total so that specialCount is specialIssueProbability% of total
+                //   specialCount / total = specialIssueProbability
+                //   => total = specialCount / specialIssueProbability
+                const desiredTotal = specialCount / specialIssueProbability;
+                // Then the normal portion of that total:
+                const desiredNormalCount = Math.round(desiredTotal - specialCount);
+
+                // Current normal count
+                const normalCount = issueList.length;
+                
+                // If we need more or fewer normal issues to hit the ratio, replicate or slice
+                // Replication factor for normal items:
+                //   factor = desiredNormalCount / normalCount
+                // We can replicate by repeating or just slice if factor < 1
+
+                if (normalCount > 0) {
+                    const factor = desiredNormalCount / normalCount;
+                    let adjustedNormalList = [];
+
+                    if (factor > 1) {
+                        // replicate normal issues
+                        for (let i = 0; i < Math.floor(factor); i++) {
+                            adjustedNormalList = adjustedNormalList.concat(issueList);
+                        }
+                        // Handle remainder
+                        const remainderCount = Math.round((factor - Math.floor(factor)) * normalCount);
+                        if (remainderCount > 0) {
+                            adjustedNormalList = adjustedNormalList.concat(issueList.slice(0, remainderCount));
+                        }
+                    } else if (factor > 0) {
+                        // if factor < 1, we only need part of the normal issues
+                        const keepCount = Math.round(factor * normalCount);
+                        adjustedNormalList = issueList.slice(0, keepCount);
+                    } else {
+                        // factor <= 0 means we don't want normal issues at all
+                        adjustedNormalList = [];
+                    }
+
+                    // Now combine the adjusted normal list with special issues
+                    finalList = adjustedNormalList.concat(specialIssueList);
+                } else {
+                    // If for some reason we have no normal issues, just pick from specialIssueList
+                    finalList = specialIssueList;
+                }
+            }
+
+            // Randomly select an issue number from finalList
+            const randomIssue = finalList[Math.floor(getSecureRandomNumber() * finalList.length)];
+
+            // Construct the GitHub issue URL
+            const url = `https://github.com/${username}/${repository}/issues/${randomIssue}`;
+
+            // Open the issue in a new window
+            window.open(url, '_blank');
+        }
+    </script>
+</head>
+<body onload="getURLParams()">
+    <h1>GitHub Issue Randomizer</h1>
+    <p>Randomizing and redirecting to a random issue...</p>
+</body>
+</html>

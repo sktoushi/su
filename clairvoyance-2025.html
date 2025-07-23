@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="utf-8" />
+  <!-- For mobile responsiveness -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Precog Pursuit</title>
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeo3rSwQo4YBUf5D7z3zUDav0KccN+SOf5I1rZ4pJZMUfE65"
+    crossorigin="anonymous"
+  >
+
+  <!-- Font Awesome (optional, for icons) -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    rel="stylesheet"
+  >
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      transition: background-color 0.5s ease;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.dark-mode {
+      background-color: #343a40;
+      color: #f8f9fa;
+    }
+
+    .dark-mode .card {
+      background-color: #495057;
+      color: #f8f9fa;
+    }
+
+    .dark-mode .btn-close {
+      filter: invert(1);
+    }
+
+    .dark-mode .form-control,
+    .dark-mode .form-select {
+      background-color: #6c757d;
+      color: #f8f9fa;
+      border: 1px solid #ced4da;
+    }
+
+    /* Scoreboard cells centered */
+    .scoreboard-table th,
+    .scoreboard-table td {
+      text-align: center;
+    }
+
+    /* Custom scrollbar for dark mode */
+    .dark-mode ::-webkit-scrollbar {
+      width: 8px;
+    }
+    .dark-mode ::-webkit-scrollbar-track {
+      background: #343a40;
+    }
+    .dark-mode ::-webkit-scrollbar-thumb {
+      background: #6c757d;
+      border-radius: 4px;
+    }
+
+    /* Keep the main container flexible */
+    .flex-grow-1 {
+      flex: 1;
+    }
+  </style>
+</head>
+<body class="d-flex flex-column">
+
+  <!-- ====== HEADER AREA ====== -->
+  <header class="border-bottom mb-3 shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light px-3 py-2">
+      <div class="container-fluid">
+        <span class="navbar-brand fs-4 fw-bold text-primary">
+          Precog Pursuit
+        </span>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-secondary" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+            <i class="fas fa-moon"></i>
+          </button>
+          <button class="btn btn-info" id="helpBtn">
+            <i class="fas fa-question-circle"></i> Help
+          </button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ====== MAIN CONTENT ====== -->
+  <main class="container flex-grow-1">
+    <!-- Control row -->
+    <div class="row justify-content-center mb-3">
+      <div class="col-auto">
+        <div class="btn-group" role="group">
+          <button id="startBtn" class="btn btn-primary">Start Game</button>
+          <button id="quitBtn" class="btn btn-danger" disabled>Quit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game area -->
+    <div id="gameArea" class="row d-none justify-content-center">
+      <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow p-3 mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="fw-bold" id="drawStatus">Draws left: 100</div>
+              <!-- A simple progress bar for draws left -->
+              <div class="flex-grow-1 mx-3">
+                <div class="progress" style="height: 8px;">
+                  <div id="drawProgressBar" class="progress-bar" role="progressbar"
+                       style="width: 100%;" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+              </div>
+              <div class="text-success fw-bold">
+                Score: <span id="currentScore">0</span>
+              </div>
+            </div>
+
+            <!-- Guess form -->
+            <form id="guessForm" class="row g-2 mb-3 align-items-center">
+              <div class="col-auto">
+                <label for="guessInput" class="visually-hidden">Your Guess</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="guessInput"
+                  placeholder="Guess (1 char)"
+                  maxlength="1"
+                  pattern="[a-zA-Z0-9!@#$%^&*()]"
+                  required
+                >
+              </div>
+              <div class="col-auto">
+                <button type="submit" class="btn btn-success">
+                  Submit Guess
+                </button>
+              </div>
+            </form>
+
+            <!-- Quick pick buttons -->
+            <div class="row g-2 mb-3 text-center">
+              <div class="col-12 col-lg-6">
+                <h6>Numbers</h6>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('0')">0</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('1')">1</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('2')">2</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('3')">3</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('4')">4</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('5')">5</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('6')">6</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('7')">7</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('8')">8</button>
+                  <button type="button" class="btn btn-outline-primary" onclick="buttonGuess('9')">9</button>
+                </div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <h6>Specials</h6>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('!')">!</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('@')">@</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('#')">#</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('$')">$</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('%')">%</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('^')">^</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('&')">&</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('*')">*</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess('(')">(</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="buttonGuess(')')">)</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results area -->
+    <div id="resultArea" class="row d-none justify-content-center">
+      <div class="col-12 col-md-10 col-lg-8">
+        <div class="card shadow p-3">
+          <h3 class="text-success">Game Over</h3>
+          <p id="finalMessage"></p>
+          <!-- Daily Stats (up to 30 days) -->
+          <div id="dailyStats" class="mt-4"></div>
+          <!-- Leaderboard -->
+          <h4 class="mt-4 text-secondary">Leaderboard (Top 15 Scores, Last 30 Days)</h4>
+          <div id="leaderboard" class="table-responsive"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ====== FOOTER ====== -->
+  <footer class="text-center py-2 border-top bg-light">
+    <small class="text-muted">
+      &copy; 2025 Precog Pursuit. All Rights Reserved.
+    </small>
+  </footer>
+
+  <!-- Bootstrap JS Bundle (includes Popper) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+1D09tJzj6I2OMGV7KpP0N1pM9j7+"
+    crossorigin="anonymous">
+  </script>
+
+  <script>
+    // ====== Dark Mode Handling ======
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isDark);
+    }
+    function loadDarkModePreference() {
+      const isDark = localStorage.getItem('darkMode') === 'true';
+      if (isDark) {
+        document.body.classList.add('dark-mode');
+      }
+    }
+
+    // ====== Game Data & Settings ======
+    const totalDraws = 100;
+    let drawsLeft = totalDraws;
+
+    // Score increments
+    let currentScore = 0;
+    let correctCategoryCount = 0;
+    let correctCharacterCount = 0;
+
+    // Probability weights
+    let probLetters = 0;
+    let probNumbers = 0;
+    let probSpecials = 0;
+
+    // Subset of letters, random coefficients
+    let lettersSubset = [];
+    let randomCoefficient1 = 0;
+    let randomCoefficient2 = 0;
+
+    // Our character sets
+    const allLetters = "abcdefghijklmnopqrstuvwxyz".split("");
+    const numbers = "0123456789".split("");
+    const specials = "!@#$%^&*()".split("");
+
+    // References to DOM elements
+    const startBtn       = document.getElementById("startBtn");
+    const quitBtn        = document.getElementById("quitBtn");
+    const guessForm      = document.getElementById("guessForm");
+    const guessInput     = document.getElementById("guessInput");
+    const drawStatus     = document.getElementById("drawStatus");
+    const drawProgress   = document.getElementById("drawProgressBar");
+    const currentScoreEl = document.getElementById("currentScore");
+    const gameArea       = document.getElementById("gameArea");
+    const resultArea     = document.getElementById("resultArea");
+    const finalMessage   = document.getElementById("finalMessage");
+    const dailyStatsEl   = document.getElementById("dailyStats");
+    const leaderboardEl  = document.getElementById("leaderboard");
+
+    // For redirect logic
+    const REDIRECT_URL = "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-finer-things-in-life";
+    let userFinalScore = 0;
+
+    // ====== Start & Quit Listeners ======
+    startBtn.addEventListener("click", () => {
+      initGame();
+    });
+    quitBtn.addEventListener("click", () => {
+      endGame();
+    });
+
+    // Force guessInput to lowercase while typing
+    guessInput.addEventListener("input", () => {
+      guessInput.value = guessInput.value.toLowerCase();
+    });
+
+    // Submit guess
+    guessForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (drawsLeft <= 0) return;
+
+      const userGuess = guessInput.value.trim().toLowerCase();
+      if (userGuess.length === 1) {
+        makeDraw(userGuess);
+        guessInput.value = "";
+        guessInput.focus();
+      }
+    });
+
+    // Quick pick button guess
+    function buttonGuess(ch) {
+      guessInput.value = ch.toLowerCase();
+      guessForm.dispatchEvent(new Event('submit'));
+    }
+
+    // ====== Core Game Logic ======
+    function initGame() {
+      // Hide results area, show game area
+      resultArea.classList.add("d-none");
+      gameArea.classList.remove("d-none");
+      quitBtn.disabled = false;
+
+      // Reset stats
+      drawsLeft = totalDraws;
+      currentScore = 0;
+      correctCategoryCount = 0;
+      correctCharacterCount = 0;
+      currentScoreEl.textContent = currentScore.toFixed(4);
+      drawStatus.textContent = "Draws left: " + drawsLeft;
+      drawProgress.style.width = "100%";
+
+      // Get new random subset of 10 letters
+      lettersSubset = getRandomLetters(10);
+
+      // Randomize category probabilities
+      let w1 = getSecureRandomNumber(), w2 = getSecureRandomNumber(), w3 = getSecureRandomNumber();
+      let sum = w1 + w2 + w3;
+      probLetters = w1 / sum;
+      probNumbers = w2 / sum;
+      probSpecials = w3 / sum;
+
+      // Random coefficients
+      randomCoefficient1 = getSecureRandomNumber();
+      do {
+        randomCoefficient2 = getSecureRandomNumber();
+      } while (randomCoefficient2 <= randomCoefficient1);
+    }
+
+    function makeDraw(userGuess) {
+      const r = getSecureRandomNumber();
+      let chosenCategory;
+      let chosenChar;
+
+      if (r < probLetters) {
+        chosenCategory = "letter";
+        chosenChar = lettersSubset[Math.floor(getSecureRandomNumber() * lettersSubset.length)];
+      } else if (r < probLetters + probNumbers) {
+        chosenCategory = "number";
+        chosenChar = numbers[Math.floor(getSecureRandomNumber() * numbers.length)];
+      } else {
+        chosenCategory = "special";
+        chosenChar = specials[Math.floor(getSecureRandomNumber() * specials.length)];
+      }
+
+      const userCategory = getCategory(userGuess);
+
+      let pointsEarned = 0;
+      if (userCategory === chosenCategory) {
+        // Correct category
+        correctCategoryCount++;
+        if (userGuess === chosenChar) {
+          // Correct exact character
+          correctCharacterCount++;
+          pointsEarned = randomCoefficient1 + randomCoefficient2;
+        } else {
+          pointsEarned = randomCoefficient1;
+        }
+      }
+
+      currentScore += pointsEarned;
+      currentScoreEl.textContent = currentScore.toFixed(4);
+
+      drawsLeft--;
+      drawStatus.textContent = `Draws left: ${drawsLeft}`;
+      const progressPercent = (drawsLeft / totalDraws) * 100;
+      drawProgress.style.width = progressPercent + "%";
+
+      if (drawsLeft <= 0) {
+        endGame();
+      }
+    }
+
+    function endGame() {
+      quitBtn.disabled = true;
+      gameArea.classList.add("d-none");
+      resultArea.classList.remove("d-none");
+
+      const drawsCompleted = totalDraws - drawsLeft;
+      userFinalScore = currentScore;
+      finalMessage.innerHTML = `
+        You completed <strong>${drawsCompleted}</strong> draw(s).<br>
+        Correct category guesses: <strong>${correctCategoryCount}</strong><br>
+        Correct character guesses: <strong>${correctCharacterCount}</strong><br>
+        Final Score: <strong>${currentScore.toFixed(4)}</strong>
+      `;
+
+      storeScore(currentScore).then(() => {
+        buildDailyStatsAndLeaderboard();
+      });
+    }
+
+    function getCategory(ch) {
+      if (lettersSubset.includes(ch)) {
+        return "letter";
+      } else if (numbers.includes(ch)) {
+        return "number";
+      } else if (specials.includes(ch)) {
+        return "special";
+      }
+      return "unknown";
+    }
+
+    function getRandomLetters(count) {
+      const copy = [...allLetters];
+      const chosen = [];
+      for (let i = 0; i < count; i++) {
+        const index = Math.floor(getSecureRandomNumber() * copy.length);
+        chosen.push(copy[index]);
+        copy.splice(index, 1);
+      }
+      return chosen;
+    }
+
+    // ====== IndexedDB Handling ======
+    const DB_NAME = 'PrecogPursuitDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'scores';
+
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = function (e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, {
+              keyPath: 'id',
+              autoIncrement: true
+            });
+            store.createIndex('score', 'score', { unique: false });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+        };
+        request.onsuccess = function (e) {
+          resolve(e.target.result);
+        };
+        request.onerror = function (e) {
+          reject(e.target.error);
+        };
+      });
+    }
+
+    async function storeScore(score) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const entry = {
+          score,
+          timestamp: Date.now()
+        };
+        store.add(entry);
+        tx.oncomplete = () => { resolve(); };
+        tx.onerror = (err) => { reject(err); };
+      });
+    }
+
+    async function removeOldScores() {
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const cutoff = now - THIRTY_DAYS_MS;
+
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.openCursor();
+
+        req.onsuccess = function (e) {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (cursor.value.timestamp < cutoff) {
+              cursor.delete();
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = (err) => reject(err);
+      });
+    }
+
+    async function getAllScores() {
+      await removeOldScores();
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          resolve(request.result || []);
+        };
+        request.onerror = (err) => {
+          reject(err);
+        };
+      });
+    }
+
+    // ====== Post-game stats display & redirect checks ======
+    async function buildDailyStatsAndLeaderboard() {
+      const allScores = await getAllScores();
+      if (!allScores || allScores.length === 0) {
+        dailyStatsEl.innerHTML = "<p>No game data yet.</p>";
+        leaderboardEl.innerHTML = "<p>No game data yet.</p>";
+        return;
+      }
+
+      // Filter for last 30 days
+      const now = Date.now();
+      const MS_PER_DAY = 86400000;
+      const earliest = now - (30 * MS_PER_DAY);
+
+      // Group by day
+      let dailyMap = new Map();
+      for (const record of allScores) {
+        if (record.timestamp < earliest) continue;
+        let dayStr = getDayString(record.timestamp);
+        if (!dailyMap.has(dayStr)) {
+          dailyMap.set(dayStr, []);
+        }
+        dailyMap.get(dayStr).push(record.score);
+      }
+
+      let sortedDays = Array.from(dailyMap.keys()).sort();
+      let dailyAverages = [];
+      for (let d of sortedDays) {
+        let arr = dailyMap.get(d);
+        let sum = arr.reduce((a, b) => a + b, 0);
+        let avg = sum / arr.length;
+        dailyAverages.push({ day: d, avgScore: avg });
+      }
+
+      // Daily averages table
+      let statsHtml = `<h5 class="text-primary">Daily Averages (Last 30 Days)</h5>`;
+      statsHtml += `
+        <table class="table table-bordered table-hover scoreboard-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Average Score</th>
+              <th>% Change from Prev Day</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      for (let i = 0; i < dailyAverages.length; i++) {
+        let dayData = dailyAverages[i];
+        let changeHtml = "-";
+        if (i > 0) {
+          let prevAvg = dailyAverages[i - 1].avgScore;
+          let diff = dayData.avgScore - prevAvg;
+          let pctChange = (diff / prevAvg) * 100;
+          if (isFinite(pctChange)) {
+            changeHtml = pctChange.toFixed(2) + "%";
+          }
+        }
+        statsHtml += `
+          <tr>
+            <td>${dayData.day}</td>
+            <td>${dayData.avgScore.toFixed(4)}</td>
+            <td>${changeHtml}</td>
+          </tr>
+        `;
+      }
+      statsHtml += `</tbody></table>`;
+      dailyStatsEl.innerHTML = statsHtml;
+
+      // Leaderboard
+      const sortedAllScores = [...allScores].sort((a, b) => b.score - a.score);
+      const top15 = sortedAllScores.slice(0, 15);
+
+      let leaderboardHtml = `
+        <table class="table table-bordered table-hover scoreboard-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Score</th>
+              <th>Date/Time</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      top15.forEach((entry, idx) => {
+        let dt = new Date(entry.timestamp).toLocaleString();
+        leaderboardHtml += `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${entry.score.toFixed(4)}</td>
+            <td>${dt}</td>
+          </tr>
+        `;
+      });
+      leaderboardHtml += `</tbody></table>`;
+      leaderboardEl.innerHTML = leaderboardHtml;
+
+      // ====== REDIRECT LOGIC ======
+      // If today's average > yesterday's average, or new score is in top 15, redirect
+      if (dailyAverages.length >= 2) {
+        let latest = dailyAverages[dailyAverages.length - 1].avgScore;
+        let prev = dailyAverages[dailyAverages.length - 2].avgScore;
+        if (latest > prev) {
+          window.location.href = REDIRECT_URL;
+          return;
+        }
+      }
+
+      if (top15.length < 15) {
+        window.location.href = REDIRECT_URL;
+        return;
+      } else {
+        const fifteenthScore = top15[top15.length - 1].score;
+        if (userFinalScore >= fifteenthScore) {
+          window.location.href = REDIRECT_URL;
+          return;
+        }
+      }
+    }
+
+    function getDayString(ts) {
+      let d = new Date(ts);
+      let year = d.getFullYear();
+      let month = String(d.getMonth() + 1).padStart(2, '0');
+      let day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // ====== Modal: Help ======
+    const helpBtn = document.getElementById("helpBtn");
+    helpBtn.addEventListener("click", () => {
+      const instructionsModal = new bootstrap.Modal(document.getElementById("instructionsModal"));
+      instructionsModal.show();
+    });
+
+    // Load dark mode preference on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadDarkModePreference();
+    });
+  </script>
+
+  <!-- ====== Instructions Modal ====== -->
+  <div class="modal fade" id="instructionsModal" tabindex="-1" aria-labelledby="instructionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="instructionsModalLabel">How to Play</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="lead mb-0">
+            <strong>Gameplay Overview:</strong><br><br>
+            <ol class="mb-3">
+              <li>Three categories are used: lowercase letters, numbers, and special characters.</li>
+              <li>A random 10-letter subset (e.g. [a, b, x, m, ...]) is chosen for letters.</li>
+              <li>Each category is weighted with a random probability that sums to 1.</li>
+              <li>There are 100 random draws. Each draw picks a single character based on the probability.</li>
+              <li>Your job is to predict the next character. You get:
+                <ul>
+                  <li><code>randomCoefficient1</code> points for getting the correct category.</li>
+                  <li><code>randomCoefficient1 + randomCoefficient2</code> points for matching the exact character.</li>
+                </ul>
+              </li>
+              <li>You can quit early if you like. At game end, your final score is stored for 30 days.</li>
+              <li>We track daily average scores and top 15 best scores within the last 30 days. If the newest daily average beats the previous day’s or if you make it into the top 15, you’ll be redirected to a special page!</li>
+            </ol>
+            Best of luck refining your predictive powers!
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

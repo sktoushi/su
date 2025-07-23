@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Analytics Dashboard with Dynamic Background</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <!-- Font Awesome (optional for icons) -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    rel="stylesheet"
+  />
+
+  <!-- Chart.js -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
+    integrity="sha384-+ksIVf+Y5m10Z8VzbV/Cer6lZl5BPuXBlUCwe6eZ0aPT5M+ArbLJ9MJ3heParfqq"
+    crossorigin="anonymous"
+  ></script>
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      background-size: cover; /* so the gradient image fully covers the screen */
+      background-repeat: no-repeat;
+      background-attachment: fixed; /* keeps gradient fixed on scroll */
+    }
+    body.dark-mode {
+      color: #f8f9fa;
+    }
+
+    .dark-mode .card {
+      background-color: #495057;
+      color: #f8f9fa;
+    }
+
+    .dark-mode .list-group-item {
+      background-color: #6c757d;
+      color: #f8f9fa;
+      border: 1px solid #ced4da;
+    }
+
+    .dark-mode .btn-close {
+      filter: invert(1);
+    }
+
+    .dark-mode .form-control,
+    .dark-mode .form-select {
+      background-color: #6c757d;
+      color: #f8f9fa;
+      border: 1px solid #ced4da;
+    }
+
+    /* Custom scrollbar for dark mode */
+    body.dark-mode ::-webkit-scrollbar {
+      width: 8px;
+    }
+    body.dark-mode ::-webkit-scrollbar-track {
+      background: #343a40;
+    }
+    body.dark-mode ::-webkit-scrollbar-thumb {
+      background: #6c757d;
+      border-radius: 4px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin-top: 30px;
+    }
+
+    /* A bit of spacing for charts */
+    .chart-container {
+      position: relative;
+      margin: 20px 0;
+      min-height: 300px;
+    }
+
+    /* Large toast container spacing */
+    #toastContainer {
+      z-index: 9999;
+    }
+
+    /* Pantone color display for debugging or user info */
+    #pantoneColorDisplay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #ffffffcc;
+      padding: 5px;
+      border-radius: 5px;
+      font-weight: bold;
+      min-width: 180px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- A small top-right display for the Pantone color name/hex or additional info -->
+  <div id="pantoneColorDisplay"></div>
+
+  <div class="container">
+    <h1 class="text-center">Analytics Dashboard</h1>
+
+    <!-- Top bar for actions: Dark Mode, Help, Import, Export -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <button
+          class="btn btn-secondary me-2"
+          onclick="onClickWithBackground(toggleDarkMode)"
+          title="Toggle Dark Mode"
+        >
+          <i class="fas fa-moon"></i> Dark Mode
+        </button>
+
+        <button
+          class="btn btn-info"
+          data-bs-toggle="modal"
+          data-bs-target="#helpModal"
+          title="Help"
+          onclick="onClickWithBackground()"
+        >
+          <i class="fas fa-question-circle"></i> Help
+        </button>
+      </div>
+
+      <div>
+        <button
+          class="btn btn-primary me-2"
+          onclick="onClickWithBackground(importAnalytics)"
+          title="Import Analytics JSON"
+        >
+          <i class="fas fa-file-import"></i> Import
+        </button>
+        <button
+          class="btn btn-success"
+          onclick="onClickWithBackground(exportAnalytics)"
+          title="Export Analytics JSON"
+        >
+          <i class="fas fa-file-export"></i> Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Example summary cards row -->
+    <div class="row" id="summaryRow"></div>
+
+    <!-- Charts Section -->
+    <div class="chart-container">
+      <canvas id="frequencyChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="pieChart"></canvas>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Detailed Analytics (Sorted by Frequency)</h5>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush" id="detailsList">
+          <!-- JavaScript will fill these entries dynamically -->
+        </ul>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div aria-live="polite" aria-atomic="true" class="position-relative">
+      <div
+        id="toastContainer"
+        class="position-fixed bottom-0 end-0 p-3"
+        style="z-index: 11"
+      >
+        <!-- Toasts appended here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div
+    class="modal fade"
+    id="helpModal"
+    tabindex="-1"
+    aria-labelledby="helpModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="helpModalLabel">Help & Instructions</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <h6>Overview</h6>
+          <p>
+            This page displays a dashboard of analytics data, including summary
+            statistics, charts, and detailed tables. The data is stored in
+            localStorage (your browser's memory), and you can import/export the
+            state as JSON.
+          </p>
+          <h6>Features</h6>
+          <ul>
+            <li><strong>Dark Mode Toggle</strong>: For easier nighttime viewing.</li>
+            <li>
+              <strong>Dynamic Background</strong>: Each action randomizes a
+              Pantone-based gradient background for visual variety.
+            </li>
+            <li>
+              <strong>Import/Export</strong>: Load analytics data from JSON, or
+              export current data to a JSON file.
+            </li>
+            <li><strong>Charts</strong>: Powered by Chart.js (bar &amp; pie chart).</li>
+            <li><strong>Responsive</strong>: Built with Bootstrap 5 for mobile-friendly usage.</li>
+          </ul>
+          <h6>Usage</h6>
+          <ol>
+            <li>
+              <strong>On first load</strong>, we try to read from localStorage. If no data is found,
+              some default items appear.
+            </li>
+            <li>
+              <strong>Import</strong> your analytics data via JSON if desired (which overwrites
+              localStorage).
+            </li>
+            <li>
+              <strong>Export</strong> current data at any time to save a backup.
+            </li>
+            <li>
+              <strong>Interact</strong> with the dashboard to see charts, sorted items, etc.
+              Every button click triggers a new random gradient background.
+            </li>
+          </ol>
+          <h6>Data Format</h6>
+          <p>
+            The JSON is expected to look like:
+          </p>
+<pre><code>{
+  "items": [
+    { "name": "Item A", "frequency": 10 },
+    { "name": "Item B", "frequency": 5 }
+  ]
+}
+</code></pre>
+          <p>
+            You can add your own additional fields if desired, but this example
+            focuses on <code>name</code> and <code>frequency</code>.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (and dependencies) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-wpsYrgENSMwvWDnK+0hqyc+8zhu+uZdzsOCS8KQmS1b2y2lZjY0Chvh6e+GD44G"
+    crossorigin="anonymous"
+  ></script>
+
+  <script>
+    /**************************************************
+     * LOCAL STORAGE KEY
+     **************************************************/
+    const LOCAL_STORAGE_KEY = "analyticsDashboardData_v1";
+
+    /**************************************************
+     * GLOBALS
+     **************************************************/
+    // We'll load analytics from localStorage or default to sample data
+    let analyticsData = {
+      items: [
+        { name: "Sample A", frequency: 12 },
+        { name: "Sample B", frequency: 7 },
+        { name: "Sample C", frequency: 19 },
+        { name: "Sample D", frequency: 4 },
+      ],
+    };
+
+    let frequencyChart = null;
+    let pieChart = null;
+
+    /**************************************************
+     * PAGE INIT
+     **************************************************/
+    window.addEventListener("DOMContentLoaded", async () => {
+      loadDarkMode();
+
+      // 1) Try loading from localStorage
+      const loaded = loadAnalyticsDataFromLocalStorage();
+      if (!loaded) {
+        // If not found, we keep the default sample data
+        saveAnalyticsDataToLocalStorage();
+      }
+
+      // 2) Render the entire dashboard
+      renderDashboard();
+
+      // 3) Generate the first random background
+      await getRandomBackground();
+    });
+
+    /**************************************************
+     * RENDER DASHBOARD
+     **************************************************/
+    function renderDashboard() {
+      // Sort items by frequency descending
+      analyticsData.items.sort((a, b) => b.frequency - a.frequency);
+
+      populateSummaryRow();
+      buildFrequencyChart();
+      buildPieChart();
+      populateDetailsList();
+    }
+
+    /**************************************************
+     * SUMMARY CARDS
+     **************************************************/
+    function populateSummaryRow() {
+      const summaryRow = document.getElementById("summaryRow");
+      summaryRow.innerHTML = "";
+
+      const totalItems = analyticsData.items.length;
+      const totalFrequency = analyticsData.items.reduce(
+        (sum, item) => sum + item.frequency,
+        0
+      );
+      const maxFreq =
+        totalItems === 0 ? 0 : analyticsData.items[0].frequency; // after sorting
+      const topItemName =
+        totalItems === 0 ? "N/A" : analyticsData.items[0].name;
+
+      // We create 3 summary cards:
+      const cardData = [
+        {
+          title: "Total Items",
+          value: totalItems,
+          icon: "fa-list",
+          bg: "bg-primary",
+        },
+        {
+          title: "Sum of Frequencies",
+          value: totalFrequency,
+          icon: "fa-chart-bar",
+          bg: "bg-success",
+        },
+        {
+          title: "Top Item",
+          value: `${topItemName} (${maxFreq})`,
+          icon: "fa-star",
+          bg: "bg-warning text-dark",
+        },
+      ];
+
+      cardData.forEach((c) => {
+        const col = document.createElement("div");
+        col.className = "col-md-4 mb-3";
+
+        col.innerHTML = `
+          <div class="card ${c.bg} text-white">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div>
+                  <i class="fas ${c.icon} fa-2x me-3"></i>
+                </div>
+                <div>
+                  <h5 class="card-title mb-1">${c.title}</h5>
+                  <h2 class="card-text">${c.value}</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        summaryRow.appendChild(col);
+      });
+    }
+
+    /**************************************************
+     * BUILD CHARTS
+     **************************************************/
+    function buildFrequencyChart() {
+      const ctx = document.getElementById("frequencyChart").getContext("2d");
+      if (frequencyChart) {
+        frequencyChart.destroy();
+      }
+
+      const labels = analyticsData.items.map((i) => i.name);
+      const data = analyticsData.items.map((i) => i.frequency);
+
+      frequencyChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Frequency",
+              data: data,
+              backgroundColor: "rgba(54,162,235,0.6)",
+              borderColor: "rgba(54,162,235,1)",
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Frequency",
+              },
+            },
+            x: {
+              title: {
+                display: true,
+                text: "Item",
+              },
+            },
+          },
+        },
+      });
+    }
+
+    function buildPieChart() {
+      const ctx = document.getElementById("pieChart").getContext("2d");
+      if (pieChart) {
+        pieChart.destroy();
+      }
+
+      const labels = analyticsData.items.map((i) => i.name);
+      const data = analyticsData.items.map((i) => i.frequency);
+
+      pieChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Frequency Share",
+              data: data,
+              backgroundColor: [
+                "#ff6384",
+                "#36a2eb",
+                "#cc65fe",
+                "#ffce56",
+                "#4bc0c0",
+                "#9966ff",
+                "#ff9f40",
+                "#ffcd56",
+              ],
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        },
+      });
+    }
+
+    /**************************************************
+     * DETAILS LIST
+     **************************************************/
+    function populateDetailsList() {
+      const list = document.getElementById("detailsList");
+      list.innerHTML = "";
+
+      if (analyticsData.items.length === 0) {
+        const li = document.createElement("li");
+        li.className = "list-group-item text-center";
+        li.textContent = "No items to display.";
+        list.appendChild(li);
+        return;
+      }
+
+      analyticsData.items.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between";
+        li.innerHTML = `
+          <span><strong>${index + 1}.</strong> ${item.name}</span>
+          <span>Frequency: ${item.frequency}</span>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    /**************************************************
+     * LOCAL STORAGE UTILS
+     **************************************************/
+    function loadAnalyticsDataFromLocalStorage() {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!raw) {
+        return false;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        // Expecting { items: [ { name, frequency }, ... ] }
+        analyticsData = parsed;
+        return true;
+      } catch (error) {
+        console.warn("Failed to parse local storage analytics data.", error);
+        return false;
+      }
+    }
+
+    function saveAnalyticsDataToLocalStorage() {
+      const str = JSON.stringify(analyticsData);
+      localStorage.setItem(LOCAL_STORAGE_KEY, str);
+    }
+
+    /**************************************************
+     * IMPORT / EXPORT
+     **************************************************/
+    function exportAnalytics() {
+      // Save first to ensure localStorage is in sync
+      saveAnalyticsDataToLocalStorage();
+      const dataStr = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!dataStr) {
+        showToast("No data to export.");
+        return;
+      }
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const now = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `analytics-export-${now}.json`;
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      showToast("Analytics data exported.");
+    }
+
+    function importAnalytics() {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".json,application/json";
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const obj = JSON.parse(event.target.result);
+              analyticsData = obj;
+              saveAnalyticsDataToLocalStorage(); // store to localStorage
+              renderDashboard();
+              showToast("Import successful!");
+            } catch (error) {
+              alert("Invalid JSON file.");
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+      fileInput.click();
+    }
+
+    /**************************************************
+     * DARK MODE
+     **************************************************/
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+      const isDark = document.body.classList.contains("dark-mode");
+      localStorage.setItem("analyticsDarkMode", isDark);
+    }
+
+    function loadDarkMode() {
+      const isDark = localStorage.getItem("analyticsDarkMode") === "true";
+      if (isDark) {
+        document.body.classList.add("dark-mode");
+      }
+    }
+
+    /**************************************************
+     * TOAST
+     **************************************************/
+    function showToast(message) {
+      const toastContainer = document.getElementById("toastContainer");
+      const toastEl = document.createElement("div");
+      toastEl.className = "toast align-items-center text-bg-primary border-0";
+      toastEl.setAttribute("role", "alert");
+      toastEl.setAttribute("aria-live", "assertive");
+      toastEl.setAttribute("aria-atomic", "true");
+
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      `;
+      toastContainer.appendChild(toastEl);
+      const bsToast = new bootstrap.Toast(toastEl);
+      bsToast.show();
+      toastEl.addEventListener("hidden.bs.toast", () => {
+        toastContainer.removeChild(toastEl);
+      });
+    }
+
+    /**************************************************
+     * DYNAMIC BACKGROUND (PANTONE)
+     **************************************************/
+    async function getRandomBackground() {
+      try {
+        // Attempt to fetch Pantone colors
+        const response = await fetch("pantone-colors.json");
+        if (!response.ok) {
+          throw new Error("No pantone-colors.json found or fetch error");
+        }
+        const pantoneData = await response.json();
+        const { names, values } = pantoneData;
+        if (!names || !values || names.length !== values.length) {
+          throw new Error("Invalid pantone-colors.json format");
+        }
+
+        // Secure random index
+        const arr = new Uint32Array(1);
+        window.crypto.getRandomValues(arr);
+        const rand = arr[0] / (0xffffffff + 1);
+        const index = Math.floor(rand * names.length);
+
+        const color = values[index];
+        // We'll create a simple linear gradient using this color
+        document.body.style.backgroundImage = `linear-gradient(135deg, ${color} 30%, #ffffff 100%)`;
+
+        const colorDisplay = document.getElementById("pantoneColorDisplay");
+        if (colorDisplay) {
+          colorDisplay.textContent = `${names[index]} (${color})`;
+        }
+      } catch (error) {
+        // Fallback if no pantone-colors.json
+        document.body.style.backgroundImage = "none";
+        document.body.style.backgroundColor = "#ffffff";
+        const colorDisplay = document.getElementById("pantoneColorDisplay");
+        if (colorDisplay) {
+          colorDisplay.textContent = "Fallback: #FFFFFF";
+        }
+      }
+    }
+
+    /**
+     * Wrap any button click so it triggers a new background gradient 
+     * AND performs the desired action (if any).
+     */
+    async function onClickWithBackground(action) {
+      // 1) Possibly run the action (function) if provided
+      if (typeof action === "function") {
+        action();
+      }
+      // 2) Then fetch a new random background color
+      await getRandomBackground();
+    }
+  </script>
+</body>
+</html>

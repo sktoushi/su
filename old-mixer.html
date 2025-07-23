@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Text Jumbler</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <!-- Optional: Include Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <!-- Include Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <!-- Include Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+    <style>
+        body {
+            padding: 20px;
+        }
+        #inputTextArea {
+            height: 200px;
+        }
+        .sentence-record {
+            margin-bottom: 15px;
+        }
+        .original-sentence {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="text-center">Text Jumbler</h1>
+
+    <!-- Difficulty Slider -->
+    <div class="form-group">
+        <label for="difficultySlider">Difficulty: <span id="difficultyValue">75</span></label>
+        <input type="range" class="form-control-range" id="difficultySlider" min="0" max="100" value="75">
+    </div>
+
+    <!-- Textarea for input -->
+    <div class="form-group" id="inputArea">
+        <label for="inputTextArea">Input Text:</label>
+        <textarea class="form-control" id="inputTextArea" rows="10"></textarea>
+    </div>
+
+    <!-- Buttons -->
+    <div class="form-group">
+        <button class="btn btn-primary" id="jumbleButton">Jumble</button>
+        <button class="btn btn-secondary" id="importButton">Import Data</button>
+        <button class="btn btn-secondary" id="exportButton">Export Data</button>
+        <button class="btn btn-danger" id="resetButton">Reset</button>
+    </div>
+
+    <!-- Output area -->
+    <div id="outputArea"></div>
+
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Update difficulty value display
+    var difficultySlider = document.getElementById('difficultySlider');
+    var difficultyValue = document.getElementById('difficultyValue');
+
+    difficultySlider.addEventListener('input', function() {
+        difficultyValue.textContent = difficultySlider.value;
+    });
+
+    // Jumble button click event
+    document.getElementById('jumbleButton').addEventListener('click', function() {
+        var inputText = document.getElementById('inputTextArea').value;
+        var difficulty = parseInt(difficultySlider.value);
+
+        // Hide the input area
+        document.getElementById('inputArea').style.display = 'none';
+
+        // Clear previous output
+        var outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '';
+
+        // Process and display the sentences
+        displayJumbledSentences(inputText, difficulty);
+    });
+
+    // Import data button click event
+    document.getElementById('importButton').addEventListener('click', function() {
+        importData();
+    });
+
+    // Export data button click event
+    document.getElementById('exportButton').addEventListener('click', function() {
+        exportData();
+    });
+
+    // Reset button click event
+    document.getElementById('resetButton').addEventListener('click', function() {
+        document.getElementById('inputTextArea').value = '';
+        document.getElementById('inputArea').style.display = 'block';
+        document.getElementById('outputArea').innerHTML = '';
+    });
+
+    // Handle 'target' URL parameter
+    var urlParams = new URLSearchParams(window.location.search);
+    var target = urlParams.get('target');
+    if (target) {
+        loadTargetData(target);
+    }
+});
+
+// Function to display jumbled sentences
+function displayJumbledSentences(text, difficulty) {
+    var outputArea = document.getElementById('outputArea');
+    // Split text into sentences
+    var sentences = text.match(/[^\.!\?]+[\.!\?]+["']?|.+$/g);
+    if (sentences === null) return;
+
+    sentences.forEach(function(sentence, index) {
+        var originalSentence = sentence.trim();
+        var jumbledSentence = jumbleSentence(originalSentence, difficulty);
+
+        // Create sentence record div
+        var sentenceDiv = document.createElement('div');
+        sentenceDiv.className = 'sentence-record';
+
+        // Jumbled sentence paragraph
+        var jumbledP = document.createElement('p');
+        jumbledP.textContent = jumbledSentence;
+        sentenceDiv.appendChild(jumbledP);
+
+        // Original sentence paragraph (hidden)
+        var originalP = document.createElement('p');
+        originalP.textContent = originalSentence;
+        originalP.className = 'original-sentence';
+        sentenceDiv.appendChild(originalP);
+
+        // Reveal button
+        var revealButton = document.createElement('button');
+        revealButton.className = 'btn btn-info btn-sm';
+        revealButton.textContent = 'Reveal';
+        revealButton.addEventListener('click', function() {
+            originalP.style.display = 'block';
+        });
+        sentenceDiv.appendChild(revealButton);
+
+        // Hide button
+        var hideButton = document.createElement('button');
+        hideButton.className = 'btn btn-warning btn-sm ml-2';
+        hideButton.textContent = 'Hide';
+        hideButton.addEventListener('click', function() {
+            sentenceDiv.style.display = 'none';
+        });
+        sentenceDiv.appendChild(hideButton);
+
+        outputArea.appendChild(sentenceDiv);
+    });
+}
+
+// Function to jumble a sentence based on difficulty
+function jumbleSentence(sentence, difficulty) {
+    // Remove leading/trailing whitespace
+    sentence = sentence.trim();
+
+    // Split sentence into words, keeping punctuation
+    var words = sentence.match(/\b[\w']+\b|[^\w\s]/g);
+    if (words === null) return sentence;
+
+    // Determine number of swaps based on difficulty
+    var numWords = words.length;
+    var numSwaps = Math.floor((difficulty / 100) * numWords);
+
+    // Get indices of actual words (excluding punctuation)
+    var wordIndices = [];
+    for (var i = 0; i < words.length; i++) {
+        if (/^\b[\w']+\b$/.test(words[i])) {
+            wordIndices.push(i);
+        }
+    }
+
+    // Shuffle words based on difficulty
+    var shuffledIndices = wordIndices.slice();
+    if (difficulty > 0) {
+        for (var i = shuffledIndices.length - 1; i > 0; i--) {
+            if (getSecureRandomNumber() < (difficulty / 100)) {
+                var j = Math.floor(getSecureRandomNumber() * (i + 1));
+                var temp = shuffledIndices[i];
+                shuffledIndices[i] = shuffledIndices[j];
+                shuffledIndices[j] = temp;
+            }
+        }
+    }
+
+    // Create a mapping from original indices to shuffled indices
+    var indexMap = {};
+    for (var i = 0; i < wordIndices.length; i++) {
+        indexMap[wordIndices[i]] = shuffledIndices[i];
+    }
+
+    // Construct the new sentence
+    var newWords = words.slice();
+    for (var originalIndex in indexMap) {
+        var shuffledIndex = indexMap[originalIndex];
+        newWords[originalIndex] = words[shuffledIndex];
+    }
+
+    return newWords.join(' ');
+}
+
+// Function to import data
+function importData() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.json';
+
+    input.onchange = e => {
+        var file = e.target.files[0];
+
+        var reader = new FileReader();
+        reader.readAsText(file,'UTF-8');
+
+        reader.onload = readerEvent => {
+            var content = readerEvent.target.result;
+            document.getElementById('inputTextArea').value = content;
+        }
+    }
+
+    input.click();
+}
+
+// Function to export data
+function exportData() {
+    var outputTexts = [];
+    var sentenceRecords = document.querySelectorAll('.sentence-record');
+    sentenceRecords.forEach(function(record) {
+        var jumbledSentence = record.querySelector('p').textContent;
+        outputTexts.push(jumbledSentence);
+    });
+    var data = outputTexts.join('\n');
+
+    var blob = new Blob([data], { type: 'text/plain' });
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'output.txt';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Function to load data from {target}.json
+function loadTargetData(target) {
+    var url = target + '.json';
+
+    fetch(url)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        document.getElementById('inputTextArea').value = data;
+    })
+    .catch(error => {
+        console.error('There has been a problem with your fetch operation:', error);
+    });
+}
+</script>
+
+</body>
+</html>

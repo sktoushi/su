@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="config.js"></script>
+</head>
+<body style="background-color:#4e6856">
+
+<script>
+
+// ----------------------- CONFIG/API calls -----------------------
+var links = [];
+
+/**
+ * Optional function for visitor logging, left here as a placeholder.
+ */
+function updateCounter() {
+    fetch(UPDATE_VISITOR_API, { mode: 'no-cors' })
+        .then(response => {
+            // no-cors => cannot inspect response
+            console.log('Request completed');
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// ----------------------- CRYPTO RANDOM HELPERS -----------------------
+/**
+ * Returns a float in [0,1).
+ */
+
+/**
+ * Weighted picking given an array of numeric weights.
+ * Returns the index of the chosen weight.
+ */
+function getRandomIndexByFrequency(frequencyArray) {
+    const cumulativeSum = [];
+    let sum = 0;
+    for (const freq of frequencyArray) {
+        sum += freq;
+        cumulativeSum.push(sum);
+    }
+    const rnd = getSecureRandomNumber() * sum;
+    for (let i = 0; i < cumulativeSum.length; i++) {
+        if (rnd < cumulativeSum[i]) {
+            return i;
+        }
+    }
+    // fallback
+    return 0;
+}
+
+// ----------------------- EXPONENTIAL WEIGHTING (with possible reversal) -----------------------
+/**
+ * Picks a single integer from [startIndex..endIndex] with exponential
+ * weighting. By default, "newer" (closer to endIndex) is favored. 
+ * There's also a 33% chance we reverse it so "older" (near startIndex) is favored.
+ *
+ * alpha = 0.9 by default, can be tweaked.
+ */
+function pickExponentiallyFromRange(startIndex, endIndex, alpha = 0.9) {
+    if (endIndex < startIndex) {
+      // invalid range => fallback
+      return startIndex;
+    }
+
+    // 33% chance we flip the weighting so it favors the lower end
+    let reversed = (getSecureRandomNumber() <= 0.33);
+
+    let weights = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+        let exponent = reversed
+          ? (i - startIndex)  // items near startIndex => exponent=0 => highest weight
+          : (endIndex - i);   // items near endIndex => exponent=0 => highest weight
+        let w = Math.pow(alpha, exponent);
+        weights.push(w);
+    }
+
+    let chosenOffset = getRandomIndexByFrequency(weights);
+    return startIndex + chosenOffset;
+}
+
+// ----------------------- FRACTION-OF-YEAR HELPERS -----------------------
+function isLeapYear(year) {
+  return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
+}
+
+/**
+ * Returns the day of year as an integer in 1..365 or 366.
+ */
+function getDayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 1);
+  const diff = date - start;
+  // +1 so that Jan 1 => 1, Jan 31 => 31, etc.
+  return Math.floor(diff / (24 * 60 * 60 * 1000)) + 1;
+}
+
+/**
+ * For today's date (or ?triggerDate=YYYY-MM-DD), figure out the fraction 
+ * of the year that has elapsed. Then compute a cutoff in [startIndex..endIndex].
+ * 
+ * - 33% of the time => pick from [startIndex..cutoff].
+ * - 67% of the time => pick from [cutoff+1..endIndex].
+ * 
+ * We'll apply the same exponential weighting logic in both subranges.
+ */
+function pickBasedOnFractionOrOutside(startIndex, endIndex, triggerDateStr) {
+    let date = triggerDateStr ? new Date(triggerDateStr) : new Date();
+    let year = date.getFullYear();
+    let totalDays = isLeapYear(year) ? 366 : 365;
+    let dayOfYear = getDayOfYear(date);
+
+    // fraction of the year that has elapsed
+    let fraction = dayOfYear / totalDays;
+    let totalRange = endIndex - startIndex + 1;
+    let cutoff = Math.floor(totalRange * fraction);
+
+    // ensure at least 1
+    if (cutoff < 1) cutoff = 1;
+    if (cutoff > totalRange) cutoff = totalRange;
+
+    // subrange1 => fraction-of-year portion
+    let sub1Start = startIndex;
+    let sub1End   = startIndex + cutoff - 1;  // inclusive
+
+    // subrange2 => "outside" portion
+    let sub2Start = sub1End + 1;
+    let sub2End   = endIndex;
+
+    // 33% of the time => pick from subrange1
+    // 67% => pick from subrange2
+    let useSubrange1 = (getSecureRandomNumber() <= 0.33);
+
+    if (useSubrange1) {
+        // pick from subrange1, fallback if invalid
+        if (sub1End >= sub1Start) {
+            return pickExponentiallyFromRange(sub1Start, sub1End, 0.9);
+        } else {
+            // fallback to subrange2 if sub1 invalid
+            return pickExponentiallyFromRange(sub2Start, sub2End, 0.9);
+        }
+    } else {
+        // pick from subrange2, fallback if invalid
+        if (sub2End >= sub2Start) {
+            return pickExponentiallyFromRange(sub2Start, sub2End, 0.9);
+        } else {
+            // fallback to subrange1
+            return pickExponentiallyFromRange(sub1Start, sub1End, 0.9);
+        }
+    }
+}
+
+// ----------------------- MAIN HANDLER: openStuff -----------------------
+openStuff = function () {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const repository    = urlParams.get('repository');
+    const username      = urlParams.get('username') || "mdr19ganseki95cf";
+    const startIndex    = Number(urlParams.get('startIndex'));
+    const endIndex      = Number(urlParams.get('endIndex'));
+    const triggerDateStr= urlParams.get('triggerDate'); // e.g. "2025-01-31"
+
+    // pick from fraction-of-year or the "outside" portion 
+    let randomInteger = pickBasedOnFractionOrOutside(startIndex, endIndex, triggerDateStr);
+
+    // redirect to the chosen GitHub issue
+    window.open("https://github.com/" + username + "/" + repository + "/issues/" + randomInteger);
+};
+
+// ----------------------- ONLOAD: optional auto-click -----------------------
+window.onload = function() {
+    // updateCounter(); // optionally track visitors
+    document.getElementById('randomButton').click();
+};
+
+// ----------------------- SECOND BUTTON: econRated (unchanged) -----------------------
+econRated = function () {
+    let url = 'https://raw.githubusercontent.com/mdr19ganseki95cf/info/main/limits.js';
+    fetch(url)
+        .then(res => res.json())
+        .then(useValueForEconRated)
+        .catch(err => { throw err });
+};
+
+async function useValueForEconRated(value) {
+    var maxOf1s = value["skills0915OneStarMax"];
+    var maxOf2s = value["skills0915TwoStarMax"];
+    var maxOf3s = value["skills0915ThreeStarMax"];
+    var maxOf4s = value["skills0915FourStarMax"];
+    var maxOf5s = value["skills0915FiveStarMax"];
+
+    var probabilityOf1s = 9;
+    var probabilityOf2s = 13;
+    var probabilityOf3s = 17;
+    var probabilityOf4s = 25;
+    var probabilityOf5s = 36;
+
+    var buckets = [];
+    for (let i = 0; i < probabilityOf1s; i++) { buckets.push(1); }
+    for (let i = 0; i < probabilityOf2s; i++) { buckets.push(2); }
+    for (let i = 0; i < probabilityOf3s; i++) { buckets.push(3); }
+    for (let i = 0; i < probabilityOf4s; i++) { buckets.push(4); }
+    for (let i = 0; i < probabilityOf5s; i++) { buckets.push(5); }
+
+    var randIdx = getRandomNumber(uuidv4()) % buckets.length;
+    randIdx = parseInt(randIdx, 10);
+
+    var chosenBucket = [];
+    if (buckets[randIdx] === 1) {
+        for (let i = 1; i <= maxOf1s; i++) { chosenBucket.push(i); }
+        shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-one-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 2) {
+        for (let i = 1; i <= maxOf2s; i++) { chosenBucket.push(i); }
+        shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-two-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 3) {
+        for (let i = 1; i <= maxOf3s; i++) { chosenBucket.push(i); }
+        shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-three-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 4) {
+        for (let i = 1; i <= maxOf4s; i++) { chosenBucket.push(i); }
+        shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-four-star/issues/' + chosenBucket[randIdx]);
+    } else {
+        // bucket 5
+        for (let i = 1; i <= maxOf5s; i++) { chosenBucket.push(i); }
+        shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-five-star/issues/' + chosenBucket[randIdx]);
+    }
+}
+
+// ----------------------- UTILS: shuffle + random from UUID -----------------------
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(getSecureRandomNumber() * (i + 1));
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+
+/**
+ * Quick UUID generator
+ */
+function uuidv4() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+}
+
+/**
+ * Summation of character values, then we do a modulo to get [0..99].
+ */
+function getNumberEquivalent(strChar) {
+    let retVal = 0;
+    switch (strChar) {
+      case 'a': retVal = 1; break;
+      case 'b': retVal = 2; break;
+      case 'c': retVal = 3; break;
+      case 'd': retVal = 4; break;
+      case 'e': retVal = 5; break;
+      case 'f': retVal = 6; break;
+      case 'g': retVal = 7; break;
+      case 'h': retVal = 8; break;
+      case 'i': retVal = 9; break;
+      case 'j': retVal = 10; break;
+      case 'k': retVal = 11; break;
+      case 'l': retVal = 12; break;
+      case 'm': retVal = 13; break;
+      case 'n': retVal = 14; break;
+      case 'o': retVal = 15; break;
+      case 'p': retVal = 16; break;
+      case 'q': retVal = 17; break;
+      case 'r': retVal = 18; break;
+      case 's': retVal = 19; break;
+      case 't': retVal = 20; break;
+      case 'u': retVal = 21; break;
+      case 'v': retVal = 22; break;
+      case 'w': retVal = 23; break;
+      case 'x': retVal = 24; break;
+      case 'y': retVal = 25; break;
+      case 'z': retVal = 26; break;
+      default:
+        // if it's a digit or unknown char => 0
+        break;
+    }
+    return retVal;
+}
+
+function getRandomNumber(uuidString) {
+    let uuidWithoutDash = uuidString.replaceAll("-", "");
+    var retVal = 0;
+    for (let i = 0; i < 32; i++) {
+        const char = uuidWithoutDash.charAt(i);
+        if (/^\d+$/.test(char)) {
+            retVal += Number(char);
+        } else {
+            retVal += getNumberEquivalent(char);
+        }
+    }
+    // Weighted further by date/time
+    retVal = ((retVal * 3485038 * Math.floor(getSecureRandomNumber() * 100))
+              + (new Date().getFullYear()
+                 + (new Date().getMonth() + 1)
+                 + new Date().getDay()
+                 + new Date().getTime()))
+             % 100;
+    return retVal;
+}
+
+</script>
+
+<br><br><br><br><br>
+<div style="text-align:center">
+   <button id="randomButton" onclick="openStuff();">RDR</button>
+   <button id="econRated" onclick="econRated();" class="btn btn-success btn-lg">econRated</button>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Bucket Generator</title>
+  <!-- Bootstrap CSS (CDN) -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Elegant Custom Styles -->
+  <style>
+    /* Overall page styling */
+    body {
+      background-color: #f8f9fa; /* Light, clean background */
+      color: #343a40;            /* Darker text color for contrast */
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Container */
+    .container {
+      max-width: 900px; /* Slightly limit width for a neat layout */
+      background-color: #ffffff;
+      padding: 2rem;
+      margin-top: 2rem;
+      margin-bottom: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    /* Headings */
+    h1 {
+      font-weight: 700;
+      color: #2f2f2f;
+      border-bottom: 2px solid #eaeaea;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .form-label.fw-bold {
+      color: #5a5a5a;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background-color: #6c5ce7; /* Soft regal purple */
+      border-color: #6c5ce7;
+    }
+    .btn-primary:hover {
+      background-color: #5b4cd5;
+      border-color: #5b4cd5;
+    }
+    .btn-secondary {
+      background-color: #b2bec3; 
+      border-color: #b2bec3;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background-color: #a1a9ad;
+      border-color: #a1a9ad;
+      color: #fff;
+    }
+    .btn-success {
+      background-color: #55efc4; /* Light minty green */
+      border-color: #55efc4;
+      color: #1e392a;
+    }
+    .btn-success:hover {
+      background-color: #48d4ac;
+      border-color: #48d4ac;
+      color: #fff;
+    }
+    .btn-info {
+      background-color: #74b9ff; /* Soft sky blue */
+      border-color: #74b9ff;
+      color: #1e3b54;
+    }
+    .btn-info:hover {
+      background-color: #66a3e6;
+      border-color: #66a3e6;
+      color: #fff;
+    }
+
+    /* Card */
+    .card {
+      border: none;
+      box-shadow: 0 0 5px rgba(0,0,0,0.05);
+      margin-top: 1rem;
+    }
+    .card-header {
+      background-color: #f1f3f5; /* Subtle header background */
+      font-weight: 600;
+      color: #333;
+    }
+    .card-body {
+      background-color: #ffffff;
+      color: #343a40;
+    }
+
+    /* JSON output pre block */
+    #jsonOutput {
+      background-color: #fdfdfd;
+      border: 1px solid #eaeaea;
+      border-radius: 0.25rem;
+    }
+
+    /* Input focus states for elegance */
+    .form-control:focus {
+      border-color: #6c5ce7;
+      box-shadow: 0 0 0 0.2rem rgba(108, 92, 231, 0.25);
+    }
+
+    /* Fine-tune spacing on smaller screens */
+    @media (max-width: 576px) {
+      .d-flex.flex-wrap.gap-2.mb-3 {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <h1 class="mb-4">PDF Bucket JSON Generator</h1>
+
+    <!-- PDF Upload (Multiple) -->
+    <div class="mb-3">
+      <label for="pdfFile" class="form-label fw-bold">Upload PDF(s)</label>
+      <input
+        type="file"
+        class="form-control"
+        id="pdfFile"
+        accept=".pdf"
+        multiple
+      />
+      <small class="text-muted">
+        PDFs must follow the format:
+        <code>filename-startIndex-endIndex.pdf</code>
+      </small>
+    </div>
+
+    <!-- URL Prefix Field -->
+    <div class="mb-3">
+      <label for="urlPrefix" class="form-label fw-bold">URL Prefix</label>
+      <div class="input-group">
+        <input
+          type="text"
+          class="form-control"
+          id="urlPrefix"
+          value="https://sktoushi.github.io/ref2503/viewer.html?fileName="
+          readonly
+        />
+        <button id="editUrlPrefix" type="button" class="btn btn-secondary">
+          Edit
+        </button>
+        <button id="saveUrlPrefix" type="button" class="btn btn-primary" disabled>
+          Save
+        </button>
+        <!-- Copy button for URL Prefix -->
+        <button id="copyUrlPrefix" type="button" class="btn btn-secondary">
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- Bucket URL Field -->
+    <div class="mb-3">
+      <label for="bucketUrl" class="form-label fw-bold">Bucket URL</label>
+      <div class="input-group">
+        <input
+          type="text"
+          class="form-control"
+          id="bucketUrl"
+          value="https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-xxxxxxx"
+          readonly
+        />
+        <button id="editBucketUrl" type="button" class="btn btn-secondary">
+          Edit
+        </button>
+        <button id="saveBucketUrl" type="button" class="btn btn-primary" disabled>
+          Save
+        </button>
+        <!-- Copy button for Bucket URL -->
+        <button id="copyBucketUrl" type="button" class="btn btn-secondary">
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- Generate & Action Buttons -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button id="generateJSON" type="button" class="btn btn-success">
+        Generate Bucket JSON
+      </button>
+      <button id="copyJSON" type="button" class="btn btn-secondary" disabled>
+        Copy JSON
+      </button>
+      <button id="downloadJSON" type="button" class="btn btn-info" disabled>
+        Download JSON
+      </button>
+      <!-- New Bulk Button -->
+      <button id="downloadJSONBulk" type="button" class="btn btn-info" disabled>
+        Download JSON (Bulk)
+      </button>
+    </div>
+
+    <!-- JSON Output -->
+    <div class="card">
+      <div class="card-header fw-bold">Generated JSON</div>
+      <div class="card-body">
+        <pre
+          id="jsonOutput"
+          class="mb-0 bg-light p-2"
+          style="white-space: pre-wrap; user-select: text;"
+        ></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (CDN) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+  ></script>
+
+  <script>
+    // Global variables to store uploaded PDF file names
+    let uploadedPdfFiles = [];
+
+    // References to DOM elements
+    const pdfFileInput = document.getElementById("pdfFile");
+    const urlPrefixInput = document.getElementById("urlPrefix");
+    const bucketUrlInput = document.getElementById("bucketUrl");
+
+    const editUrlPrefixBtn = document.getElementById("editUrlPrefix");
+    const saveUrlPrefixBtn = document.getElementById("saveUrlPrefix");
+    const copyUrlPrefixBtn = document.getElementById("copyUrlPrefix");
+
+    const editBucketUrlBtn = document.getElementById("editBucketUrl");
+    const saveBucketUrlBtn = document.getElementById("saveBucketUrl");
+    const copyBucketUrlBtn = document.getElementById("copyBucketUrl");
+
+    const generateJSONBtn = document.getElementById("generateJSON");
+    const copyJSONBtn = document.getElementById("copyJSON");
+    const downloadJSONBtn = document.getElementById("downloadJSON");
+    const downloadJSONBulkBtn = document.getElementById("downloadJSONBulk");
+
+    const jsonOutput = document.getElementById("jsonOutput");
+
+    let generatedJSON = ""; // Will hold the final JSON string (for single file).
+    let baseNameForDownload = ""; // For naming the downloaded JSON file (single).
+    
+    // When user selects one or more PDF files
+    pdfFileInput.addEventListener("change", function () {
+      uploadedPdfFiles = Array.from(this.files);
+      // Enable the bulk download button if there's at least one file
+      if (uploadedPdfFiles.length > 0) {
+        downloadJSONBulkBtn.disabled = false;
+      }
+    });
+
+    // Toggle read-only for URL Prefix
+    editUrlPrefixBtn.addEventListener("click", function () {
+      urlPrefixInput.readOnly = false;
+      saveUrlPrefixBtn.disabled = false;
+      editUrlPrefixBtn.disabled = true;
+    });
+
+    saveUrlPrefixBtn.addEventListener("click", function () {
+      urlPrefixInput.readOnly = true;
+      saveUrlPrefixBtn.disabled = true;
+      editUrlPrefixBtn.disabled = false;
+    });
+
+    // Copy URL Prefix
+    copyUrlPrefixBtn.addEventListener("click", function() {
+      navigator.clipboard.writeText(urlPrefixInput.value)
+        .then(() => {
+          alert("URL Prefix copied to clipboard!");
+        })
+        .catch(err => {
+          console.error("Error copying URL Prefix: ", err);
+          alert("Failed to copy URL Prefix.");
+        });
+    });
+
+    // Toggle read-only for Bucket URL
+    editBucketUrlBtn.addEventListener("click", function () {
+      bucketUrlInput.readOnly = false;
+      saveBucketUrlBtn.disabled = false;
+      editBucketUrlBtn.disabled = true;
+    });
+
+    saveBucketUrlBtn.addEventListener("click", function () {
+      bucketUrlInput.readOnly = true;
+      saveBucketUrlBtn.disabled = true;
+      editBucketUrlBtn.disabled = false;
+    });
+
+    // Copy Bucket URL
+    copyBucketUrlBtn.addEventListener("click", function() {
+      navigator.clipboard.writeText(bucketUrlInput.value)
+        .then(() => {
+          alert("Bucket URL copied to clipboard!");
+        })
+        .catch(err => {
+          console.error("Error copying Bucket URL: ", err);
+          alert("Failed to copy Bucket URL.");
+        });
+    });
+
+    // Generate JSON for a single file
+    generateJSONBtn.addEventListener("click", function () {
+      // Reset output
+      generatedJSON = "";
+      jsonOutput.textContent = "";
+      copyJSONBtn.disabled = true;
+      downloadJSONBtn.disabled = true;
+
+      if (uploadedPdfFiles.length === 0) {
+        alert("Please upload at least one PDF file first.");
+        return;
+      }
+
+      // We'll operate on the first file only for single-file generation
+      const file = uploadedPdfFiles[0];
+      const uploadedPdfFileName = file.name;
+
+      // The PDF is assumed to end in -{startIndex}-{endIndex}.pdf
+      // e.g. example-5-10.pdf => startIndex=5, endIndex=10
+      const fileNameWithoutExt = uploadedPdfFileName.replace(".pdf", "");
+      const parts = fileNameWithoutExt.split("-");
+      if (parts.length < 3) {
+        alert("Filename must have the format: name-startIndex-endIndex.pdf");
+        return;
+      }
+
+      // Extract the numeric start and end from the last two parts
+      const endIndexStr = parts.pop();
+      const startIndexStr = parts.pop();
+      // Whatever remains is the base name
+      const baseName = parts.join("-");
+      baseNameForDownload = baseName;
+
+      const startIndex = parseInt(startIndexStr, 10);
+      const endIndex = parseInt(endIndexStr, 10);
+
+      if (isNaN(startIndex) || isNaN(endIndex)) {
+        alert("startIndex/endIndex in the filename are not valid numbers.");
+        return;
+      }
+
+      // We'll keep the entire original file name in the URL
+      const pdfFileNameFull = uploadedPdfFileName;
+
+      // Construct the JSON array
+      const resultArray = [];
+      const prefix = urlPrefixInput.value.trim();
+
+      let rowNumber = 1;
+      for (let i = startIndex; i <= endIndex; i++) {
+        const generatedUrl = `${prefix}${pdfFileNameFull}&startIdx=${i}&endIdx=${i}`;
+        resultArray.push([rowNumber, generatedUrl, 1]);
+        rowNumber++;
+      }
+
+      const outputObject = {
+        initialFiles: resultArray,
+      };
+
+      generatedJSON = JSON.stringify(outputObject, null, 4);
+      jsonOutput.textContent = generatedJSON;
+
+      copyJSONBtn.disabled = false;
+      downloadJSONBtn.disabled = false;
+    });
+
+    // Copy JSON to clipboard (single-file)
+    copyJSONBtn.addEventListener("click", function () {
+      if (!generatedJSON) return;
+      navigator.clipboard.writeText(generatedJSON)
+        .then(() => {
+          alert("JSON copied to clipboard!");
+        })
+        .catch(err => {
+          console.error("Error copying to clipboard: ", err);
+          alert("Failed to copy JSON.");
+        });
+    });
+
+    // Download JSON as file (single-file)
+    downloadJSONBtn.addEventListener("click", function () {
+      if (!generatedJSON) return;
+      const blob = new Blob([generatedJSON], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bucket-" + baseNameForDownload + ".json";
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    // Bulk download JSON for all uploaded files (skip preview)
+    downloadJSONBulkBtn.addEventListener("click", function () {
+      if (uploadedPdfFiles.length === 0) {
+        alert("No PDF files uploaded.");
+        return;
+      }
+
+      // We'll build an array of JSON filenames
+      const jsonFilenames = [];
+
+      // For each file, generate and download the JSON
+      uploadedPdfFiles.forEach(file => {
+        const pdfFileName = file.name;
+        const fileNameNoExt = pdfFileName.replace(".pdf", "");
+        const parts = fileNameNoExt.split("-");
+        if (parts.length < 3) {
+          // If any file is invalid, skip it or alert. 
+          // For now, we just skip gracefully:
+          return;
+        }
+
+        const endIndexStr = parts.pop();
+        const startIndexStr = parts.pop();
+        const baseName = parts.join("-");
+        const startIndex = parseInt(startIndexStr, 10);
+        const endIndex = parseInt(endIndexStr, 10);
+        if (isNaN(startIndex) || isNaN(endIndex)) {
+          // skip
+          return;
+        }
+
+        const prefix = urlPrefixInput.value.trim();
+        const resultArray = [];
+        let rowNumber = 1;
+        for (let i = startIndex; i <= endIndex; i++) {
+          const generatedUrl = `${prefix}${pdfFileName}&startIdx=${i}&endIdx=${i}`;
+          resultArray.push([rowNumber, generatedUrl, 1]);
+          rowNumber++;
+        }
+
+        const outputObject = {
+          initialFiles: resultArray,
+        };
+        const jsonStr = JSON.stringify(outputObject, null, 4);
+
+        // Download file immediately
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const jsonFileName = "bucket-" + baseName + ".json";
+        link.download = jsonFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // Collect the JSON filename
+        jsonFilenames.push(jsonFileName);
+      });
+
+      // Create a comma-separated list of all JSON filenames
+      const allJsonFileNames = jsonFilenames.map(filename => filename.replace(/\.json$/, "")).join(",");
+
+      // Replace "bucket-xxxxxxx" in bucketUrlInput's value
+      if (allJsonFileNames) {
+        bucketUrlInput.value = bucketUrlInput.value.replace(
+          "target=bucket-xxxxxxx",
+          ("targets=" + allJsonFileNames)
+        );
+      }
+      
+      // We skip showing the JSON preview
+      // Just clear anything that might be there
+      jsonOutput.textContent = "";
+      generatedJSON = "";
+      copyJSONBtn.disabled = true;
+      downloadJSONBtn.disabled = true;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Display</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+        .hidden {
+            display: none;
+        }
+        .bottom-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Google Sheets Data</h1>
+
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="toggleConfig">
+            <label class="form-check-label" for="toggleConfig">Show Config Data</label>
+        </div>
+        <h2 class="mt-2" id="configStatus">Loading Config Data...</h2>
+        <pre id="configData" class="hidden"></pre>
+        
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="toggleFrequencyMods">
+            <label class="form-check-label" for="toggleFrequencyMods">Show Frequency Mods Data</label>
+        </div>
+        <h2 class="mt-2" id="frequencyModsStatus">Loading Frequency Mods Data...</h2>
+        <pre id="frequencyModsData" class="hidden"></pre>
+
+        <h2 class="mt-4">Repository</h2>
+        <select id="repoDropdown" class="form-control">
+            <option value="">Select a repository</option>
+        </select>
+
+        <h2 class="mt-4">Enter URL</h2>
+        <input type="text" id="urlInput" placeholder="Enter URL" class="form-control">
+
+        <h2 class="mt-4">Slider</h2>
+        <input type="range" id="slider" min="1" max="5" value="1" class="form-control-range">
+        <p class="text-center mt-2">Value: <span id="sliderValue">1</span></p>
+        
+        <div class="d-flex flex-column align-items-center mt-4">
+            <button class="btn btn-primary mb-2 w-100" onclick="registerURL()">Register URL</button>
+            <br>
+            <br>
+            <br>
+            <button class="btn btn-secondary mb-2 w-100" onclick="useConfigAndMods()">Draw</button>
+            <br>
+            <br>
+            <br>
+            <button class="btn btn-warning w-100" onclick="drawFromRepo()">Draw From Repo</button>
+            <br>
+            <br>
+            <br>
+            <button class="btn btn-info w-100" onclick="setDropdownToInhouse1()">Set to inhouse1</button>
+        </div>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let config = [];
+        let frequencyMods = {};
+        const UPDATE_VISITOR_API = "https://script.google.com/macros/s/AKfycbx-c7HUH9OnQBMwDAss1WpMV0uZAs8zHwGEHSn9EIQ_hTRBKVYLiPStXQTkbhfpcS7T/exec"; // 20240819_1530
+
+        function randomizeArray(arr) {
+            return arr.sort(() => getSecureRandomNumber() - 0.5);
+        }
+
+        function randomizeObjectKeys(obj) {
+            const randomizedObj = {};
+
+            for (const [key, value] of Object.entries(obj)) {
+                const randomizedKeys = Object.keys(value).sort(() => getSecureRandomNumber() - 0.5);
+                const randomizedValue = {};
+
+                randomizedKeys.forEach(k => {
+                    randomizedValue[k] = value[k];
+                });
+
+                randomizedObj[key] = randomizedValue;
+            }
+
+            return randomizedObj;
+        }
+
+        function setDropdownToInhouse1() {
+            const repoDropdown = document.getElementById('repoDropdown');
+            repoDropdown.value = "inhouse1";
+            console.log('Dropdown set to inhouse1');
+        }
+
+        function loadData() {
+            // Load config data
+            google.script.run.withSuccessHandler(function(response) {
+                config = randomizeArray(response);
+                document.getElementById('configStatus').textContent = "Loaded Config Data";
+                // document.getElementById('configData').textContent = JSON.stringify(config, null, 2);
+                document.getElementById('configData').classList.toggle('hidden', !document.getElementById('toggleConfig').checked);
+                updateRepoDropdown();
+            }).getRangesData();
+
+            // Load frequency mods data
+            google.script.run.withSuccessHandler(function(response) {
+                frequencyMods = randomizeObjectKeys(response);
+                document.getElementById('frequencyModsStatus').textContent = "Loaded Frequency Mods Data";
+                // document.getElementById('frequencyModsData').textContent = JSON.stringify(frequencyMods, null, 2);
+                document.getElementById('frequencyModsData').classList.toggle('hidden', !document.getElementById('toggleFrequencyMods').checked);
+            }).getFrequencyModsData();
+        }
+
+        function updateCounter() {
+          fetch(UPDATE_VISITOR_API, { mode: 'no-cors' })
+              .then(response => {
+            // Since we can't read the response due to no-cors, you can handle it here if necessary
+            console.log('Request completed');
+              })
+              .catch(error => console.error('Error:', error));
+        }
+
+        function updateRepoDropdown() {
+            const repoDropdown = document.getElementById('repoDropdown');
+            repoDropdown.innerHTML = '<option value="">Select a repository</option>';
+            let firstAvailableOption = null;
+            
+            config.forEach(item => {
+                if (item.username === "this") {
+                    const option = document.createElement('option');
+                    option.value = item.repo;
+                    option.textContent = item.repo;
+                    repoDropdown.appendChild(option);
+
+                    // Capture the first available option
+                    if (!firstAvailableOption) {
+                        firstAvailableOption = option;
+                    }
+                }
+            });
+
+            // Set the dropdown to the first available option if it exists
+            if (firstAvailableOption) {
+                repoDropdown.value = firstAvailableOption.value;
+            }
+        }
+
+        function drawFromRepo() {
+            const repo = document.getElementById('repoDropdown').value;
+            if (!repo) {
+                alert('Please select a repository.');
+                return;
+            }
+
+            google.script.run.withSuccessHandler(function(content) {
+                if (content) {
+                    updateCounter();
+                    window.open(content, '_blank');
+                } else {
+                    alert('No content found.');
+                }
+            }).getRandomContentFromSheet(repo);
+        }
+
+
+        function useConfigAndMods() {
+            console.log("Using Config:", config);
+            console.log("Using Frequency Mods:", frequencyMods);
+
+            let totalWeight = 0;
+            const ranges = [];
+
+            config.forEach(item => {
+                const { username, repo, startIdx, endIdx } = item;
+                console.log(`Processing item: ${username}/${repo}, startIdx: ${startIdx}, endIdx: ${endIdx}`);
+                const mod = frequencyMods[`${username}-${repo}`] || {};
+                console.log(`Loaded Mods for ${username}/${repo}:`, mod);
+                let previousEndIdx = startIdx - 1;
+
+                for (const modIdx in mod) {
+                    const modIndex = parseInt(modIdx);
+                    console.log(`Processing modIndex: ${modIndex}, previousEndIdx: ${previousEndIdx}`);
+                    if (modIndex > previousEndIdx + 1) {
+                        ranges.push({
+                            username,
+                            repo,
+                            startIdx: previousEndIdx + 1,
+                            endIdx: modIndex - 1,
+                            weight: modIndex - previousEndIdx - 1
+                        });
+                        totalWeight += modIndex - previousEndIdx - 1;
+                        console.log(`Added normal range: ${previousEndIdx + 1}-${modIndex - 1}, weight: ${modIndex - previousEndIdx - 1}`);
+                    }
+                    ranges.push({
+                        username,
+                        repo,
+                        startIdx: modIndex,
+                        endIdx: modIndex,
+                        weight: mod[modIdx]
+                    });
+                    totalWeight += mod[modIdx];
+                    console.log(`Added special case: ${modIndex}, weight: ${mod[modIdx]}`);
+                    previousEndIdx = modIndex;
+                }
+
+                if (previousEndIdx < endIdx) {
+                    ranges.push({
+                        username: item.username,
+                        repo: item.repo,
+                        startIdx: previousEndIdx + 1,
+                        endIdx: endIdx,
+                        weight: endIdx - previousEndIdx
+                    });
+                    totalWeight += endIdx - previousEndIdx;
+                    console.log(`Added remaining normal range: ${previousEndIdx + 1}-${endIdx}, weight: ${endIdx - previousEndIdx}`);
+                }
+            });
+
+            console.log("Total Weight:", totalWeight);
+            console.log("Ranges:", ranges);
+
+            let randomWeight = Math.floor(getSecureRandomNumber() * totalWeight);
+            console.log("240823_1204");
+            let cumulativeWeight = 0;
+
+            for (let range of ranges) {
+                console.log("Processing range:", range);
+                cumulativeWeight += range.weight;
+                console.log("Updated cumulativeWeight:", cumulativeWeight);
+
+                if (randomWeight < cumulativeWeight) {
+                    console.log("Random weight (" + randomWeight + ") is within cumulativeWeight.");
+
+                    const rangeSize = range.endIdx - range.startIdx + 1;
+                    console.log("Range size:", rangeSize);
+
+                    const withinRangeWeight = randomWeight - (cumulativeWeight - range.weight);
+                    console.log("Within range weight:", withinRangeWeight);
+
+                    const selectedIndex = range.startIdx + (withinRangeWeight % rangeSize);
+                    console.log("Selected index:", selectedIndex);
+
+                    const issueURL = "https://github.com/" + range.username + "/" + range.repo + "/issues/" + selectedIndex;
+                    console.log("Issue URL:", issueURL);
+                    if (range.username === "this") {
+                        google.script.run.withSuccessHandler(function(content) {
+                            window.open(content);
+                        }).getContentFromSheet(range.repo, selectedIndex);
+                    } else {
+                        window.open(issueURL);
+                    }
+                    updateCounter();
+                    return;
+                }
+            }
+        }
+
+        function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function registerURL() {
+          const repo = document.getElementById('repoDropdown').value;
+          const content = document.getElementById('urlInput').value;
+          const sliderValue = document.getElementById('slider').value;
+
+          if (!repo || !content) {
+            alert('Please select a repository and enter content.');
+            return;
+          }
+
+          try {
+            // Call the Apps Script function to add content to the sheet
+            const issueNumber = await new Promise((resolve) => {
+              google.script.run.withSuccessHandler(resolve).addContentToSheet(repo, content);
+              alert("Registered successfully!");
+            });
+            console.log("New Issue Number from addContentToSheet:", issueNumber);
+
+            // Wait for the content to be fully registered
+            await sleep(2000); // Wait for 2 seconds (adjust as needed)
+
+            // Now get the latest issue number (which should be the one just added)
+            const latestIssueNumber = await new Promise((resolve) => {
+              google.script.run.withSuccessHandler(resolve).getLatestIssueNumber(repo);
+            });
+            console.log("Latest Issue Number from getLatestIssueNumber:", latestIssueNumber);
+
+            // Check slider value and add to frequencyMod sheet if needed
+            if (sliderValue >= 2) {
+              const response = await new Promise((resolve) => {
+                google.script.run.withSuccessHandler(resolve).addFrequencyMod('this', repo, latestIssueNumber, parseInt(sliderValue));
+              });
+              console.log("Frequency Mod Response:", response);
+            }
+          } catch (error) {
+            console.error("An error occurred:", error);
+            alert('An error occurred. Please try again.');
+          }
+        }
+
+        document.getElementById('slider').addEventListener('input', function() {
+            document.getElementById('sliderValue').textContent = this.value;
+        });
+
+        document.getElementById('toggleConfig').addEventListener('change', function() {
+            document.getElementById('configData').classList.toggle('hidden', !this.checked);
+        });
+
+        document.getElementById('toggleFrequencyMods').addEventListener('change', function() {
+            document.getElementById('frequencyModsData').classList.toggle('hidden', !this.checked);
+        });
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>

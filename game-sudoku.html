@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sudoku Generator Game</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      margin: 20px;
+      background-color: #f8f9fa;
+    }
+    .sudoku-grid {
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+    .sudoku-row {
+      display: flex;
+    }
+    .sudoku-cell {
+      width: 40px;
+      height: 40px;
+      text-align: center;
+      line-height: 40px;
+      font-size: 1.2rem;
+      margin: 0;
+      padding: 0;
+      border: 1px solid #bbb;
+      box-sizing: border-box;
+      outline: none;
+      background-color: #fff;
+    }
+    /* Thicker borders for the 3×3 boxes */
+    .sudoku-cell.box-left {
+      border-left-width: 2px;
+    }
+    .sudoku-cell.box-right {
+      border-right-width: 2px;
+    }
+    .sudoku-cell.box-top {
+      border-top-width: 2px;
+    }
+    .sudoku-cell.box-bottom {
+      border-bottom-width: 2px;
+    }
+    .sudoku-cell:disabled {
+      background-color: #e9ecef;
+      color: #000;
+    }
+    .sudoku-cell.invalid {
+      background-color: #f8d7da; /* light red */
+    }
+    .hidden {
+      display: none;
+    }
+    .leaderboard-table {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+    <h1>Sudoku Generator</h1>
+    <p class="text-muted">
+      Click <strong>Start Game</strong> for a new Sudoku puzzle (generated on the fly).
+    </p>
+
+    <!-- Controls -->
+    <div class="my-3">
+      <button id="startBtn" class="btn btn-primary">Start Game</button>
+      <button id="checkBtn" class="btn btn-success hidden">Check &amp; Submit</button>
+      <p class="mt-3">
+        <strong>Time:</strong> <span id="timeCounter">0.00</span> seconds
+      </p>
+    </div>
+
+    <!-- Sudoku grid container -->
+    <div id="sudokuContainer" class="sudoku-grid hidden"></div>
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden">
+      <h2>Congratulations!</h2>
+      <p>Your total time: <span id="timeTaken"></span> seconds.</p>
+      <h4>Leaderboard (Top 15 Fastest)</h4>
+      <table class="table table-bordered leaderboard-table">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Time (s)</th>
+            <th scope="col">Date</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (bundle) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+  ></script>
+  <script>
+    /*******************************************************
+     * 0) Fallback for crypto.randomUUID()
+     *******************************************************/
+    function generateUUID() {
+      if (typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      // Manual RFC4122 v4 fallback
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      arr[6] = (arr[6] & 0x0f) | 0x40;
+      arr[8] = (arr[8] & 0x3f) | 0x80;
+      const hex = [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
+      return [
+        hex.substring(0, 8),
+        hex.substring(8, 12),
+        hex.substring(12, 16),
+        hex.substring(16, 20),
+        hex.substring(20),
+      ].join("-");
+    }
+
+    /*******************************************************
+     * 1) SUDOKU GENERATOR
+     *    Steps:
+     *    - Generate a complete, valid Sudoku board by backtracking.
+     *    - Randomly remove cells, ensuring the puzzle still has a unique solution.
+     *******************************************************/
+
+    // We'll store the puzzle + solution as 2D arrays, each [9][9].
+    let puzzleGrid = [];
+    let solutionGrid = [];
+
+    function secureRandInt(range) {
+      const r = crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1);
+      return Math.floor(r * range);
+    }
+
+    // Generate a fully solved board with backtracking
+    function generateFullSolution() {
+      // Start with an empty 9x9
+      const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+
+      function canPlace(board, row, col, val) {
+        // Check row
+        for (let c = 0; c < 9; c++) {
+          if (board[row][c] === val) return false;
+        }
+        // Check column
+        for (let r = 0; r < 9; r++) {
+          if (board[r][col] === val) return false;
+        }
+        // Check 3x3 box
+        const boxRow = Math.floor(row / 3) * 3;
+        const boxCol = Math.floor(col / 3) * 3;
+        for (let rr = 0; rr < 3; rr++) {
+          for (let cc = 0; cc < 3; cc++) {
+            if (board[boxRow + rr][boxCol + cc] === val) return false;
+          }
+        }
+        return true;
+      }
+
+      function fillCell(board, row, col) {
+        if (row === 9) return true; // done
+        const nextCol = (col + 1) % 9;
+        const nextRow = col === 8 ? row + 1 : row;
+
+        // Shuffle digits 1..9
+        const digits = [1,2,3,4,5,6,7,8,9];
+        for (let i = digits.length - 1; i > 0; i--) {
+          const j = secureRandInt(i + 1);
+          [digits[i], digits[j]] = [digits[j], digits[i]];
+        }
+
+        for (let d of digits) {
+          if (canPlace(board, row, col, d)) {
+            board[row][col] = d;
+            if (fillCell(board, nextRow, nextCol)) {
+              return true;
+            }
+            board[row][col] = 0;
+          }
+        }
+        return false; 
+      }
+
+      fillCell(board, 0, 0);
+      return board;
+    }
+
+    // Check if there's more than one solution. We'll do a backtracking solver that can stop if it finds 2 solutions.
+    function countSolutions(board) {
+      let solutionCount = 0;
+      function canPlace(b, r, c, val) {
+        for (let cc = 0; cc < 9; cc++) {
+          if (b[r][cc] === val) return false;
+        }
+        for (let rr = 0; rr < 9; rr++) {
+          if (b[rr][c] === val) return false;
+        }
+        const boxRow = Math.floor(r / 3) * 3;
+        const boxCol = Math.floor(c / 3) * 3;
+        for (let rr = 0; rr < 3; rr++) {
+          for (let cc = 0; cc < 3; cc++) {
+            if (b[boxRow + rr][boxCol + cc] === val) return false;
+          }
+        }
+        return true;
+      }
+      function solve(b, start=0) {
+        if (solutionCount > 1) return; // already found >1
+        if (start === 81) {
+          solutionCount++;
+          return;
+        }
+        const row = Math.floor(start / 9);
+        const col = start % 9;
+        if (b[row][col] !== 0) {
+          solve(b, start + 1);
+        } else {
+          for (let val = 1; val <= 9; val++) {
+            if (canPlace(b, row, col, val)) {
+              b[row][col] = val;
+              solve(b, start + 1);
+              if (solutionCount > 1) break;
+              b[row][col] = 0;
+            }
+          }
+        }
+      }
+      solve(board);
+      return solutionCount;
+    }
+
+    // Remove cells while ensuring uniqueness
+    function generatePuzzleFromSolution(solution) {
+      // Copy the solution
+      const puzzle = solution.map(row => [...row]);
+
+      // We'll shuffle positions (0..80)
+      const positions = [];
+      for (let i = 0; i < 81; i++) positions.push(i);
+      for (let i = positions.length - 1; i > 0; i--) {
+        const j = secureRandInt(i + 1);
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+      }
+
+      // Try removing cells in random order; if puzzle still has exactly 1 solution, keep removed. Otherwise revert.
+      for (let pos of positions) {
+        const r = Math.floor(pos / 9);
+        const c = pos % 9;
+        const backup = puzzle[r][c];
+        puzzle[r][c] = 0;
+        // Check uniqueness
+        if (countSolutions(puzzle) !== 1) {
+          // revert
+          puzzle[r][c] = backup;
+        }
+      }
+      return puzzle;
+    }
+
+    function generateSudokuPuzzle() {
+      const fullBoard = generateFullSolution(); // 9x9 solution
+      const puzzle = generatePuzzleFromSolution(fullBoard);
+
+      return {
+        puzzle,
+        solution: fullBoard
+      };
+    }
+
+    /*******************************************************
+     * 2) UI + GAME LOGIC
+     *******************************************************/
+    let startTime = 0;
+    let timerInterval = null;
+
+    const sudokuContainer = document.getElementById("sudokuContainer");
+    const resultsSection = document.getElementById("resultsSection");
+    const checkBtn = document.getElementById("checkBtn");
+    const timeCounterEl = document.getElementById("timeCounter");
+    const timeTakenEl = document.getElementById("timeTaken");
+    const leaderboardTbody = document.getElementById("leaderboardTbody");
+
+    // We'll store the current puzzle in puzzleGrid, solution in solutionGrid
+    function copyBoard(src, dest) {
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          dest[r][c] = src[r][c];
+        }
+      }
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      startTime = performance.now();
+      timerInterval = setInterval(() => {
+        const now = performance.now();
+        const elapsed = (now - startTime) / 1000;
+        timeCounterEl.textContent = elapsed.toFixed(2);
+      }, 100);
+    }
+
+    function stopTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      const now = performance.now();
+      return ((now - startTime) / 1000).toFixed(2);
+    }
+
+    function renderPuzzle() {
+      sudokuContainer.innerHTML = "";
+      sudokuContainer.classList.remove("hidden");
+
+      for (let r = 0; r < 9; r++) {
+        const rowDiv = document.createElement("div");
+        rowDiv.classList.add("sudoku-row");
+
+        for (let c = 0; c < 9; c++) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.maxLength = "1";
+          input.classList.add("sudoku-cell");
+
+          // Add thicker borders to separate 3×3 boxes
+          if (c % 3 === 0) {
+            input.classList.add("box-left");
+          }
+          if (c === 8) {
+            input.classList.add("box-right");
+          }
+          if (r % 3 === 0) {
+            input.classList.add("box-top");
+          }
+          if (r === 8) {
+            input.classList.add("box-bottom");
+          }
+
+          if (puzzleGrid[r][c] !== 0) {
+            // given clue
+            input.value = puzzleGrid[r][c];
+            input.disabled = true;
+          } else {
+            input.value = "";
+            // Only allow digits 1-9
+            input.addEventListener("input", (e) => {
+              const val = e.target.value.replace(/[^1-9]/g, "");
+              e.target.value = val;
+            });
+          }
+
+          input.dataset.row = r;
+          input.dataset.col = c;
+          rowDiv.appendChild(input);
+        }
+        sudokuContainer.appendChild(rowDiv);
+      }
+    }
+
+    function checkPuzzle() {
+      // Gather user input
+      let anyEmpty = false;
+      let allCorrect = true;
+
+      const allCells = sudokuContainer.querySelectorAll(".sudoku-cell");
+      allCells.forEach((cell) => cell.classList.remove("invalid"));
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (puzzleGrid[r][c] !== 0) continue; // skip clues
+          const cell = sudokuContainer.querySelector(
+            `.sudoku-cell[data-row="${r}"][data-col="${c}"]`
+          );
+          const valStr = cell.value.trim();
+          if (!valStr) {
+            anyEmpty = true;
+            allCorrect = false;
+            cell.classList.add("invalid");
+            continue;
+          }
+          const val = parseInt(valStr, 10);
+          if (val !== solutionGrid[r][c]) {
+            allCorrect = false;
+            cell.classList.add("invalid");
+          }
+        }
+      }
+
+      if (allCorrect && !anyEmpty) {
+        const finalTime = stopTimer();
+        timeTakenEl.textContent = finalTime;
+        sudokuContainer.classList.add("hidden");
+        checkBtn.classList.add("hidden");
+        resultsSection.classList.remove("hidden");
+
+        // Save to DB
+        saveTimeToDB(parseFloat(finalTime))
+          .then(() => loadLeaderboard())
+          .then((records) => renderLeaderboard(records))
+          .catch((err) => {
+            console.error("Error saving or loading leaderboard:", err);
+          });
+      } else {
+        if (anyEmpty) {
+          alert("Some cells are empty. Check red cells!");
+        } else {
+          alert("Some cells are incorrect. Check red cells!");
+        }
+      }
+    }
+
+    function startGame() {
+      resultsSection.classList.add("hidden");
+      checkBtn.classList.remove("hidden");
+      sudokuContainer.classList.add("hidden");
+
+      // Generate puzzle
+      const { puzzle, solution } = generateSudokuPuzzle();
+      puzzleGrid = puzzle;
+      solutionGrid = solution;
+
+      renderPuzzle();
+      startTimer();
+      sudokuContainer.classList.remove("hidden");
+    }
+
+    /*******************************************************
+     * 3) LEADERBOARD (IndexedDB)
+     *******************************************************/
+    let db = null;
+    const DB_NAME = "sudokuGenDB";
+    const DB_VERSION = 1;
+    const STORE_NAME = "leaderboard";
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => {
+          console.error("IndexedDB failed to open");
+          reject(request.error);
+        };
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
+        request.onupgradeneeded = (e) => {
+          db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            store.createIndex("time", "time", { unique: false });
+          }
+        };
+      });
+    }
+
+    function saveTimeToDB(timeVal) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+
+        const record = {
+          time: timeVal,
+          date: new Date().toISOString(),
+        };
+        const request = store.add(record);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function loadLeaderboard() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const times = [];
+        store.openCursor().onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            times.push(cursor.value);
+            cursor.continue();
+          } else {
+            times.sort((a, b) => a.time - b.time);
+            resolve(times.slice(0, 15));
+          }
+        };
+      });
+    }
+
+    function renderLeaderboard(records) {
+      leaderboardTbody.innerHTML = "";
+      records.forEach((rec, idx) => {
+        const tr = document.createElement("tr");
+        const rankTd = document.createElement("td");
+        const timeTd = document.createElement("td");
+        const dateTd = document.createElement("td");
+
+        rankTd.textContent = idx + 1;
+        timeTd.textContent = rec.time.toFixed(2);
+        const dateObj = new Date(rec.date);
+        dateTd.textContent = dateObj.toLocaleString();
+
+        tr.appendChild(rankTd);
+        tr.appendChild(timeTd);
+        tr.appendChild(dateTd);
+        leaderboardTbody.appendChild(tr);
+      });
+    }
+
+    /*******************************************************
+     * 4) EVENT LISTENERS
+     *******************************************************/
+    document.getElementById("startBtn").addEventListener("click", startGame);
+    document.getElementById("checkBtn").addEventListener("click", checkPuzzle);
+
+    /*******************************************************
+     * 5) ON PAGE LOAD
+     *******************************************************/
+    window.addEventListener("load", () => {
+      initDB()
+        .then(() => loadLeaderboard())
+        .then((records) => renderLeaderboard(records))
+        .catch((err) => console.error("Error during DB init or leaderboard load:", err));
+    });
+  </script>
+</body>
+</html>

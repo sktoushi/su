@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="en"><head>
+    <script src="common/history-utils.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DB Viewer – fast random + rich text</title>
+
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#c9d1d9;
+      --text-sub:#8b949e;--accent:#238636;--btn:#21262d;--btn-hov:#30363d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+     background:var(--bg);color:var(--text);line-height:1.5;display:flex;
+     flex-direction:column;min-height:100vh}
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);
+       font-weight:600;font-size:1.15rem}
+main{flex:1;width:100%;max-width:900px;margin:2rem auto;
+     display:flex;flex-direction:column;gap:1.5rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:6px;
+      padding:1.25rem;overflow:auto;word-break:break-word;max-height:70vh}
+.row-id{font-weight:600;color:var(--accent);margin-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin-top:.5rem}
+th,td{padding:.45rem .7rem;border:1px solid var(--border);vertical-align:top}
+th{background:#1e242c;color:var(--text-sub);font-weight:500;text-align:left;
+    position:sticky;top:0;z-index:1}
+button{background:var(--btn);color:var(--text);border:1px solid var(--border);
+       border-radius:6px;padding:.55rem 1rem;font-size:.9rem;cursor:pointer;
+       margin-right:.6rem;transition:background .15s}
+button:hover{background:var(--btn-hov)}
+footer{text-align:center;padding:1rem 0 2rem;font-size:.8rem;color:var(--text-sub);
+       border-top:1px solid var(--border)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.btn-group{margin-bottom:1.1rem}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/sql-wasm.js"></script>
+</head><body>
+<header>📚 Rich-Text DB Viewer</header>
+
+<main>
+  <div>
+    <button id="btnRandom" disabled>🎲 Random Entry</button>
+    <button id="btnAll"    disabled>📜 Show All Entries</button>
+  </div>
+
+  <div id="actionBar" class="btn-group" style="display:none">
+    <button id="copyFront">Copy Front</button>
+    <button id="copyBack">Copy Back</button>
+    <button id="chatFront">ChatGPT (Front)</button>
+    <button id="chatBack">ChatGPT (Back)</button>
+  </div>
+
+  <article id="randCard" class="card"><p>Loading database…</p></article>
+  <article id="allCard"  class="card" style="display:none"></article>
+</main>
+
+<footer>Powered by <a href="https://github.com/sql-js/sql.js" target="_blank" rel="noopener">sql.js</a></footer>
+
+<script>
+(async () => {
+  /* ─── URL params ─── */
+  const qp   = new URLSearchParams(location.search);
+  const dbFN = qp.get('db') || 'memo_20250607-1.db';
+  const forceTbl = qp.get('table');
+
+  /* ─── DOM refs ─── */
+  const $ = id => document.getElementById(id);
+  const btnRandom=$('btnRandom'),btnAll=$('btnAll'),actionBar=$('actionBar');
+  const randCard=$('randCard'),allCard=$('allCard');
+  const copyFront=$('copyFront'),copyBack=$('copyBack'),
+        chatFront=$('chatFront'),chatBack=$('chatBack');
+
+  /* ─── init sql.js ─── */
+  const SQL = await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/${f}`});
+
+  /* ─── load DB ─── */
+  let db;
+  try{
+    const res = await fetch(dbFN,{cache:'no-store'});
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    db = new SQL.Database(new Uint8Array(await res.arrayBuffer()));
+  }catch(e){
+    randCard.innerHTML=`<p style="color:#f85149"><strong>Error:</strong> ${e.message}</p>`;
+    return;
+  }
+
+  /* ─── choose table (largest row-count) ─── */
+  const tables = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`);
+  if(!tables.length){randCard.textContent='No user tables.';return;}
+  const names = tables[0].values.map(v=>v[0]);
+  let table = forceTbl;
+  if(!table){
+    let max=-1;
+    for(const n of names){
+      const cnt = db.exec(`SELECT COUNT(*) c FROM "${n}"`)[0].values[0][0];
+      if(cnt>max){max=cnt;table=n;}
+    }
+  }
+
+  /* ─── pre-compute row count for fast random ─── */
+  const rowCount = db.exec(`SELECT COUNT(*) c FROM "${table}"`)[0].values[0][0];
+
+  /* ─── utilities ─── */
+  let currentRow=null;
+  const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const enableBar= ok => {actionBar.style.display = ok? 'block':'none';};
+
+  /* ─── render random row ─── */
+  function renderRandom(){
+    if(rowCount===0){randCard.innerHTML='<p>No rows.</p>';enableBar(false);return;}
+    const offset = Math.floor(getSecureRandomNumber()*rowCount);
+    const rs = db.exec(`SELECT * FROM "${table}" LIMIT 1 OFFSET ${offset}`);
+    const cols = rs[0].columns, vals = rs[0].values[0]; currentRow=vals;
+
+    let html=`<div class="row-id">#${esc(vals[0])}</div><table><thead><tr>`;
+    cols.forEach(c=>html+=`<th>${esc(c)}</th>`); html+='</tr></thead><tbody><tr>';
+    vals.forEach(v=>html+=`<td>${v==null?'':String(v)}</td>`); html+='</tr></tbody></table>';
+    randCard.innerHTML=html;
+    enableBar(cols.length>=2);
+  }
+
+  /* ─── render full table (once) ─── */
+  let fullDone=false;
+  function renderAll(){
+    if(fullDone) return;
+    const rs=db.exec(`SELECT * FROM "${table}"`);
+    const cols=rs[0].columns, rows=rs[0].values;
+    let h='<table><thead><tr>';
+    cols.forEach(c=>h+=`<th>${esc(c)}</th>`); h+='</tr></thead><tbody>';
+    rows.forEach(r=>{
+      h+='<tr>'; r.forEach(v=>h+=`<td>${v==null?'':String(v)}</td>`); h+='</tr>';
+    });
+    h+='</tbody></table>';
+    allCard.innerHTML=h; fullDone=true;
+  }
+
+  /* ─── wire UI ─── */
+  btnRandom.disabled=btnAll.disabled=false;
+
+  btnRandom.onclick = ()=>renderRandom();
+
+  btnAll.onclick = ()=>{
+    if(allCard.style.display==='none'){
+      renderAll();
+      randCard.style.display='none'; allCard.style.display='block';
+      btnRandom.disabled=true; btnAll.textContent='↩️ Hide All Entries'; enableBar(false);
+    }else{
+      allCard.style.display='none'; randCard.style.display='block';
+      btnRandom.disabled=false; btnAll.textContent='📜 Show All Entries';
+      enableBar(currentRow&&currentRow.length>=2);
+    }
+  };
+
+  /* ─── clipboard / ChatGPT helpers ─── */
+  const copy=t=>navigator.clipboard.writeText(t).catch(()=>alert('Copy failed'));
+  copyFront.onclick = ()=>currentRow && copy(String(currentRow[0]));
+  copyBack .onclick = ()=>currentRow&&currentRow[1]!=null && copy(String(currentRow[1]));
+  chatFront.onclick = ()=>currentRow && window.open('https://chat.openai.com/?q='+encodeURIComponent(String(currentRow[0])),'_blank');
+  chatBack .onclick = ()=>currentRow&&currentRow[1]!=null && window.open('https://chat.openai.com/?q='+encodeURIComponent(String(currentRow[1])),'_blank');
+
+  /* ─── initial draw ─── */
+  renderRandom();
+})();
+</script>
+</body></html>

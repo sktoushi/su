@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Game Theory</title>
+    <link rel="stylesheet" href="payoffs-style.css">
+    <script src="config.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Game Theory Payoff Calculator</h1>
+
+        <label for="domain">Domain:</label>
+        <input type="text" id="domain" placeholder="Enter domain" required>
+
+        <div class="slider-container">
+            <label for="expectedPayoff">Expected Payoff: <span class="slider-value" id="expectedPayoffValue">10</span></label>
+            <input type="range" id="expectedPayoff" min="0" max="10" value="10" oninput="updateValue('expectedPayoff')">
+        </div>
+
+        <div class="slider-container">
+            <label for="actualPayoff">Actual Payoff: <span class="slider-value" id="actualPayoffValue">5</span></label>
+            <input type="range" id="actualPayoff" min="0" max="10" value="5" oninput="updateValue('actualPayoff')">
+        </div>
+
+        <div class="slider-container">
+            <label for="positiveExternality">Positive Externality: <span class="slider-value" id="positiveExternalityValue">0</span></label>
+            <input type="range" id="positiveExternality" min="0" max="10" value="0" oninput="updateValue('positiveExternality')">
+        </div>
+
+        <div class="slider-container">
+            <label for="negativeExternality">Negative Externality: <span class="slider-value" id="negativeExternalityValue">0</span></label>
+            <input type="range" id="negativeExternality" min="0" max="10" value="0" oninput="updateValue('negativeExternality')">
+        </div>
+
+        <div class="buttons">
+            <button id="sheet-btn" onclick="redirectToSheet()">📄</button>
+            <button id="refresh-btn" onclick="resetForm()">🔄</button>
+        </div>
+
+        <button class="calculate" onclick="calculatePayoff()">Calculate Total Payoff</button>
+
+        <div class="results" id="resultsContainer">
+            <h2>Results</h2>
+            <p id="totalPayoff">Total Payoff: </p>
+            <p id="foresight">Foresight%: </p>
+        </div>
+    </div>
+
+    <script>
+        function updateValue(id) {
+            document.getElementById(id + 'Value').innerText = document.getElementById(id).value;
+        }
+
+        function calculatePayoff() {
+            var domain = document.getElementById('domain').value;
+            if (!domain) {
+                alert("Domain is required!");
+                return;
+            }
+            var expectedPayoff = parseFloat(document.getElementById('expectedPayoff').value);
+            var actualPayoff = parseFloat(document.getElementById('actualPayoff').value);
+            var positiveExternality = parseFloat(document.getElementById('positiveExternality').value);
+            var negativeExternality = parseFloat(document.getElementById('negativeExternality').value);
+
+            var totalPayoff = actualPayoff + positiveExternality - negativeExternality;
+            var foresight = (expectedPayoff !== 0) ? (actualPayoff / expectedPayoff) * 100 : 0;
+
+            document.getElementById('totalPayoff').innerText = 'Total Payoff: ' + totalPayoff;
+            document.getElementById('foresight').innerText = 'Foresight%: ' + foresight.toFixed(2) + '%';
+
+            document.getElementById('resultsContainer').style.display = 'block';
+
+            var scriptURL = PAYOFFS_API;
+            var fullURL = scriptURL + "?domain=" + encodeURIComponent(domain) +
+                "&expectedPayoff=" + encodeURIComponent(expectedPayoff) +
+                "&positiveExternality=" + encodeURIComponent(positiveExternality) +
+                "&negativeExternality=" + encodeURIComponent(negativeExternality) +
+                "&totalPayoff=" + encodeURIComponent(totalPayoff);
+
+            fetch(fullURL, { mode: 'no-cors' })
+                .then(response => {
+                    copyToClipboard(fullURL);
+                    var userChoice = confirm("Registered successfully!");
+                    if (userChoice) {
+                        window.history.back();
+                    }
+                })
+                .catch(error => {
+                    alert("Error: " + error.message);
+                });
+        }
+
+        function copyToClipboard(fullURL) {
+            var currentDateTime = new Date().toISOString();
+            var clipboardContent = `\`${currentDateTime} ${fullURL}\``;
+            navigator.clipboard.writeText(clipboardContent)
+                .then(() => {
+                    console.log("URL copied to clipboard with timestamp.");
+                })
+                .catch(err => {
+                    console.error("Failed to copy to clipboard: ", err);
+                });
+        }
+
+        function resetForm() {
+            document.getElementById('domain').value = '';
+            document.getElementById('domain').disabled = false;
+
+            document.getElementById('expectedPayoff').value = 100;
+            document.getElementById('actualPayoff').value = 50;
+            document.getElementById('positiveExternality').value = 0;
+            document.getElementById('negativeExternality').value = 0;
+
+            updateValue('expectedPayoff');
+            updateValue('actualPayoff');
+            updateValue('positiveExternality');
+            updateValue('negativeExternality');
+
+            document.getElementById('resultsContainer').style.display = 'none';
+        }
+
+        function redirectToSheet() {
+            window.location.href = SHEET_URL;
+        }
+
+        window.onload = function () {
+            var domainParam = new URLSearchParams(window.location.search).get('domain');
+            if (domainParam) {
+                var domainInput = document.getElementById('domain');
+                domainInput.value = domainParam;
+                domainInput.disabled = true;
+            }
+        };
+    </script>
+</body>
+
+</html>

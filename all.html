@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repository Issue Randomizer</title>
+  <script src="common/random-utils.js"></script>
+</head>
+<body>
+<script>
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories || {};
+    const issues = [];
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+    const n = issues.length;
+    let formulaParam = 'random';
+    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
+    if (formulas.length > 0) {
+      const idx = Math.floor(getSecureRandomNumber() * formulas.length);
+      formulaParam = formulas[idx];
+    }
+    const weights = new Array(n).fill(1);
+    if (formulaParam === 'leftLeaning') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (n - i) * noise;
+      }
+    } else if (formulaParam === 'rightLeaning1') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (i + 1) * noise;
+      }
+    } else if (formulaParam === 'recent20Percent') {
+      const startIdx = Math.floor(n * 0.8);
+      for (let i = startIdx; i < n; i++) weights[i] = 5;
+    } else if (formulaParam === 'recent5Percent') {
+      const startIdx = Math.floor(n * 0.95);
+      for (let i = startIdx; i < n; i++) weights[i] = 20;
+    }
+    function pick(arr, w) {
+      const tot = w.reduce((a, b) => a + b, 0);
+      let rnd = getSecureRandomNumber() * tot;
+      for (let i = 0; i < arr.length; i++) {
+        if (rnd < w[i]) return arr[i];
+        rnd -= w[i];
+      }
+      return arr[arr.length - 1];
+    }
+    const chosen = pick(issues, weights);
+    location.href = chosen;
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Analytics Dashboard</title>
+  <!-- Bootstrap CSS (v5) -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Chart.js (latest) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"
+    integrity="sha384-W7OW5bKs6GBnOO1RNnEjnU5/m0xZdBa6dR95nXzH2L5gwudrRRBVlDoSlB7PXQyH"
+    crossorigin="anonymous"
+  ></script>
+  <style>
+    body {
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .chart-container {
+      position: relative;
+      margin: 0 auto;
+      height: 400px;
+      max-width: 800px;
+    }
+    /* Make tables horizontally scrollable on small devices */
+    .table-responsive {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1 class="mb-4">Analytics Dashboard</h1>
+
+  <!-- 
+    1. CSV Input Section
+       A text area and a "Parse CSV" button, or optionally you can
+       replace with a file input to read a local CSV file.
+  -->
+  <div class="mb-5">
+    <h3>1. Provide CSV data</h3>
+    <p class="text-muted">
+      Paste the CSV content below, or replace this with a file input in your own usage.
+    </p>
+    <textarea
+      class="form-control"
+      id="csvInput"
+      rows="6"
+    >csv,null,skyway-bucket-finer-things-in-life.csv
+csv,null,skyway-modifiable-redirect0915-133-stash-of-stashes.csv
+csv,3,skyway-bucket-main.csv
+csv,3,skyway-bucket-main-jp.csv
+csv,3,skyway-modifiable-redirect0915-144-japanese-learning-alloc.csv
+csv,3,skyway-modifiable-redirect0915-150-stash2-recent10percent.csv
+link,2,https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-pmbok-2025
+link,1,https://github.com/mdr19ganseki95cf/redirect0915/issues/148
+csv,1,skyway-random-stuff.csv</textarea>
+    <button class="btn btn-primary mt-2" id="parseCsvBtn">Parse CSV</button>
+  </div>
+
+  <!--
+    2. Analytics Table
+       This section shows the sorted frequency of each "type"
+       from the parsed CSV data. 
+  -->
+  <div class="mb-5">
+    <h3>2. Analytics Table (sorted by frequency)</h3>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Type</th>
+            <th>Count</th>
+          </tr>
+        </thead>
+        <tbody id="analyticsTableBody">
+          <!-- Rows will be dynamically populated -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!--
+    3. Chart.js Visualization
+       A bar chart to show the frequency of each type in a visual manner.
+  -->
+  <div class="mb-5">
+    <h3>3. Analytics Chart</h3>
+    <div class="chart-container">
+      <canvas id="analyticsChart"></canvas>
+    </div>
+  </div>
+
+  <!--
+    4. Export/Import the analytics state
+       Allows the user to save the computed analytics as JSON, then
+       re-import it later (no need to re-parse the CSV).
+  -->
+  <div class="mb-5">
+    <h3>4. Export & Import Analytics State (JSON)</h3>
+    <div class="d-flex flex-wrap align-items-center mb-2">
+      <button class="btn btn-success me-2 mb-2" id="exportJsonBtn">Export as JSON</button>
+      <input
+        type="file"
+        accept="application/json"
+        class="form-control w-auto mb-2"
+        id="importJsonFile"
+      />
+    </div>
+    <p class="text-muted">
+      <small>Click "Export as JSON" to download the current analytics.  
+      Then "Import" by selecting the JSON file you exported earlier.</small>
+    </p>
+  </div>
+</div>
+
+<!-- Bootstrap JavaScript (for any needed JS utilities, e.g., modals, etc.) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+5Nk3V0QK0fRa3eHMR4lGHG2FN9Iv"
+  crossorigin="anonymous"
+></script>
+
+<script>
+  // Global variable to store computed analytics (mapping of type -> count)
+  let analyticsData = {};
+
+  // Chart instance reference
+  let analyticsChart = null;
+
+  /**
+   * parseCsvLine - Minimal CSV parsing line by line,
+   * respecting quotes to avoid splitting on commas within quotes.
+   *
+   * Returns an array of cells.
+   */
+  function parseCsvLine(line) {
+    const result = [];
+    let curCell = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+
+      if (c === '"') {
+        // Look ahead for double quote
+        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+          curCell += '"'; // add literal quote
+          i++;
+        } else {
+          inQuotes = !inQuotes; // toggle
+        }
+      } else if (c === ',' && !inQuotes) {
+        result.push(curCell.trim());
+        curCell = '';
+      } else {
+        curCell += c;
+      }
+    }
+    result.push(curCell.trim());
+    return result;
+  }
+
+  /**
+   * parseCsv - Splits the CSV text by newlines, then calls parseCsvLine.
+   * Returns an array of row arrays.
+   */
+  function parseCsv(csvText) {
+    // Split text into lines & trim them
+    const lines = csvText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    const rows = lines.map(line => parseCsvLine(line));
+    return rows;
+  }
+
+  /**
+   * computeAnalytics - Takes rows (an array of arrays) and computes:
+   *   type -> frequency
+   */
+  function computeAnalytics(rows) {
+    const freqMap = {};
+
+    rows.forEach(row => {
+      // row[0] is "type", e.g. "csv" or "link" ...
+      const type = (row[0] || '').trim();
+      if (!type) return;
+
+      if (!freqMap[type]) {
+        freqMap[type] = 0;
+      }
+      freqMap[type]++;
+    });
+
+    return freqMap;
+  }
+
+  /**
+   * updateTable - Renders the analytics data into the table,
+   * sorted from highest frequency to lowest.
+   */
+  function updateTable(analytics) {
+    const tableBody = document.getElementById('analyticsTableBody');
+    tableBody.innerHTML = '';
+
+    // Convert freqMap to array, then sort
+    const entries = Object.entries(analytics);
+    entries.sort((a, b) => b[1] - a[1]);
+
+    entries.forEach(([type, count]) => {
+      const row = document.createElement('tr');
+      const typeCell = document.createElement('td');
+      typeCell.textContent = type;
+      const countCell = document.createElement('td');
+      countCell.textContent = count;
+
+      row.appendChild(typeCell);
+      row.appendChild(countCell);
+      tableBody.appendChild(row);
+    });
+  }
+
+  /**
+   * updateChart - Renders or updates a bar chart using Chart.js
+   * with the analytics data.
+   */
+  function updateChart(analytics) {
+    const ctx = document.getElementById('analyticsChart').getContext('2d');
+
+    // Convert freqMap to array, then sort
+    const entries = Object.entries(analytics);
+    entries.sort((a, b) => b[1] - a[1]);
+
+    const labels = entries.map(e => e[0]);
+    const data = entries.map(e => e[1]);
+
+    // If chart already exists, destroy it before re-creating
+    if (analyticsChart) {
+      analyticsChart.destroy();
+    }
+
+    analyticsChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Frequency',
+            data: data,
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgb(54, 162, 235)',
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Count',
+            },
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Type',
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * exportAnalytics - Exports the analytics data to a JSON file.
+   */
+  function exportAnalytics() {
+    if (!analyticsData || Object.keys(analyticsData).length === 0) {
+      alert('No analytics data to export.');
+      return;
+    }
+    const dataStr = JSON.stringify(analyticsData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analytics-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * importAnalytics - Reads a JSON file and merges or replaces
+   * the analytics data.
+   */
+  function importAnalytics(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const json = JSON.parse(e.target.result);
+        analyticsData = json;
+        updateTable(analyticsData);
+        updateChart(analyticsData);
+        alert('Analytics imported successfully!');
+      } catch (err) {
+        alert('Failed to parse JSON: ' + err);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ========== EVENT LISTENERS ==========
+
+  // Handle the "Parse CSV" button
+  document.getElementById('parseCsvBtn').addEventListener('click', () => {
+    const csvText = document.getElementById('csvInput').value.trim();
+    if (!csvText) {
+      alert('Please provide CSV data!');
+      return;
+    }
+    const rows = parseCsv(csvText);
+    analyticsData = computeAnalytics(rows);
+
+    updateTable(analyticsData);
+    updateChart(analyticsData);
+  });
+
+  // Handle "Export as JSON" button
+  document.getElementById('exportJsonBtn').addEventListener('click', exportAnalytics);
+
+  // Handle "Import" from file input
+  document.getElementById('importJsonFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) {
+      return;
+    }
+    importAnalytics(file);
+    // Reset file input
+    e.target.value = '';
+  });
+</script>
+</body>
+</html>

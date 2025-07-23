@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>Random Math Practice</title>
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Font Awesome (optional for icons) -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      background-color: #f8f9fa;
+      transition: background-color 0.5s ease;
+    }
+    body.dark-mode {
+      background-color: #343a40;
+      color: #f8f9fa;
+    }
+    .container {
+      max-width: 900px;
+      margin-top: 30px;
+    }
+    .large-btn {
+      width: 100%;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+      padding: 1rem 2rem;
+    }
+    .question-area {
+      font-size: 2rem;
+      margin-top: 1rem;
+    }
+    .hidden {
+      display: none;
+    }
+    .tip-block {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      background: #f8f9fa;
+      border-radius: 0.25rem;
+    }
+    /* Additional dark-mode styling from your snippet */
+    body.dark-mode {
+      background-color: #343a40;
+      color: #f8f9fa;
+    }
+    .dark-mode .card {
+      background-color: #495057;
+      color: #f8f9fa;
+    }
+    .dark-mode .form-control,
+    .dark-mode .form-select {
+      background-color: #6c757d;
+      color: #f8f9fa;
+      border: 1px solid #ced4da;
+    }
+    .dark-mode .btn-primary {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    .dark-mode .btn-secondary {
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <!-- Pantone color display (upper right) -->
+  <div
+    id="pantoneColorDisplay"
+    style="
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #ffffffcc;
+      padding: 5px;
+      border-radius: 5px;
+      font-weight: bold;
+    "
+  ></div>
+
+  <div class="container">
+    <h1 class="text-center">Random Math Practice</h1>
+
+    <!-- Dark Mode Toggle -->
+    <div class="text-end mb-3">
+      <button class="btn btn-secondary" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+        <i class="fas fa-moon"></i> Dark Mode
+      </button>
+    </div>
+
+    <!-- Intro Section -->
+    <div id="intro-section">
+      <p>
+        This page now uses <code>minMaxRepChoices</code> instead of <code>minMaxRep</code>.
+        Format: <code>?minMaxRepChoices=2_10_5_4</code> which means:
+        <strong>min=2</strong>, <strong>max=10</strong>, <strong>reps=5</strong>, <strong>choices=4</strong>.
+      </p>
+      <p>
+        Questions are evenly distributed among addition, subtraction, multiplication,
+        and integer-only division (denominator ≤ max).
+        Each question is multiple-choice with
+        the exact number of choices you specified.
+      </p>
+      <button id="startBtn" class="btn btn-primary large-btn">Start</button>
+    </div>
+
+    <!-- Question Section -->
+    <div id="question-section" class="hidden">
+      <div class="question-area text-center">
+        <span id="question-text"></span>
+      </div>
+      <!-- Multiple-choice container -->
+      <div id="choice-buttons" class="text-center my-3">
+        <!-- We'll dynamically create choice buttons here -->
+      </div>
+      <div class="text-center">
+        <button id="skipBtn" class="btn btn-warning large-btn">Skip</button>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="hidden">
+      <h3 class="text-center">Session Results</h3>
+      <p class="text-center">
+        <strong>Correct:</strong> <span id="correctCount"></span> /
+        <span id="totalCount"></span><br />
+        <strong>Accuracy:</strong> <span id="accuracy"></span><br />
+        <strong>Time (seconds):</strong> <span id="timeTaken"></span><br />
+        <strong>Final Score:</strong> <span id="finalScore"></span>
+      </p>
+
+      <div id="tips-section" class="my-4">
+        <h5>Tips for Missed Questions</h5>
+        <div id="tips-container" class="mt-2">
+          <!-- Missed question tips go here -->
+        </div>
+      </div>
+
+      <h4 class="text-center">Leaderboard (Top 15)</h4>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Username</th>
+            <th>Score</th>
+            <th>Accuracy</th>
+            <th>Time (s)</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+      <div class="text-center">
+        <button id="restartBtn" class="btn btn-primary large-btn">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Congratulatory Modal -->
+  <div
+    class="modal fade"
+    id="congratsModal"
+    tabindex="-1"
+    aria-labelledby="congratsModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="congratsModalLabel">Congratulations!</h1>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <p>You made it onto the Top 15 leaderboard! Awesome job!</p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container (optional) -->
+  <div
+    aria-live="polite"
+    aria-atomic="true"
+    class="position-relative"
+  >
+    <div
+      id="toastContainer"
+      class="position-fixed bottom-0 end-0 p-3"
+      style="z-index: 11"
+    ></div>
+  </div>
+
+  <script>
+    /*******************************************************
+     * 1) Secure RNG
+     *******************************************************/
+
+    /*******************************************************
+     * 2) Pantone Colors (fetch from pantone-colors.json)
+     *******************************************************/
+    let pantoneData = null;
+    async function loadPantoneColors() {
+      if (!pantoneData) {
+        const resp = await fetch('pantone-colors.json');
+        if (!resp.ok) {
+          throw new Error('Failed to load pantone-colors.json');
+        }
+        pantoneData = await resp.json();
+      }
+      return pantoneData;
+    }
+
+    async function updateBackgroundColor() {
+      try {
+        const data = await loadPantoneColors();
+        if (
+          !data.names ||
+          !data.values ||
+          data.names.length !== data.values.length
+        ) {
+          throw new Error('Invalid pantone-colors.json format.');
+        }
+        const idx = Math.floor(getSecureRandomNumber() * data.names.length);
+        const chosenName = data.names[idx];
+        const chosenValue = data.values[idx];
+        document.body.style.backgroundColor = chosenValue;
+
+        const disp = document.getElementById('pantoneColorDisplay');
+        if (disp) {
+          disp.textContent = `${chosenName} (${chosenValue})`;
+        }
+      } catch (e) {
+        console.error('Error updating background color:', e);
+      }
+    }
+
+    function attachColorChange(btn) {
+      btn.addEventListener('click', async () => {
+        await updateBackgroundColor();
+      });
+    }
+
+    /*******************************************************
+     * 3) Parse ?minMaxRepChoices= min_max_reps_choices
+     *******************************************************/
+    const urlParams = new URLSearchParams(window.location.search);
+    let paramVal = urlParams.get('minMaxRepChoices') || '';
+    let minVal = 2,
+      maxVal = 10,
+      repsVal = 5,
+      choicesVal = 4; // default 4 choices
+
+    if (paramVal) {
+      const parts = paramVal.split('_');
+      if (parts.length === 4) {
+        const pMin = parseInt(parts[0]);
+        const pMax = parseInt(parts[1]);
+        const pReps = parseInt(parts[2]);
+        const pChoices = parseInt(parts[3]);
+        if (
+          !isNaN(pMin) &&
+          !isNaN(pMax) &&
+          !isNaN(pReps) &&
+          !isNaN(pChoices)
+        ) {
+          minVal = pMin;
+          maxVal = pMax;
+          repsVal = pReps;
+          choicesVal = pChoices;
+        }
+      }
+    }
+    // Boundaries
+    if (minVal < 2) minVal = 2;
+    if (maxVal < 2) maxVal = 2;
+    if (minVal > 999) minVal = 999;
+    if (maxVal > 999) maxVal = 999;
+    if (repsVal < 1) repsVal = 1;
+    if (choicesVal < 2) choicesVal = 2; // at least 2 choices
+
+    if (minVal > maxVal) {
+      const tmp = minVal;
+      minVal = maxVal;
+      maxVal = tmp;
+    }
+
+    /*******************************************************
+     * 4) Generate question set
+     *    Largest denominator in [minVal..maxVal].
+     *******************************************************/
+    const operations = ['+', '-', '*', '/'];
+
+    function getRandomInt(min, max) {
+      const rng = getSecureRandomNumber();
+      return Math.floor(rng * (max - min + 1)) + min;
+    }
+
+    function generateQuestions() {
+      // Evenly distribute ops
+      const opsArr = [];
+      for (let i = 0; i < repsVal; i++) {
+        opsArr.push(operations[i % operations.length]);
+      }
+      // Shuffle ops
+      for (let i = opsArr.length - 1; i > 0; i--) {
+        const j = Math.floor(getSecureRandomNumber() * (i + 1));
+        [opsArr[i], opsArr[j]] = [opsArr[j], opsArr[i]];
+      }
+
+      return opsArr.map((op) => {
+        let a, b, text, answer;
+        switch (op) {
+          case '+': {
+            a = getRandomInt(minVal, maxVal);
+            b = getRandomInt(minVal, maxVal);
+            text = `${a} + ${b}`;
+            answer = a + b;
+            break;
+          }
+          case '-': {
+            a = getRandomInt(minVal, maxVal);
+            b = getRandomInt(minVal, maxVal);
+            if (b > a) [a, b] = [b, a];
+            text = `${a} - ${b}`;
+            answer = a - b;
+            break;
+          }
+          case '*': {
+            a = getRandomInt(minVal, maxVal);
+            b = getRandomInt(minVal, maxVal);
+            text = `${a} * ${b}`;
+            answer = a * b;
+            break;
+          }
+          case '/': {
+            // Must produce integer result, denominator <= maxVal
+            b = getRandomInt(minVal, maxVal);
+            const multiplier = getRandomInt(minVal, maxVal);
+            a = b * multiplier;
+            text = `${a} / ${b}`;
+            answer = a / b;
+            break;
+          }
+        }
+        return {
+          questionText: text,
+          operation: op,
+          operandA: a,
+          operandB: b,
+          correctAnswer: answer
+        };
+      });
+    }
+
+    /*******************************************************
+     * 5) Programmatic "Canned" Tips
+     *******************************************************/
+    function getProgrammaticTip(a, b, op) {
+      switch (op) {
+        case '+':
+          return `Think of adding ${b} to ${a} quickly, or break into tens and ones. Sum = ${a + b}.`;
+        case '-':
+          if (b === 0) {
+            return `Subtracting 0 leaves ${a}.`;
+          }
+          return `How far from ${b} to ${a}? The difference is ${a - b}.`;
+        case '*':
+          if ((a === 99 && b < 20) || (b === 99 && a < 20)) {
+            return `Near-100 trick: e.g., 99 * 7 = 693. So ${a} * ${b} = ${a * b}.`;
+          }
+          return `Use multiplication facts or repeated addition. Product = ${a * b}.`;
+        case '/':
+          if (b === 1) {
+            return `Dividing by 1 is the same number: ${a}.`;
+          }
+          if (a === b) {
+            return `When numerator == denominator, result is 1.`;
+          }
+          return `Count how many times ${b} fits in ${a}. The result is ${a / b}.`;
+        default:
+          return `No tip.`;
+      }
+    }
+
+    /*******************************************************
+     * 6) Session Logic
+     *******************************************************/
+    let questions = [];
+    let currentIndex = 0;
+    let correctCount = 0;
+    let missedQuestions = [];
+    let startTime = 0;
+
+    function startSession() {
+      document.getElementById('intro-section').classList.add('hidden');
+      document.getElementById('question-section').classList.remove('hidden');
+      document.getElementById('results-section').classList.add('hidden');
+
+      questions = generateQuestions();
+      currentIndex = 0;
+      correctCount = 0;
+      missedQuestions = [];
+      startTime = performance.now();
+
+      showQuestion();
+    }
+
+    function showQuestion() {
+      if (currentIndex < questions.length) {
+        const qObj = questions[currentIndex];
+        const qTextEl = document.getElementById('question-text');
+        qTextEl.textContent = `Q${currentIndex + 1}: ${qObj.questionText} = ?`;
+
+        // Build multiple-choice answers
+        buildChoiceButtons(qObj);
+
+      } else {
+        endSession();
+      }
+    }
+
+    // Create the set of "choicesVal" possible answers, including the correct one.
+    function buildChoiceButtons(qObj) {
+      const choiceContainer = document.getElementById('choice-buttons');
+      choiceContainer.innerHTML = ''; // clear old
+
+      // The correct answer is qObj.correctAnswer
+      // We'll generate (choicesVal-1) near misses that are "quite close"
+      let answers = [];
+      answers.push(qObj.correctAnswer);
+
+      while (answers.length < choicesVal) {
+        const nearMiss = getNearMiss(qObj.correctAnswer);
+        // ensure no duplicates
+        if (!answers.includes(nearMiss)) {
+          answers.push(nearMiss);
+        }
+      }
+
+      // Shuffle answers
+      for (let i = answers.length - 1; i > 0; i--) {
+        const j = Math.floor(getSecureRandomNumber() * (i + 1));
+        [answers[i], answers[j]] = [answers[j], answers[i]];
+      }
+
+      // Create buttons
+      answers.forEach((ansVal) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-info large-btn';
+        btn.textContent = ansVal;
+        btn.onclick = () => {
+          // Evaluate choice
+          handleChoiceClick(ansVal, qObj.correctAnswer);
+        };
+        choiceContainer.appendChild(btn);
+      });
+    }
+
+    // Generate a near-miss answer that's "quite close"
+    function getNearMiss(correct) {
+      // We'll do up to ± 1..10 range, or something that ensures closeness
+      // but is not the correct answer.
+      // This is a simple approach; you can refine to be trickier.
+      const offset = Math.floor(getSecureRandomNumber() * 10) + 1;
+      // 50/50 chance to add or subtract
+      const sign = getSecureRandomNumber() < 0.5 ? -1 : 1;
+      const nearMiss = correct + sign * offset;
+      // Guard against negative or zero if correct is small
+      return nearMiss <= 0 ? correct + offset : nearMiss;
+    }
+
+    function handleChoiceClick(selected, correct) {
+      if (selected === correct) {
+        correctCount++;
+      } else {
+        missedQuestions.push(questions[currentIndex]);
+      }
+      currentIndex++;
+      showQuestion();
+    }
+
+    function skipAnswer() {
+      if (currentIndex < questions.length) {
+        missedQuestions.push(questions[currentIndex]);
+        currentIndex++;
+        showQuestion();
+      }
+    }
+
+    function endSession() {
+      document.getElementById('question-section').classList.add('hidden');
+      document.getElementById('results-section').classList.remove('hidden');
+
+      const endTime = performance.now();
+      const totalTime = (endTime - startTime) / 1000;
+      const accuracy = correctCount / questions.length;
+      const speedFactor = questions.length / totalTime;
+      const finalScore = 0.5 * accuracy + 0.5 * speedFactor;
+
+      document.getElementById('correctCount').textContent = correctCount;
+      document.getElementById('totalCount').textContent = questions.length;
+      document.getElementById('accuracy').textContent = (accuracy * 100).toFixed(
+        2
+      ) + '%';
+      document.getElementById('timeTaken').textContent = totalTime.toFixed(2);
+      document.getElementById('finalScore').textContent = finalScore.toFixed(4);
+
+      renderMissedTips();
+      const userOnBoard = updateLeaderboard(finalScore, accuracy, totalTime.toFixed(2));
+      if (userOnBoard) {
+        const modal = new bootstrap.Modal(document.getElementById('congratsModal'));
+        modal.show();
+      }
+    }
+
+    function renderMissedTips() {
+      const tipsEl = document.getElementById('tips-container');
+      tipsEl.innerHTML = '';
+      if (missedQuestions.length === 0) {
+        tipsEl.innerHTML = '<p>No missed questions! Good job!</p>';
+        return;
+      }
+      missedQuestions.forEach((q) => {
+        const tip = getProgrammaticTip(q.operandA, q.operandB, q.operation);
+        const div = document.createElement('div');
+        div.classList.add('tip-block');
+        div.innerHTML = `<strong>${q.questionText} = ${q.correctAnswer}</strong><br/>${tip}`;
+        tipsEl.appendChild(div);
+      });
+    }
+
+    /*******************************************************
+     * 7) Leaderboard
+     *******************************************************/
+    function updateLeaderboard(score, accuracy, timeStr) {
+      let lbData = JSON.parse(localStorage.getItem('mathLeaderboard') || '[]');
+      const now = new Date();
+      const dateStr = [
+        now.getFullYear().toString().padStart(4, '0'),
+        (now.getMonth() + 1).toString().padStart(2, '0'),
+        now.getDate().toString().padStart(2, '0'),
+      ].join('');
+      const timePart = [
+        now.getHours().toString().padStart(2, '0'),
+        now.getMinutes().toString().padStart(2, '0'),
+        now.getSeconds().toString().padStart(2, '0'),
+      ].join(':');
+
+      let pantoneName = 'RandomUser';
+      if (pantoneData && pantoneData.names && pantoneData.names.length > 0) {
+        const idx = Math.floor(getSecureRandomNumber() * pantoneData.names.length);
+        pantoneName = pantoneData.names[idx];
+      }
+      const dummyName = `${pantoneName}#${dateStr}-${timePart}`;
+
+      const newEntry = {
+        username: dummyName,
+        score,
+        accuracy,
+        time: parseFloat(timeStr),
+      };
+      lbData.push(newEntry);
+      lbData.sort((a, b) => b.score - a.score);
+      lbData = lbData.slice(0, 15);
+
+      const userIsInBoard = lbData.some((item) => item.username === dummyName);
+      localStorage.setItem('mathLeaderboard', JSON.stringify(lbData));
+      renderLeaderboard(lbData);
+      return userIsInBoard;
+    }
+
+    function renderLeaderboard(lbData) {
+      const tbody = document.getElementById('leaderboard-body');
+      tbody.innerHTML = '';
+      lbData.forEach((entry, i) => {
+        const tr = document.createElement('tr');
+        const rankTd = document.createElement('td');
+        rankTd.textContent = i + 1;
+        const userTd = document.createElement('td');
+        userTd.textContent = entry.username;
+        const scoreTd = document.createElement('td');
+        scoreTd.textContent = entry.score.toFixed(4);
+        const accTd = document.createElement('td');
+        accTd.textContent = (entry.accuracy * 100).toFixed(2) + '%';
+        const timeTd = document.createElement('td');
+        timeTd.textContent = entry.time;
+        tr.append(rankTd, userTd, scoreTd, accTd, timeTd);
+        tbody.appendChild(tr);
+      });
+    }
+
+    /*******************************************************
+     * 8) Dark Mode
+     *******************************************************/
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkModeMath', isDark);
+    }
+
+    function loadDarkModePref() {
+      const isDark = localStorage.getItem('darkModeMath') === 'true';
+      if (isDark) {
+        document.body.classList.add('dark-mode');
+      }
+    }
+
+    /*******************************************************
+     * 9) Event Listeners
+     *******************************************************/
+    const startBtn = document.getElementById('startBtn');
+    const skipBtn = document.getElementById('skipBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    attachColorChange(startBtn);
+    attachColorChange(skipBtn);
+    attachColorChange(restartBtn);
+
+    startBtn.addEventListener('click', startSession);
+    skipBtn.addEventListener('click', skipAnswer);
+    restartBtn.addEventListener('click', () => {
+      document.getElementById('intro-section').classList.remove('hidden');
+      document.getElementById('question-section').classList.add('hidden');
+      document.getElementById('results-section').classList.add('hidden');
+    });
+
+    /*******************************************************
+     * 10) On Page Load
+     *******************************************************/
+    window.addEventListener('load', async () => {
+      loadDarkModePref();
+      await updateBackgroundColor(); // initial color
+    });
+  </script>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+  ></script>
+</body>
+</html>

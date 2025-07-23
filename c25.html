@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>C25 Graph</title>
+<script src="common/d3.min.js"></script>
+<style>
+  body, html {
+    margin: 0;
+    height: 100%;
+    font-family: Helvetica, sans-serif;
+  }
+  svg {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+</head>
+<body>
+<svg></svg>
+<script>
+(function(){
+  const config={"b1":{"202501":100,"202412":4000},"sb":{"202507":4},"sk":{"202506":0.5},"w":{"202506":3}};
+  const nodesMap=new Map();
+  const links=[];
+  function getNode(id){if(!nodesMap.has(id))nodesMap.set(id,{id,value:0});return nodesMap.get(id);}
+
+  for(const [base,dates] of Object.entries(config)){
+    const baseNode=getNode(base);
+    for(const [ym,val] of Object.entries(dates)){
+      baseNode.value+=+val;
+      const monthNode=getNode(ym);
+      monthNode.value+=+val;
+      links.push({source:base,target:ym,value:+val});
+      const yr=ym.substring(0,4);
+      const yearNode=getNode(yr);
+      yearNode.value+=+val;
+      links.push({source:ym,target:yr,value:+val});
+    }
+  }
+  const nodes=Array.from(nodesMap.values());
+  const rScale=d3.scaleSqrt().domain([0,d3.max(nodes,d=>d.value)]).range([5,30]);
+  const svg=d3.select('svg');
+  const sim=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(80))
+    .force('charge',d3.forceManyBody().strength(-100))
+    .force('center',d3.forceCenter(window.innerWidth/2,window.innerHeight/2));
+  const link=svg.append('g').attr('stroke','#999').attr('stroke-opacity',0.6)
+    .selectAll('line').data(links).enter().append('line');
+  const node=svg.append('g').attr('stroke','#fff').attr('stroke-width',1.5)
+    .selectAll('circle').data(nodes).enter().append('circle')
+      .attr('r',d=>rScale(d.value))
+      .attr('fill','steelblue')
+      .call(d3.drag().on('start',dragstarted).on('drag',dragged).on('end',dragended));
+  const label=svg.append('g').selectAll('text').data(nodes).enter().append('text')
+      .attr('text-anchor','middle').attr('dy','0.35em').style('pointer-events','none')
+      .style('font-size','16px').style('fill','#000').text(d=>d.id);
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('cx',d=>d.x).attr('cy',d=>d.y);
+    label.attr('x',d=>d.x).attr('y',d=>d.y);
+  });
+  function dragstarted(event){if(!event.active)sim.alphaTarget(0.3).restart();event.subject.fx=event.subject.x;event.subject.fy=event.subject.y;}
+  function dragged(event){event.subject.fx=event.x;event.subject.fy=event.y;}
+  function dragended(event){if(!event.active)sim.alphaTarget(0);event.subject.fx=null;event.subject.fy=null;}
+})();
+</script>
+</body>
+</html>

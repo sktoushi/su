@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Random URL Picker with Customizable Settings</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 30px;
+        }
+        .progress-container {
+            margin-bottom: 20px;
+        }
+        .btn-draw {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .slider-container, .input-container {
+            margin-bottom: 20px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn-export {
+            margin-top: 10px;
+        }
+        .input-group-text {
+            width: 100px;
+        }
+    </style>
+    <script>
+        let b1 = {}; // Bucket 1 (reviews)
+        let b2 = {}; // Bucket 2 (new elements)
+        let initB2Total = 0; // Initial total frequency of Bucket 2
+        let b1Prob = 0.66; // Default probability for Bucket 1
+        let b2Prob = 0.34; // Default probability for Bucket 2
+        let defaultFrequency = 1; // Default frequency
+        let urlPrefix = ''; // URL Prefix
+        let urlSuffix = ''; // URL Suffix
+
+
+        // Constants for repetitive parts of the URLs
+        const BASE_URL = "https://docs.drools.org/8.44.0.Final/drools-docs/";
+        const COMMANDS_INDEX = BASE_URL + "drools/Commands/index.html";
+        const DMN_INDEX = BASE_URL + "drools/DMN/index.html";
+        const KIE_INDEX = BASE_URL + "drools/KIE/index.html";
+        const EXPERIMENTAL_FEATURES_INDEX = BASE_URL + "drools/experimental-features/index.html";
+        const GETTING_STARTED_INDEX = BASE_URL + "drools/getting-started/index.html";
+        const INTRODUCTION_INDEX = BASE_URL + "drools/introduction/index.html";
+        const LANGUAGE_REFERENCE_INDEX = BASE_URL + "drools/language-reference/index.html";
+        const MIGRATION_GUIDE_INDEX = BASE_URL + "drools/migration-guide/index.html";
+        const PRAGMATIC_AI_INDEX = BASE_URL + "drools/pragmatic-ai/index.html";
+        const RULE_ENGINE_INDEX = BASE_URL + "drools/rule-engine/index.html";
+
+        // Full list of URLs provided, using constants for repetitive parts
+        let initialFiles = [
+            [1, COMMANDS_INDEX, 1],
+            [2, COMMANDS_INDEX + "#_batchexecutioncommand", 1],
+            [3, COMMANDS_INDEX + "#_fireallrulescommand", 1],
+            [4, COMMANDS_INDEX + "#_getobjectcommand", 1],
+            [5, COMMANDS_INDEX + "#_getobjectscommand", 1],
+            [6, COMMANDS_INDEX + "#_insertelementscommand", 1],
+            [7, COMMANDS_INDEX + "#_insertobjectcommand", 1],
+            [8, COMMANDS_INDEX + "#_modifycommand", 1],
+            [9, COMMANDS_INDEX + "#_querycommand", 1],
+            [10, COMMANDS_INDEX + "#_retractcommand", 1],
+            [11, COMMANDS_INDEX + "#_setglobalcommand", 1],
+            [12, COMMANDS_INDEX + "#runtime-commands-con_kie-apis", 1],
+            [13, COMMANDS_INDEX + "#runtime-commands-samples-ref_kie-apis", 1],
+            [14, DMN_INDEX, 1],
+            [15, DMN_INDEX + "#dmn-boxed-expressions-con_dmn-models", 1],
+            [16, DMN_INDEX + "#dmn-conformance-levels-con_dmn-models", 1],
+            [17, DMN_INDEX + "#dmn-context-expressions-con_dmn-models", 1],
+            [18, DMN_INDEX + "#dmn-data-types-defining-proc_dmn-models", 1],
+            [19, DMN_INDEX + "#dmn-decision-tables-con_dmn-models", 1],
+            [20, DMN_INDEX + "#dmn-designer-nav-ref_dmn-models", 1],
+            [21, DMN_INDEX + "#dmn-documentation-con_dmn-models", 1],
+            [22, DMN_INDEX + "#dmn-drd-components-ref_dmn-models", 1],
+            [23, DMN_INDEX + "#dmn-execution-con_dmn-models", 1],
+            [24, DMN_INDEX + "#dmn-execution-embedded-proc", 1],
+            [25, DMN_INDEX + "#dmn-execution-kogito-proc_dmn-models", 1],
+            [26, DMN_INDEX + "#dmn-feel-con_dmn-models", 1],
+            [27, DMN_INDEX + "#dmn-feel-data-types-ref_dmn-models", 1],
+            [28, DMN_INDEX + "#dmn-feel-enhancements-ref_dmn-models", 1],
+            [29, DMN_INDEX + "#dmn-feel-variable-function-names-ref_dmn-models", 1],
+            [30, DMN_INDEX + "#dmn-function-expressions-con_dmn-models", 1],
+            [31, DMN_INDEX + "#dmn-included-models-con_dmn-models", 1],
+            [32, DMN_INDEX + "#dmn-included-models-dmn-proc_dmn-models", 1],
+            [33, DMN_INDEX + "#dmn-included-models-pmml-proc_dmn-models", 1],
+            [34, DMN_INDEX + "#dmn-invocation-expressions-con_dmn-models", 1],
+            [35, DMN_INDEX + "#dmn-list-expressions-con_dmn-models", 1],
+            [36, DMN_INDEX + "#dmn-literal-expressions-con_dmn-models", 1],
+            [37, DMN_INDEX + "#dmn-logic-defining-proc_dmn-models", 1],
+            [38, DMN_INDEX + "#dmn-model-creating-multiples-proc_dmn-models", 1],
+            [39, DMN_INDEX + "#dmn-model-creating-proc_dmn-models", 1],
+            [40, DMN_INDEX + "#dmn-model-enhancements-ref_dmn-models", 1],
+            [41, DMN_INDEX + "#dmn-model-example-ref_dmn-models", 1],
+            [42, DMN_INDEX + "#dmn-properties-ref_dmn-models", 1],
+            [43, DMN_INDEX + "#dmn-relation-expressions-con_dmn-models", 1],
+            [44, DMN_INDEX + "#dmn-support-con_dmn-models", 1],
+            [45, DMN_INDEX + "#dmn-validation-con_dmn-models", 1],
+            [46, DMN_INDEX + "#ref-dmn-feel-builtin-functions_dmn-models", 1],
+            [47, KIE_INDEX, 1],
+            [48, KIE_INDEX + "#_buildingwithmaven", 1],
+            [49, KIE_INDEX + "#_buildingwithmavenandrunningdroolsinauberjarorfatjar", 1],
+            [50, KIE_INDEX + "#_changingthedefaultbuildresultseverity", 1],
+            [51, KIE_INDEX + "#_client_code", 1],
+            [52, KIE_INDEX + "#_commands_and_the_commandexecutor", 1],
+            [53, KIE_INDEX + "#_creatingandbuildingakieproject", 1],
+            [54, KIE_INDEX + "#_data_sources", 1],
+            [55, KIE_INDEX + "#_declare_rule_units_in_drl", 1],
+            [56, KIE_INDEX + "#_default_kiesession", 1],
+            [57, KIE_INDEX + "#_default_kiesession_from_file", 1],
+            [58, KIE_INDEX + "#_definingakiemoduleprogrammatically", 1],
+            [59, KIE_INDEX + "#_enginedependency", 1],
+            [60, KIE_INDEX + "#_event_model", 1],
+            [61, KIE_INDEX + "#_howtodefinekiepolicy", 1],
+            [62, KIE_INDEX + "#_kiebase", 1],
+            [63, KIE_INDEX + "#_kiebase_2", 1],
+            [64, KIE_INDEX + "#_kiebase_inheritance", 1],
+            [65, KIE_INDEX + "#_kiebuildingsection", 1],
+            [66, KIE_INDEX + "#_kiecontainer_from_kierepository", 1],
+            [67, KIE_INDEX + "#_kiedeployingsection", 1],
+            [68, KIE_INDEX + "#_kieexamplessection", 1],
+            [69, KIE_INDEX + "#_kiemodule_with_dependent_kiemodule", 1],
+            [70, KIE_INDEX + "#_kiemoduleintroductionbuildingintroductionsection", 1],
+            [71, KIE_INDEX + "#_kierunningsection", 1],
+            [72, KIE_INDEX + "#_kieruntime", 1],
+            [73, KIE_INDEX + "#_kieruntimelogger", 1],
+            [74, KIE_INDEX + "#_kiescanner", 1],
+            [75, KIE_INDEX + "#_kiesession", 1],
+            [76, KIE_INDEX + "#_kiesessions_and_kiebase_modifications", 1],
+            [77, KIE_INDEX + "#_marshalling", 1],
+            [78, KIE_INDEX + "#_maven_versions_and_dependencies", 1],
+            [79, KIE_INDEX + "#_multiple_kiebases", 1],
+            [80, KIE_INDEX + "#_named_kiesession", 1],
+            [81, KIE_INDEX + "#_named_kiesession_from_file", 1],
+            [82, KIE_INDEX + "#_persistence_and_transactions", 1],
+            [83, KIE_INDEX + "#_programmatically_build_a_kiemodule_using_meta_models", 1],
+            [84, KIE_INDEX + "#_programmatically_build_a_simple_kiemodule_with_defaults", 1],
+            [85, KIE_INDEX + "#_ruleunitdata", 1],
+            [86, KIE_INDEX + "#_securitymanager", 1],
+            [87, KIE_INDEX + "#_settings_xml_and_remote_repository_setup", 1],
+            [88, KIE_INDEX + "#_statelesskiesession", 1],
+            [89, KIE_INDEX + "#_thekmodulexmlfile", 1],
+            [90, KIE_INDEX + "#executable-model-con_packaging-deploying", 1],
+            [91, KIE_INDEX + "#executable-model-modify-proc_packaging-deploying", 1],
+            [92, KIE_INDEX + "#executable-model-upgrading-proc_packaging-deploying", 1],
+            [93, KIE_INDEX + "#kie-scanner-proc_packaging-deploying", 1],
+            [94, KIE_INDEX + "#rule-unit-api_packaging-deploying", 1],
+            [95, KIE_INDEX + "#rule-unit-dsl_packaging-deploying", 1],
+            [96, EXPERIMENTAL_FEATURES_INDEX, 1],
+            [97, EXPERIMENTAL_FEATURES_INDEX + "#_cascading_traits", 1],
+            [98, EXPERIMENTAL_FEATURES_INDEX + "#_troubleshooting", 1],
+            [99, EXPERIMENTAL_FEATURES_INDEX + "#_using_the_impact_analysis_feature", 1],
+            [100, EXPERIMENTAL_FEATURES_INDEX + "#experimental-declarative-agenda_experimental-features", 1],
+            [101, EXPERIMENTAL_FEATURES_INDEX + "#experimental-impact-analysis_experimental-features", 1],
+            [102, EXPERIMENTAL_FEATURES_INDEX + "#experimental-traits_experimental-features", 1],
+            [103, GETTING_STARTED_INDEX, 1],
+            [104, GETTING_STARTED_INDEX + "#_creating_a_project_with_maven_archetype", 1],
+            [105, GETTING_STARTED_INDEX + "#_prerequisites", 1],
+            [106, GETTING_STARTED_INDEX + "#assembly-getting-started-decision-services", 1],
+            [107, GETTING_STARTED_INDEX + "#dmn-gs-new-project-creating-proc_getting-started-decision-services", 1],
+            [108, GETTING_STARTED_INDEX + "#dmn_getting-started-decision-services", 1],
+            [109, GETTING_STARTED_INDEX + "#first-rule-project_getting-started", 1],
+            [110, GETTING_STARTED_INDEX + "#gs-evaluating-dmn_getting-started-decision-services", 1],
+            [111, GETTING_STARTED_INDEX + "#test-scenarios-intro-con_getting-started-decision-services", 1],
+            [112, INTRODUCTION_INDEX + "#_additional_resources", 1],
+            [113, INTRODUCTION_INDEX + "#_requirements", 1],
+            [114, INTRODUCTION_INDEX + "#_submitting_a_source_code_contribution", 1],
+            [115, INTRODUCTION_INDEX + "#_submitting_an_issue_or_enhancement_request", 1],
+            [116, INTRODUCTION_INDEX + "#intro-building-the-source_introduction", 1],
+            [117, INTRODUCTION_INDEX + "#intro-getting-involved_introduction", 1],
+            [118, LANGUAGE_REFERENCE_INDEX, 1],
+            [119, LANGUAGE_REFERENCE_INDEX + "#_adding_constraints_to_facts", 1],
+            [120, LANGUAGE_REFERENCE_INDEX + "#_creating_and_integrating_spreadsheet_decision_tables", 1],
+            [121, LANGUAGE_REFERENCE_INDEX + "#_decision_table_workflow_and_collaboration", 1],
+            [122, LANGUAGE_REFERENCE_INDEX + "#_developing_a_dsl", 1],
+            [123, LANGUAGE_REFERENCE_INDEX + "#_domain_specific_languages", 1],
+            [124, LANGUAGE_REFERENCE_INDEX + "#_dsl_and_dslr_reference", 1],
+            [125, LANGUAGE_REFERENCE_INDEX + "#_dsl_basics", 1],
+            [126, LANGUAGE_REFERENCE_INDEX + "#_using_spreadsheet_features", 1],
+            [127, LANGUAGE_REFERENCE_INDEX + "#_when_to_use_a_dsl", 1],
+            [128, LANGUAGE_REFERENCE_INDEX + "#con-drl-declarations_drl-rules", 1],
+            [129, LANGUAGE_REFERENCE_INDEX + "#con-drl-imports_drl-rules", 1],
+            [130, LANGUAGE_REFERENCE_INDEX + "#con-drl-legacy_drl-rules", 1],
+            [131, LANGUAGE_REFERENCE_INDEX + "#con-drl-packages_drl-rules", 1],
+            [132, LANGUAGE_REFERENCE_INDEX + "#con-drl-queries_drl-rules", 1],
+            [133, LANGUAGE_REFERENCE_INDEX + "#con-drl-rule-units_drl-rules", 1],
+            [134, LANGUAGE_REFERENCE_INDEX + "#con-drl-rules-actions_drl-rules", 1],
+            [135, LANGUAGE_REFERENCE_INDEX + "#con-drl-rules-comments_drl-rules", 1],
+            [136, LANGUAGE_REFERENCE_INDEX + "#con-drl-rules-conditions_drl-rules", 1],
+            [137, LANGUAGE_REFERENCE_INDEX + "#con-drl_drl-rules", 1],
+            [138, LANGUAGE_REFERENCE_INDEX + "#decision-tables-con_decision-tables", 1],
+            [139, LANGUAGE_REFERENCE_INDEX + "#decision-tables-defining-proc", 1],
+            [140, LANGUAGE_REFERENCE_INDEX + "#decision-tables-use-case-con", 1],
+            [141, LANGUAGE_REFERENCE_INDEX + "#drl-rules-THEN-methods-ref_drl-rules", 1],
+            [142, LANGUAGE_REFERENCE_INDEX + "#drl-rules-THEN-methods-variables-ref_drl-rules", 1],
+            [143, LANGUAGE_REFERENCE_INDEX + "#new-and-traditional-syntax_drl-rules", 1],
+            [144, LANGUAGE_REFERENCE_INDEX + "#performance-tuning-drl-ref_drl-rules", 1],
+            [145, LANGUAGE_REFERENCE_INDEX + "#proc-drl-rules-central-create_drl-rules", 1],
+            [146, LANGUAGE_REFERENCE_INDEX + "#ref-drl-rules-errors_drl-rules", 1],
+            [147, LANGUAGE_REFERENCE_INDEX + "#ref-rules-attributes_drl-rules", 1],
+            [148, MIGRATION_GUIDE_INDEX, 1],
+            [149, MIGRATION_GUIDE_INDEX + "#_rule_unit", 1],
+            [150, MIGRATION_GUIDE_INDEX + "#bpmn-integration_migration-guide", 1],
+            [151, MIGRATION_GUIDE_INDEX + "#business-central_migration-guide", 1],
+            [152, MIGRATION_GUIDE_INDEX + "#con-migrate-dmn-to-kogito-overview_migration-guide", 1],
+            [153, MIGRATION_GUIDE_INDEX + "#con-migrate-drl-to-kogito-loan-overview_migration-guide", 1],
+            [154, MIGRATION_GUIDE_INDEX + "#con-migration-dmn-strategy_migration-guide", 1],
+            [155, MIGRATION_GUIDE_INDEX + "#con-migration-drl-strategy_migration-guide", 1],
+            [156, MIGRATION_GUIDE_INDEX + "#con-migration-to-kogito-overview_migration-guide", 1],
+            [157, MIGRATION_GUIDE_INDEX + "#kie-server_migration-guide", 1],
+            [158, MIGRATION_GUIDE_INDEX + "#nonexec-model-to-exec-model_migration-guide", 1],
+            [159, MIGRATION_GUIDE_INDEX + "#proc-kogito-migrate-dmn-model-kjar_migration-guide", 1],
+            [160, MIGRATION_GUIDE_INDEX + "#proc-kogito-migrate-external-application-REST_migration-guide", 1],
+            [161, MIGRATION_GUIDE_INDEX + "#ref-example-bind-external-app-kogito_migration-guide", 1],
+            [162, MIGRATION_GUIDE_INDEX + "#ref-kogito-migrate-example-loan-application-project_migration-guide", 1],
+            [163, MIGRATION_GUIDE_INDEX + "#ref-migrate-dmn-to-kogito-considerations_migration-guide", 1],
+            [164, MIGRATION_GUIDE_INDEX + "#ref-migrate-drl-to-kogito-considerations_migration-guide", 1],
+            [165, MIGRATION_GUIDE_INDEX + "#spreadsheet_file_extensions_migration-guide", 1],
+            [166, MIGRATION_GUIDE_INDEX + "#traditional-to-ruleunit_migration-guide", 1],
+            [167, PRAGMATIC_AI_INDEX, 1],
+            [168, PRAGMATIC_AI_INDEX + "#_additional_resources", 1],
+            [169, PRAGMATIC_AI_INDEX + "#ai-con_pragmatic-ai", 1],
+            [170, PRAGMATIC_AI_INDEX + "#ai-credit-card-con_pragmatic-ai", 1],
+            [171, PRAGMATIC_AI_INDEX + "#ai-gsg_pragmatic-ai", 1],
+            [172, PRAGMATIC_AI_INDEX + "#ai-pmml-ref_pragmatic-ai", 1],
+            [173, RULE_ENGINE_INDEX, 1],
+            [174, RULE_ENGINE_INDEX + "#_activation_groups_for_rules", 1],
+            [175, RULE_ENGINE_INDEX + "#_agenda_groups_for_rules", 1],
+            [176, RULE_ENGINE_INDEX + "#_government_id_example", 1],
+            [177, RULE_ENGINE_INDEX + "#_salience_for_rules", 1],
+            [178, RULE_ENGINE_INDEX + "#agenda-filters-con_rule-engine", 1],
+            [179, RULE_ENGINE_INDEX + "#cep-clock-ref_rule-engine", 1],
+            [180, RULE_ENGINE_INDEX + "#cep-con_rule-engine", 1],
+            [181, RULE_ENGINE_INDEX + "#cep-event-streams-con_rule-engine", 1],
+            [182, RULE_ENGINE_INDEX + "#cep-events-con_rule-engine", 1],
+            [183, RULE_ENGINE_INDEX + "#cep-events-proc_rule-engine", 1],
+            [184, RULE_ENGINE_INDEX + "#cep-memory-management-con_rule-engine", 1],
+            [185, RULE_ENGINE_INDEX + "#cep-modes-con_rule-engine", 1],
+            [186, RULE_ENGINE_INDEX + "#cep-sliding-windows-con_rule-engine", 1],
+            [187, RULE_ENGINE_INDEX + "#cep-temporal-operators_rule-engine", 1],
+            [188, RULE_ENGINE_INDEX + "#engine-event-listeners-con_rule-engine", 1],
+            [189, RULE_ENGINE_INDEX + "#engine-event-listeners-development-con_rule-engine", 1],
+            [190, RULE_ENGINE_INDEX + "#engine-queries-con_rule-engine", 1],
+            [191, RULE_ENGINE_INDEX + "#execution-control-con_rule-engine", 1],
+            [192, RULE_ENGINE_INDEX + "#fact-equality-modes-con_rule-engine", 1],
+            [193, RULE_ENGINE_INDEX + "#fact-propagation-modes-con_rule-engine", 1],
+            [194, RULE_ENGINE_INDEX + "#inference-and-truth-maintenance_rule-engine", 1],
+            [195, RULE_ENGINE_INDEX + "#kie-sessions-con_rule-engine", 1],
+            [196, RULE_ENGINE_INDEX + "#kie-sessions-pools-con_rule-engine", 1],
+            [197, RULE_ENGINE_INDEX + "#kie-sessions-stateful-con_rule-engine", 1],
+            [198, RULE_ENGINE_INDEX + "#kie-sessions-stateless-con_rule-engine", 1],
+            [199, RULE_ENGINE_INDEX + "#logging-proc_rule-engine", 1],
+            [200, RULE_ENGINE_INDEX + "#performance-tuning-rule-engine-ref_rule-engine", 1],
+            [201, RULE_ENGINE_INDEX + "#phreak-algorithm-con_rule-engine", 1],
+            [202, RULE_ENGINE_INDEX + "#phreak-rule-evaluation-con_rule-engine", 1],
+            [203, RULE_ENGINE_INDEX + "#phreak-sequential-mode-con_rule-engine", 1],
+            [204, RULE_ENGINE_INDEX + "#property-change-listeners-con_rule-engine", 1],
+            [205, RULE_ENGINE_INDEX + "#rule-base-configuration-con_rule-engine", 1],
+            [206, RULE_ENGINE_INDEX + "#rule-execution-modes-con_rule-engine", 1]
+        ];
+
+        function initBuckets() {
+            b1 = {};
+            b2 = {};
+            initB2Total = 0;
+
+            initialFiles.forEach(file => {
+                const id = file[0];
+                const freq = file[2] !== null ? file[2] : defaultFrequency;
+                b2[id] = freq;
+                initB2Total += freq;
+            });
+        }
+
+        function saveState() {
+            const state = {
+                b1: b1,
+                b2: b2,
+                b1Prob: b1Prob,
+                b2Prob: b2Prob,
+                defaultFrequency: defaultFrequency,
+                urlPrefix: urlPrefix,
+                urlSuffix: urlSuffix,
+                initialFiles: initialFiles
+            };
+            localStorage.setItem('3f8a67b06ed74875b97f8c2e9e542af5', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const state = JSON.parse(localStorage.getItem('3f8a67b06ed74875b97f8c2e9e542af5'));
+            if (state) {
+                b1 = state.b1 || {};
+                b2 = state.b2 || {};
+                b1Prob = state.b1Prob || 0.66;
+                b2Prob = state.b2Prob || 0.34;
+                defaultFrequency = state.defaultFrequency || 1;
+                urlPrefix = state.urlPrefix || '';
+                urlSuffix = state.urlSuffix || '';
+                initialFiles = state.initialFiles || initialFiles;
+                initB2Total = getTotalFreq(b2);
+            } else {
+                initBuckets();
+            }
+        }
+
+        function resetState() {
+            localStorage.removeItem('3f8a67b06ed74875b97f8c2e9e542af5');
+            defaultFrequency = 1;
+            urlPrefix = '';
+            urlSuffix = '';
+            document.getElementById('defaultFrequency').value = defaultFrequency;
+            document.getElementById('urlPrefix').value = urlPrefix;
+            document.getElementById('urlSuffix').value = urlSuffix;
+            document.getElementById('defaultFrequency').disabled = true;
+            b1Prob = 0.66;
+            b2Prob = 0.34;
+            initBuckets();
+            updateDisplay();
+            initializeSlider();
+            alert('State has been reset.');
+        }
+
+        function exportState() {
+            const state = {
+                b1: b1,
+                b2: b2,
+                b1Prob: b1Prob,
+                b2Prob: b2Prob,
+                defaultFrequency: defaultFrequency,
+                urlPrefix: urlPrefix,
+                urlSuffix: urlSuffix,
+                initialFiles: initialFiles
+            };
+            const stateStr = btoa(JSON.stringify(state));
+
+            // Get current date and time for filename
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.]/g, '-');
+            const filename = `state_${timestamp}.txt`;
+
+            const blob = new Blob([stateStr], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+
+        function importState() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.txt';
+            fileInput.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        try {
+                            const stateStr = event.target.result;
+                            const state = JSON.parse(atob(stateStr));
+                            b1 = state.b1 || {};
+                            b2 = state.b2 || {};
+                            b1Prob = state.b1Prob || 0.66;
+                            b2Prob = state.b2Prob || 0.34;
+                            defaultFrequency = state.defaultFrequency || 1;
+                            urlPrefix = state.urlPrefix || '';
+                            urlSuffix = state.urlSuffix || '';
+                            initialFiles = state.initialFiles || initialFiles;
+                            initB2Total = getTotalFreq(b2);
+                            document.getElementById('defaultFrequency').value = defaultFrequency;
+                            document.getElementById('urlPrefix').value = urlPrefix;
+                            document.getElementById('urlSuffix').value = urlSuffix;
+                            document.getElementById('defaultFrequency').disabled = true;
+                            saveState();
+                            updateDisplay();
+                            initializeSlider();
+                            alert('State has been imported successfully.');
+                        } catch (e) {
+                            alert('Invalid state data.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            fileInput.click();
+        }
+
+        function getTotalFreq(bucket) {
+            return Object.values(bucket).reduce((sum, freq) => sum + freq, 0);
+        }
+
+        function updateProbabilities() {
+            const sliderValue = parseInt(document.getElementById('probSlider').value);
+            b1Prob = sliderValue / 100;
+            b2Prob = 1 - b1Prob;
+            document.getElementById('probBucket1').innerText = (b1Prob * 100).toFixed(0) + '%';
+            document.getElementById('probBucket2').innerText = (b2Prob * 100).toFixed(0) + '%';
+            saveState();
+        }
+
+        function pickRandom() {
+            updateProbabilities(); // Ensure probabilities are up to date
+
+            let totalB1 = getTotalFreq(b1);
+            let totalB2 = getTotalFreq(b2);
+
+            if (totalB1 === 0 && totalB2 === 0) {
+                alert('Both buckets are empty!');
+                return;
+            }
+
+            let selectedBucket;
+            const rand = getSecureRandomNumber();
+
+            if (totalB1 === 0) {
+                selectedBucket = 'b2';
+            } else if (totalB2 === 0) {
+                selectedBucket = 'b1';
+            } else {
+                selectedBucket = rand < b1Prob ? 'b1' : 'b2';
+            }
+
+            let bucket = selectedBucket === 'b1' ? b1 : b2;
+
+            const cumulativeFreqs = [];
+            let cumulative = 0;
+            for (const id in bucket) {
+                cumulative += bucket[id];
+                cumulativeFreqs.push([parseInt(id), cumulative]);
+            }
+
+            const totalFreq = cumulative;
+            const randomPick = Math.floor(getSecureRandomNumber() * totalFreq);
+            let selectedId;
+            for (const [id, cumFreq] of cumulativeFreqs) {
+                if (randomPick < cumFreq) {
+                    selectedId = id;
+                    break;
+                }
+            }
+
+            if (selectedId in b1) {
+                b1[selectedId] += 1;
+            } else {
+                b1[selectedId] = 1;
+            }
+
+            if (selectedId in b2) {
+                b2[selectedId] = Math.max(0, b2[selectedId] - 1);
+                if (b2[selectedId] === 0) {
+                    delete b2[selectedId];
+                }
+            }
+
+            saveState();
+
+            const fileDetails = initialFiles.find(file => file[0] === selectedId);
+            const urlBody = fileDetails[1];
+
+            // Updated URL construction
+            let url = urlBody;
+            if (urlPrefix) {
+                url = urlPrefix + url;
+            }
+            if (urlSuffix) {
+                url = url + urlSuffix;
+            }
+
+            updateDisplay();
+            window.open(url, '_blank');
+        }
+
+        function updateDisplay() {
+            const b1Total = getTotalFreq(b1);
+            const b2Total = getTotalFreq(b2);
+            let progress = (b1Total / (b1Total + b2Total)) * 100;
+            if (progress > 100) progress = 100;
+
+            document.getElementById('gauge').value = progress;
+            document.getElementById('gaugeText').innerText = progress.toFixed(2) + '%';
+            document.getElementById('bucket1Freq').innerText = b1Total;
+            document.getElementById('bucket2Freq').innerText = b2Total;
+        }
+
+        function initializeSlider() {
+            const initialSliderValue = (b1Prob * 100).toFixed(0);
+            document.getElementById('probSlider').value = initialSliderValue;
+            document.getElementById('probBucket1').innerText = initialSliderValue + '%';
+            document.getElementById('probBucket2').innerText = (100 - initialSliderValue) + '%';
+        }
+
+        function toggleDefaultFrequency() {
+            const dfInput = document.getElementById('defaultFrequency');
+            if (dfInput.disabled) {
+                dfInput.disabled = false;
+            } else {
+                dfInput.disabled = true;
+                dfInput.value = defaultFrequency;
+            }
+        }
+
+        function saveDefaultFrequency() {
+            const dfInput = document.getElementById('defaultFrequency');
+            const dfValue = dfInput.value.trim();
+            if (dfValue !== '') {
+                const df = parseInt(dfValue);
+                if (!isNaN(df) && df > 0) {
+                    defaultFrequency = df;
+                    // Apply default frequency to elements with null frequency
+                    initialFiles.forEach(file => {
+                        if (file[2] === null || file[2] === defaultFrequency) {
+                            const id = file[0];
+                            const oldFreq = b2[id] || 0;
+                            const freqDifference = defaultFrequency - oldFreq;
+                            b2[id] = defaultFrequency;
+                            initB2Total += freqDifference;
+                        }
+                    });
+                    dfInput.disabled = true;
+                    saveState();
+                    updateDisplay();
+                    alert('Default frequency saved and applied.');
+                } else {
+                    alert('Please enter a valid positive integer for default frequency.');
+                }
+            } else {
+                alert('Default frequency cannot be empty.');
+            }
+        }
+
+        function saveUrlPrefixSuffix() {
+            urlPrefix = document.getElementById('urlPrefix').value.trim();
+            urlSuffix = document.getElementById('urlSuffix').value.trim();
+            saveState();
+            alert('URL prefix and suffix saved.');
+        }
+
+        function main() {
+            loadState();
+            updateDisplay();
+            initializeSlider();
+            // Set initial values for inputs
+            document.getElementById('defaultFrequency').value = defaultFrequency;
+            document.getElementById('urlPrefix').value = urlPrefix;
+            document.getElementById('urlSuffix').value = urlSuffix;
+            document.getElementById('defaultFrequency').disabled = true;
+        }
+
+        window.onload = main;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Random URL Picker</h1>
+
+        <div class="input-container">
+            <label class="form-label">URL Prefix:</label>
+            <input type="text" class="form-control" id="urlPrefix" placeholder="Enter URL Prefix">
+            <label class="form-label">URL Suffix:</label>
+            <input type="text" class="form-control" id="urlSuffix" placeholder="Enter URL Suffix">
+            <button class="btn btn-secondary mt-2" onclick="saveUrlPrefixSuffix()">Save URL Prefix/Suffix</button>
+        </div>
+
+        <div class="input-container">
+            <label class="form-label">Default Frequency:</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="defaultFrequency" value="1" min="1" disabled>
+                <button class="btn btn-secondary" onclick="toggleDefaultFrequency()">Edit</button>
+                <button class="btn btn-primary" onclick="saveDefaultFrequency()">Save</button>
+            </div>
+        </div>
+
+        <div class="slider-container">
+            <label for="probSlider" class="form-label">Adjust Probabilities:</label>
+            <input type="range" class="form-range" id="probSlider" min="0" max="100" value="66" oninput="updateProbabilities()">
+            <div class="slider-label">
+                <span>Bucket 1: <span id="probBucket1">66%</span></span>
+                <span>Bucket 2: <span id="probBucket2">34%</span></span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-draw" onclick="pickRandom()">Draw and Open URL</button>
+
+        <div class="progress-container">
+            <label for="gauge" class="form-label">Progress (Bucket 1 vs. Total):</label>
+            <progress id="gauge" class="form-range w-100" value="0" max="100"></progress>
+            <div class="text-center">
+                <span id="gaugeText">0%</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col text-center">
+                <h5>Bucket 1 Total Frequency</h5>
+                <span id="bucket1Freq">0</span>
+            </div>
+            <div class="col text-center">
+                <h5>Bucket 2 Total Frequency</h5>
+                <span id="bucket2Freq">0</span>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button class="btn btn-secondary btn-export" onclick="exportState()">Export State</button>
+            <button class="btn btn-secondary btn-export" onclick="importState()">Import State</button>
+            <button class="btn btn-danger btn-export" onclick="resetState()">Reset State</button>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+</body>
+</html>

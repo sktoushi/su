@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Call to Post → Finer Things Bucket</title>
+
+    <style>
+      /* Global font + text colour only — no solid background here. */
+      :root {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        color: #222;
+      }
+
+      /* Let the GIF tiles cover the whole page. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        /* Tile the GIF; each tile keeps its built‑in animation. */
+        background-image: url("calltopost.gif");
+        background-repeat: repeat;
+        /* Optional: keep the tiles fixed while scrolling (looks nicer
+           if the page ever grows). */
+        background-attachment: fixed;
+
+        /* Existing centring for the fallback Play button. */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Fallback Play‑button styling (unchanged). */
+      #play-btn {
+        padding: 1rem 2rem;
+        font-size: 1.25rem;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      const DESTINATION =
+        "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-finer-things-in-life";
+
+      // MP3 lives in the same folder as this HTML
+      const audio = new Audio("calltopost.mp3");
+
+      // After the bugle finishes, redirect
+      audio.addEventListener("ended", () => {
+        window.location.href = DESTINATION;
+      });
+
+      /**
+       * Try to autoplay; if blocked, fall back to a user‑gesture Play button.
+       */
+      async function tryAutoPlay() {
+        try {
+          await audio.play(); // most desktop browsers succeed
+        } catch {
+          // Autoplay blocked → show manual Play button
+          const btn = document.createElement("button");
+          btn.id = "play-btn";
+          btn.textContent = "▶︎ Play sound";
+          document.body.appendChild(btn);
+
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try {
+              await audio.play();
+              btn.textContent = "Playing…";
+            } catch {
+              btn.textContent = "Playback failed";
+            }
+          });
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", tryAutoPlay);
+    </script>
+  </body>
+</html>

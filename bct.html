@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Baccarat Shoe Simulator</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="mb-4 text-center">Baccarat Shoe Simulator</h1>
+
+    <div class="text-center mb-4">
+      <button id="simulateBtn" class="btn btn-primary btn-lg">Simulate</button>
+    </div>
+
+    <h2 class="h4 mt-5">Full Shoe Results</h2>
+    <div class="table-responsive">
+      <table id="shoeTable" class="table table-striped table-bordered">
+        <thead class="table-dark">
+          <tr>
+            <th>Hand #</th>
+            <th>Player Cards</th>
+            <th>Banker Cards</th>
+            <th>Player&nbsp;Total</th>
+            <th>Banker&nbsp;Total</th>
+            <th>Outcome (P/B/T)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2 class="h4 mt-5">Bet History</h2>
+    <div class="table-responsive">
+      <table id="betTable" class="table table-striped table-bordered">
+        <thead class="table-dark">
+          <tr>
+            <th>Hand #</th>
+            <th>Bet&nbsp;Side</th>
+            <th>Stake&nbsp;(units)</th>
+            <th>Result</th>
+            <th>Profit&nbsp;(₱)</th>
+            <th>Cumulative&nbsp;(₱)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div
+      class="alert alert-info mt-4"
+      id="summaryBox"
+      role="alert"
+      style="display: none"
+    ></div>
+  </div>
+
+  <script>
+    // ----------- Utility helpers ----------- //
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    const baccaratValue = (r) =>
+      r === "A" ? 1 : "23456789".includes(r) ? +r : 0;
+
+    const baccaratTotal = (cards) =>
+      cards.reduce((s, c) => s + baccaratValue(c[0]), 0) % 10;
+
+    const playerDraws = (t) => t <= 5;
+
+    function bankerDrawRule(bTotal, pThird) {
+      if (pThird === null) return bTotal <= 5;
+      if (bTotal <= 2) return true;
+      if (bTotal === 3) return pThird !== 8;
+      if (bTotal === 4) return [2, 3, 4, 5, 6, 7].includes(pThird);
+      if (bTotal === 5) return [4, 5, 6, 7].includes(pThird);
+      if (bTotal === 6) return [6, 7].includes(pThird);
+      return false;
+    }
+
+    function buildShoe() {
+      const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"];
+      const suits = ["♠", "♥", "♦", "♣"];
+      const deck = [];
+      ranks.forEach((r) => suits.forEach((s) => deck.push(r + s)));
+      const shoe = shuffle([...Array(8)].flatMap(() => deck));
+
+      // burn card rule
+      const burnCard = shoe.shift();
+      const burnVal = baccaratValue(burnCard[0]);
+      const burnCnt = burnVal === 0 ? 10 : burnVal;
+      shoe.splice(0, burnCnt);
+      return shoe;
+    }
+
+    // ----------- Main simulation ----------- //
+    function simulateShoe() {
+      const unit = 50; // pesos per unit
+      const shoe = buildShoe();
+      const shoeRows = [];
+      const betRows = [];
+
+      // betting-algo state
+      let streakSide = null,
+        streakCnt = 0,
+        pending = null,
+        lossesInCycle = 0,
+        cycle = 1,
+        halted = false,
+        cum = 0;
+
+      const draw = () => shoe.shift();
+
+      for (let hand = 1; shoe.length >= 6; hand++) {
+        // deal
+        const p = [draw(), draw()],
+          b = [draw(), draw()];
+        let pt = baccaratTotal(p),
+          bt = baccaratTotal(b),
+          pThird = null;
+
+        if (pt < 8 && bt < 8) {
+          if (playerDraws(pt)) {
+            const c = draw();
+            p.push(c);
+            pThird = baccaratValue(c[0]);
+            pt = baccaratTotal(p);
+          }
+          if (bankerDrawRule(bt, pThird)) {
+            b.push(draw());
+            bt = baccaratTotal(b);
+          }
+        }
+
+        const outcome = pt > bt ? "P" : bt > pt ? "B" : "T";
+
+        // streak tracker (ignore ties)
+        if (outcome !== "T") {
+          if (outcome === streakSide) streakCnt++;
+          else {
+            streakSide = outcome;
+            streakCnt = 1;
+          }
+        }
+
+        // resolve pending bet
+        if (pending) {
+          if (outcome === "T") {
+            betRows.push({
+              hand,
+              side: pending.side,
+              stake: pending.units,
+              result: "Push",
+              profit: 0,
+              cum,
+            });
+          } else {
+            const win = outcome === pending.side;
+            const profit = win ? pending.units * unit : -pending.units * unit;
+            cum += profit;
+            betRows.push({
+              hand,
+              side: pending.side,
+              stake: pending.units,
+              result: win ? "Win" : "Lose",
+              profit,
+              cum,
+            });
+
+            if (win) lossesInCycle = 0;
+            else {
+              lossesInCycle++;
+              if (lossesInCycle >= 4) {
+                if (cycle === 1) {
+                  cycle = 2;
+                  lossesInCycle = 0;
+                } else halted = true;
+              }
+            }
+          }
+          pending = null;
+        }
+
+        // set new bet if allowed
+        if (!halted && !pending && streakCnt === 2 && ["P", "B"].includes(outcome)) {
+          const stake = lossesInCycle < 3 ? 1 : 3;
+          pending = { side: outcome === "P" ? "B" : "P", units: stake };
+        }
+
+        shoeRows.push({
+          hand,
+          pCards: p.join(" "),
+          bCards: b.join(" "),
+          pt,
+          bt,
+          outcome,
+        });
+      }
+
+      return { shoeRows, betRows, cum };
+    }
+
+    // ----------- DOM wiring ----------- //
+    document.getElementById("simulateBtn").addEventListener("click", () => {
+      const { shoeRows, betRows, cum } = simulateShoe();
+
+      // fill shoe table
+      const shoeBody = document.querySelector("#shoeTable tbody");
+      shoeBody.innerHTML = "";
+      shoeRows.forEach((r) => {
+        shoeBody.insertAdjacentHTML(
+          "beforeend",
+          `<tr><td>${r.hand}</td><td>${r.pCards}</td><td>${r.bCards}</td><td>${r.pt}</td><td>${r.bt}</td><td>${r.outcome}</td></tr>`
+        );
+      });
+
+      // fill bet table
+      const betBody = document.querySelector("#betTable tbody");
+      betBody.innerHTML = "";
+      betRows.forEach((b) => {
+        const cls = b.result === "Win" ? "table-success" : b.result === "Lose" ? "table-danger" : "";
+        betBody.insertAdjacentHTML(
+          "beforeend",
+          `<tr class="${cls}"><td>${b.hand}</td><td>${b.side}</td><td>${b.stake}</td><td>${b.result}</td><td>${b.profit}</td><td>${b.cum}</td></tr>`
+        );
+      });
+
+      // summary banner
+      const box = document.getElementById("summaryBox");
+      box.style.display = "block";
+      box.textContent = `Total Bets: ${betRows.length} | Wins: ${
+        betRows.filter((b) => b.result === "Win").length
+      } | Losses: ${
+        betRows.filter((b) => b.result === "Lose").length
+      } | Pushes: ${
+        betRows.filter((b) => b.result === "Push").length
+      } | Net Result: ₱${cum}`;
+    });
+  </script>
+</body>
+</html>

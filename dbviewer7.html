@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Random-or-Full DB Viewer + SRS</title>
+
+<!-- ─── GitHub-dark-mode look ─── -->
+<style>
+  :root{
+    --bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#c9d1d9;
+    --text-sub:#8b949e;--accent:#238636;--btn:#21262d;--btn-hov:#30363d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,
+    "Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;
+    display:flex;flex-direction:column;min-height:100vh;
+  }
+  header{padding:1rem 2rem;border-bottom:1px solid var(--border);
+         font-weight:600;font-size:1.1rem}
+  main{flex:1;max-width:900px;width:100%;margin:2rem auto;
+       display:flex;flex-direction:column;gap:1.5rem}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:6px;
+        padding:1.5rem;overflow:auto;word-break:break-word;max-height:70vh}
+  /* “GitHub issue” style table */
+  .issue{width:100%;border-collapse:collapse;margin-bottom:1.25rem;
+         table-layout:fixed;word-break:break-word}
+  .issue td{border:1px solid var(--border);padding:.45rem .6rem;vertical-align:top}
+  .issue td:first-child{width:30%;max-width:200px;font-weight:600;background:#1e242c;
+                        color:var(--accent);white-space:nowrap}
+  button{padding:.55rem 1rem;font-size:.95rem;cursor:pointer;margin:.35rem .4rem .35rem 0;
+         background:var(--btn);border:1px solid var(--border);border-radius:6px;
+         color:var(--text);transition:background .15s}
+  button:hover{background:var(--btn-hov)}
+  footer{text-align:center;padding:1rem 0 2rem;font-size:.8rem;color:var(--text-sub);
+         border-top:1px solid var(--border)}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+  /* toast */
+  #toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+         background:var(--panel);border:1px solid var(--border);color:var(--text);
+         padding:.6rem 1.2rem;border-radius:6px;opacity:0;pointer-events:none;
+         transition:opacity .25s;z-index:1000}
+
+  /* progress gauge */
+  #progWrap{height:8px;background:#30363d;border-radius:4px;overflow:hidden;
+            display:none}
+  #progBar{height:100%;background:var(--accent);width:0%}
+</style>
+
+<!-- sql.js (WebAssembly) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/sql-wasm.js"></script>
+</head><body>
+<header>📚 Random-or-Full DB Viewer + SRS</header>
+
+<main>
+  <!-- Progress gauge -->
+  <div id="progWrap"><div id="progBar"></div></div>
+
+  <div>
+    <!-- basic browsing -->
+    <button id="drawBtn"   disabled>🎲 Random Entry</button>
+    <button id="allBtn"    disabled>📜 Show All Entries</button>
+    <button id="copyBtn"   disabled>📋 Copy Front</button>
+    <button id="searchBtn" disabled>🤖 ChatGPT Search</button>
+  </div>
+
+  <div>
+    <!-- record-level SRS -->
+    <button id="startSrsBtn">🚀 Start SRS session</button>
+    <button id="resetSrsBtn">♻️ Reset SRS session</button>
+    <!-- granular SRS -->
+    <button id="startGranBtn">🧩 Start Granular SRS</button>
+    <button id="resetGranBtn">♻️ Reset Granular SRS</button>
+  </div>
+
+  <!-- SRS feedback row (hidden until sessions start) -->
+  <div id="srsFeed" style="display:none">
+    <button data-q="1">Again</button>
+    <button data-q="3">Hard</button>
+    <button data-q="4">Good</button>
+    <button data-q="5">Easy</button>
+    <button id="ignoreBtn">Ignore Entry</button>
+  </div>
+
+  <article id="randCard" class="card"><p>Loading database…</p></article>
+  <article id="allCard"  class="card" style="display:none;"></article>
+</main>
+
+<div id="toast"></div>
+<footer>Powered by <a href="https://github.com/sql-js/sql.js" target="_blank" rel="noopener">sql.js</a></footer>
+
+<script>
+(async function(){
+
+/* ───────────── Helpers ───────────── */
+const $ = id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.opacity='1';
+                     clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.opacity='0',1600);}
+const esc=s=>String(s??'')
+ .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+ .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+/* ───────────── DB & Table Pick ───────────── */
+const p=new URLSearchParams(location.search);
+const dbFile = p.get('db') || 'memo_20250607-1.db';
+const forcedTbl = p.get('table');
+
+const SQL = await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/${f}`});
+let sqlDb;
+try{
+  const res = await fetch(dbFile,{cache:'no-store'});
+  if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  sqlDb = new SQL.Database(new Uint8Array(await res.arrayBuffer()));
+}catch(e){$('randCard').innerHTML=`<p style="color:#f85149"><b>Error loading DB:</b> ${e.message}</p>`;return;}
+
+let table=forcedTbl;
+if(!table){
+  const t=sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`);
+  if(!t.length){$('randCard').innerHTML='<p>No user tables.</p>';return;}
+  const names=t[0].values.map(v=>v[0]);
+  table=names[0];
+}
+
+/* ───────────── Basic Card Renderers ───────────── */
+function issueHTML(cols,vals){let h='<table class="issue">';cols.forEach((c,i)=>
+  h+=`<tr><td>${esc(c)}</td><td>${esc(vals[i])}</td></tr>`);return h+='</table>';}
+
+function drawRandom(){
+  let r;
+  try{r=sqlDb.exec(`SELECT * FROM "${table}" ORDER BY RANDOM() LIMIT 1;`);}
+  catch(e){$('randCard').innerHTML=`<p style="color:#f85149"><b>Query error:</b> ${e.message}</p>`;return;}
+  if(!r.length){$('randCard').innerHTML='<p>No rows.</p>';return;}
+  const col=r[0].columns,val=r[0].values[0];
+  $('randCard').innerHTML=issueHTML(col,val);
+  setFront(val.join(' '));
+}
+
+function renderAll(){
+  let rs;
+  try{rs=sqlDb.exec(`SELECT * FROM "${table}";`);}catch(e){$('allCard').innerHTML=`<p style="color:#f85149"><b>Query error:</b> ${e.message}</p>`;return;}
+  if(!rs.length){$('allCard').innerHTML='<p>No rows.</p>';return;}
+  const col=rs[0].columns,rows=rs[0].values;
+  $('allCard').innerHTML=rows.map((rw,i)=>issueHTML(col,rw)).join('');
+  $('allCard').querySelectorAll('.issue').forEach(tbl=>{
+    tbl.addEventListener('click',()=>{
+      const vals=[...tbl.querySelectorAll('tr td:nth-child(2)')].map(td=>td.textContent);
+      setFront(vals.join(' '));toast('Row selected ✓');
+    });
+  });
+}
+
+/* clipboard & GPT search */
+let currentFront='';
+function setFront(txt){currentFront=txt;
+  $('copyBtn').disabled=$('searchBtn').disabled=!txt;}
+$('copyBtn').onclick=()=>currentFront&&navigator.clipboard.writeText(currentFront)
+  .then(()=>toast('Copied!'));
+$('searchBtn').onclick=()=>currentFront&&window.open(
+  'https://chat.openai.com/?q='+encodeURIComponent(currentFront),'_blank');
+
+/* view toggles */
+let allShown=false,allRendered=false;
+$('allBtn').onclick=()=>{
+  allShown=!allShown;
+  $('allCard').style.display=allShown?'block':'none';
+  $('randCard').style.display=allShown?'none':'block';
+  $('allBtn').textContent=allShown?'↩️ Hide All Entries':'📜 Show All Entries';
+  $('drawBtn').disabled=allShown;
+  if(allShown&&!allRendered){renderAll();allRendered=true;}
+};
+$('drawBtn').onclick=drawRandom;
+
+/* ───────────── SRS Engine (SM-2) ───────────── */
+const reviewDB=await new Promise((res,rej)=>{
+  const req=indexedDB.open('srs_reviews_v1',1);
+  req.onupgradeneeded=e=>{
+    const db=e.target.result;
+    if(!db.objectStoreNames.contains('records'))  db.createObjectStore('records',{keyPath:'key'});
+    if(!db.objectStoreNames.contains('granular')) db.createObjectStore('granular',{keyPath:'key'});
+  };
+  req.onsuccess=e=>res(e.target.result);
+  req.onerror=e=>rej(e.target.error);
+});
+function idb(store,mode){return reviewDB.transaction(store,mode).objectStore(store);}
+const dayMS=864e5;
+function sm2(meta,q){
+  if(q<3){meta.reps=0;meta.interval=1;}
+  else{meta.reps=(meta.reps||0)+1;
+       meta.interval=meta.reps===1?1:meta.reps===2?6:Math.round(meta.interval*meta.ef);
+       meta.ef=Math.max(1.3,meta.ef+(0.1-(5-q)*(0.08+(5-q)*0.02)));}
+  meta.due=Date.now()+meta.interval*dayMS;
+  return meta;
+}
+
+/* session runtime state */
+let session={mode:null,queue:[],done:0,current:null};
+
+/* gauge helpers */
+function gauge(show=false){const w=$('progWrap'),bar=$('progBar');
+  if(!show){w.style.display='none';return;}
+  w.style.display='block';
+  const pct=session.queue.length? (session.done/session.queue.length)*100 :0;
+  bar.style.width=pct.toFixed(1)+'%';
+}
+
+/* build queues */
+async function buildRecordQueue(){
+  const rows=sqlDb.exec(`SELECT * FROM "${table}";`)[0];
+  const out=[];
+  for(const v of rows.values){
+    const key=`${table}|${v[0]}`;   // assumes first field is PK / id
+    const meta=await idb('records','readonly').get(key).then(r=>r);
+    if(meta&&meta.ignore)continue;
+    if(!meta||meta.due<=Date.now()) out.push({key,vals:v,cols:rows.columns,meta});
+  }
+  return out;
+}
+async function buildGranQueue(){
+  const rows=sqlDb.exec(`SELECT * FROM "${table}";`)[0];
+  const out=[],cols=rows.columns;
+  for(const v of rows.values){
+    const baseKey=`${table}|${v[0]}`;            // id field
+    const joined=v.join(' '),parts=joined.split(/(?<=\.)\s+|(?<=\n)|\s+/); // sentences/tokens
+    parts.forEach((txt,i)=>{
+      const key=`${baseKey}|${i}`;
+      out.push({key,txt,meta:null});
+    });
+  }
+  /* fetch metas & filter */
+  for(const o of out){
+    o.meta=await idb('granular','readonly').get(o.key).then(r=>r);
+  }
+  return out.filter(o=>!(o.meta&&o.meta.ignore)&&( !o.meta||o.meta.due<=Date.now()));
+}
+
+/* start / reset */
+$('startSrsBtn').onclick = async()=>{
+  session.mode='records';
+  session.queue=await buildRecordQueue();
+  startSession();
+};
+$('startGranBtn').onclick = async()=>{
+  session.mode='granular';
+  session.queue=await buildGranQueue();
+  startSession();
+};
+$('resetSrsBtn').onclick = ()=>{idb('records','readwrite').clear();toast('SRS data cleared');};
+$('resetGranBtn').onclick = ()=>{idb('granular','readwrite').clear();toast('Granular SRS data cleared');};
+
+/* ignore */
+$('ignoreBtn').onclick=async()=>{
+  if(!session.current)return;
+  const store=session.mode==='records'?'records':'granular';
+  const meta=session.current.meta||{key:session.current.key,ef:2.5,interval:1,reps:0};
+  meta.ignore=true;await idb(store,'readwrite').put(meta);
+  nextItem();
+};
+
+/* feedback */
+[...$('srsFeed').querySelectorAll('[data-q]')].forEach(btn=>{
+  btn.onclick=()=>rateCurrent(Number(btn.dataset.q));
+});
+
+/* control flow */
+function startSession(){
+  if(!session.queue.length){toast('Nothing due.');return;}
+  session.done=0;
+  $('srsFeed').style.display='block';
+  gauge(true);nextItem();
+}
+
+async function rateCurrent(q){
+  if(!session.current)return;
+  const store=session.mode==='records'?'records':'granular';
+  const meta=session.current.meta||{key:session.current.key,ef:2.5,interval:1,reps:0};
+  sm2(meta,q);
+  await idb(store,'readwrite').put(meta);
+  nextItem();
+}
+function nextItem(){
+  if(session.done>=session.queue.length){finishSession();return;}
+  session.current=session.queue[session.done++];
+  gauge(true);
+  if(session.mode==='records'){
+    $('randCard').innerHTML=issueHTML(session.current.cols,session.current.vals);
+    setFront(session.current.vals.join(' '));
+  }else{
+    $('randCard').innerHTML=
+      `<table class="issue"><tr><td>Fragment</td><td>${esc(session.current.txt)}</td></tr></table>`;
+    setFront(session.current.txt);
+  }
+}
+function finishSession(){
+  $('srsFeed').style.display='none';
+  gauge(false);
+  toast('Session complete!');
+  session.mode=null;
+}
+
+/* ───────────── init ───────────── */
+$('drawBtn').disabled=$('allBtn').disabled=false;
+drawRandom();
+
+})();
+</script>
+</body>
+</html>

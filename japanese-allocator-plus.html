@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="config.js"></script>
+</head>
+<body style="background-color:#4e6856">
+
+<script>
+
+var links = [];
+
+function updateCounter() {
+fetch(UPDATE_VISITOR_API, { mode: 'no-cors' })
+    .then(response => {
+	// Since we can't read the response due to no-cors, you can handle it here if necessary
+	console.log('Request completed');
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+window.onload = function() {
+    updateCounter();
+    window.open("https://script.google.com/macros/s/AKfycbxb9fZ3_KUhL3oln30XVa8O_S7vqJAtA6vKGubI9vOEv2qZu40AX8XQ1C2qJOGcmeL9/exec");
+}
+
+</script>
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<div style="text-align:center">
+   <button id="randomButton" onclick="openStuff();" >RDR</button>
+   <button id="econRated" onclick="econRated();" class="btn btn-success btn-lg">econRated</button>
+</div>
+
+</body>
+</html>

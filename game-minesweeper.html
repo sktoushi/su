@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Minesweeper</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      margin: 20px;
+      background-color: #f8f9fa;
+    }
+    .minefield {
+      display: grid;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #ccc;
+      text-align: center;
+      vertical-align: middle;
+      line-height: 40px;
+      font-size: 1.2rem;
+      user-select: none;
+      cursor: pointer;
+    }
+    .cell.hidden {
+      background-color: #dee2e6;
+    }
+    .cell.revealed {
+      background-color: #f8f9fa;
+    }
+    .cell.mine {
+      color: #dc3545;
+      font-weight: bold;
+    }
+    .cell.flag {
+      color: #fd7e14; /* orange-ish for flags */
+    }
+    .cell.clicked-mine {
+      background-color: #f8d7da; /* light red for losing */
+    }
+    .hidden {
+      display: none;
+    }
+    .leaderboard-table {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+    <h1>Minesweeper</h1>
+    <p class="text-muted">Classic 8×8, 10 mines. Left-click to reveal; right-click to flag a cell.</p>
+
+    <!-- Controls -->
+    <div class="my-3">
+      <button id="startBtn" class="btn btn-primary">Start Game</button>
+      <p class="mt-3">
+        <strong>Time:</strong> <span id="timeCounter">0.00</span> seconds
+      </p>
+    </div>
+
+    <!-- Minefield -->
+    <div id="minefield" class="minefield"></div>
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden">
+      <h2 id="resultTitle">You Win!</h2>
+      <p>Your total time: <span id="timeTaken"></span> seconds.</p>
+      <h4>Leaderboard (Top 15 Fastest)</h4>
+      <table class="table table-bordered leaderboard-table">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Time (s)</th>
+            <th scope="col">Date</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardTbody"></tbody>
+      </table>
+      <button id="restartBtn" class="btn btn-success">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (bundle) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+  ></script>
+
+  <script>
+    /*******************************************************
+     * 0) Fallback for crypto.randomUUID()
+     *******************************************************/
+    function generateUUID() {
+      if (typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      // Manual RFC4122 v4 fallback
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      arr[6] = (arr[6] & 0x0f) | 0x40;
+      arr[8] = (arr[8] & 0x3f) | 0x80;
+      const hex = [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
+      return [
+        hex.substring(0, 8),
+        hex.substring(8, 12),
+        hex.substring(12, 16),
+        hex.substring(16, 20),
+        hex.substring(20),
+      ].join("-");
+    }
+
+    /*******************************************************
+     * 1) Game Configuration
+     *******************************************************/
+    const ROWS = 8;
+    const COLS = 8;
+    const MINES = 10;
+
+    let board = []; // 2D array of cells: {row, col, mine, adjacentMines, revealed, flagged}
+    let gameOver = false;
+    let revealedCount = 0;
+    let startTime = 0;
+    let timerInterval = null;
+
+    const minefieldEl = document.getElementById("minefield");
+    const timeCounterEl = document.getElementById("timeCounter");
+    const resultsSection = document.getElementById("resultsSection");
+    const resultTitleEl = document.getElementById("resultTitle");
+    const timeTakenEl = document.getElementById("timeTaken");
+    const leaderboardTbody = document.getElementById("leaderboardTbody");
+    const startBtn = document.getElementById("startBtn");
+    const restartBtn = document.getElementById("restartBtn");
+
+    /*******************************************************
+     * 2) Timer logic
+     *******************************************************/
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      startTime = performance.now();
+      timerInterval = setInterval(() => {
+        const now = performance.now();
+        const elapsed = (now - startTime) / 1000;
+        timeCounterEl.textContent = elapsed.toFixed(2);
+      }, 100);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      const now = performance.now();
+      return ((now - startTime) / 1000).toFixed(2);
+    }
+
+    /*******************************************************
+     * 3) Initialize / Start Game
+     *******************************************************/
+    function startGame() {
+      // Hide results
+      resultsSection.classList.add("hidden");
+      // Clear old board
+      minefieldEl.innerHTML = "";
+      board = [];
+      revealedCount = 0;
+      gameOver = false;
+
+      // Create a grid layout in CSS
+      minefieldEl.style.gridTemplateRows = `repeat(${ROWS}, 40px)`;
+      minefieldEl.style.gridTemplateColumns = `repeat(${COLS}, 40px)`;
+
+      // 1) Create board array
+      for (let r = 0; r < ROWS; r++) {
+        const rowArr = [];
+        for (let c = 0; c < COLS; c++) {
+          rowArr.push({
+            row: r,
+            col: c,
+            mine: false,
+            adjacentMines: 0,
+            revealed: false,
+            flagged: false,
+            el: null,
+          });
+        }
+        board.push(rowArr);
+      }
+
+      // 2) Place mines randomly
+      let minesToPlace = MINES;
+      while (minesToPlace > 0) {
+        const randRow = Math.floor(getSecureRandomNumber() * ROWS);
+        const randCol = Math.floor(getSecureRandomNumber() * COLS);
+        if (!board[randRow][randCol].mine) {
+          board[randRow][randCol].mine = true;
+          minesToPlace--;
+        }
+      }
+
+      // 3) Calculate adjacentMines for each cell
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c].mine) continue;
+          let count = 0;
+          for (let rr = -1; rr <= 1; rr++) {
+            for (let cc = -1; cc <= 1; cc++) {
+              if (rr === 0 && cc === 0) continue;
+              const nr = r + rr;
+              const nc = c + cc;
+              if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                if (board[nr][nc].mine) {
+                  count++;
+                }
+              }
+            }
+          }
+          board[r][c].adjacentMines = count;
+        }
+      }
+
+      // 4) Render the board
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cellData = board[r][c];
+          const cellEl = document.createElement("div");
+          cellEl.classList.add("cell", "hidden");
+          cellEl.dataset.row = r;
+          cellEl.dataset.col = c;
+          cellEl.addEventListener("click", onCellLeftClick);
+          cellEl.addEventListener("contextmenu", onCellRightClick);
+          cellData.el = cellEl;
+          minefieldEl.appendChild(cellEl);
+        }
+      }
+
+      // Start timer
+      startTimer();
+    }
+
+    function onCellLeftClick(e) {
+      if (gameOver) return;
+      const row = parseInt(e.target.dataset.row, 10);
+      const col = parseInt(e.target.dataset.col, 10);
+      const cell = board[row][col];
+
+      // If flagged, ignore
+      if (cell.flagged) return;
+
+      revealCell(row, col);
+
+      if (cell.mine) {
+        // Game over
+        loseGame(row, col);
+      } else {
+        // Check for win
+        checkWin();
+      }
+    }
+
+    function onCellRightClick(e) {
+      e.preventDefault();
+      if (gameOver) return;
+      const row = parseInt(e.target.dataset.row, 10);
+      const col = parseInt(e.target.dataset.col, 10);
+      const cell = board[row][col];
+      // If revealed, ignore
+      if (cell.revealed) return;
+      // Toggle flag
+      cell.flagged = !cell.flagged;
+      if (cell.flagged) {
+        cell.el.classList.add("flag");
+        cell.el.textContent = "🚩";
+      } else {
+        cell.el.classList.remove("flag");
+        cell.el.textContent = "";
+      }
+    }
+
+    /*******************************************************
+     * 4) Reveal Logic
+     *******************************************************/
+    function revealCell(row, col) {
+      const cell = board[row][col];
+      if (cell.revealed || cell.flagged) return;
+
+      cell.revealed = true;
+      cell.el.classList.remove("hidden");
+      cell.el.classList.add("revealed");
+      revealedCount++;
+
+      if (cell.mine) {
+        // Show mine
+        cell.el.classList.add("mine");
+        cell.el.textContent = "💣";
+      } else if (cell.adjacentMines > 0) {
+        cell.el.textContent = cell.adjacentMines;
+      } else {
+        // empty cell => expand
+        cell.el.textContent = "";
+        // expand neighbors
+        for (let rr = -1; rr <= 1; rr++) {
+          for (let cc = -1; cc <= 1; cc++) {
+            if (rr === 0 && cc === 0) continue;
+            const nr = row + rr;
+            const nc = col + cc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+              revealCell(nr, nc);
+            }
+          }
+        }
+      }
+    }
+
+    function loseGame(clickedRow, clickedCol) {
+      gameOver = true;
+      // Stop timer
+      stopTimer();
+
+      // Show all mines
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = board[r][c];
+          if (cell.mine) {
+            cell.el.classList.remove("hidden");
+            cell.el.classList.add("revealed", "mine");
+            cell.el.textContent = "💣";
+          }
+        }
+      }
+      // Mark the clicked mine specially
+      board[clickedRow][clickedCol].el.classList.add("clicked-mine");
+
+      // Show result
+      resultTitleEl.textContent = "You hit a mine! Game Over!";
+      timeTakenEl.textContent = timeCounterEl.textContent;
+      resultsSection.classList.remove("hidden");
+    }
+
+    function checkWin() {
+      // If we revealed all non-mine cells, we win
+      const totalCells = ROWS * COLS;
+      const nonMineCells = totalCells - MINES;
+      if (revealedCount === nonMineCells) {
+        gameOver = true;
+        const finalTime = stopTimer();
+        timeTakenEl.textContent = finalTime;
+        resultTitleEl.textContent = "You Win!";
+
+        // Show results
+        resultsSection.classList.remove("hidden");
+
+        // Save to leaderboard
+        saveTimeToDB(parseFloat(finalTime))
+          .then(() => loadLeaderboard())
+          .then((records) => renderLeaderboard(records))
+          .catch((err) => {
+            console.error("Error saving or loading leaderboard:", err);
+          });
+      }
+    }
+
+    /*******************************************************
+     * 5) IndexedDB for Leaderboard
+     *******************************************************/
+    let db = null;
+    const DB_NAME = "minesweeperDB";
+    const DB_VERSION = 1;
+    const STORE_NAME = "leaderboard";
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => {
+          console.error("IndexedDB failed to open");
+          reject(request.error);
+        };
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
+        request.onupgradeneeded = (e) => {
+          db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            store.createIndex("time", "time", { unique: false });
+          }
+        };
+      });
+    }
+
+    // Save time record
+    function saveTimeToDB(timeVal) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+
+        const record = {
+          time: timeVal,
+          date: new Date().toISOString(),
+        };
+        const request = store.add(record);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // Load top 15 sorted by time ascending
+    function loadLeaderboard() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const times = [];
+
+        store.openCursor().onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            times.push(cursor.value);
+            cursor.continue();
+          } else {
+            times.sort((a, b) => a.time - b.time);
+            resolve(times.slice(0, 15));
+          }
+        };
+      });
+    }
+
+    function renderLeaderboard(records) {
+      leaderboardTbody.innerHTML = "";
+      records.forEach((rec, idx) => {
+        const tr = document.createElement("tr");
+        const rankTd = document.createElement("td");
+        const timeTd = document.createElement("td");
+        const dateTd = document.createElement("td");
+
+        rankTd.textContent = idx + 1;
+        timeTd.textContent = rec.time.toFixed(2);
+        const dateObj = new Date(rec.date);
+        dateTd.textContent = dateObj.toLocaleString();
+
+        tr.appendChild(rankTd);
+        tr.appendChild(timeTd);
+        tr.appendChild(dateTd);
+        leaderboardTbody.appendChild(tr);
+      });
+    }
+
+    /*******************************************************
+     * 6) Event Listeners
+     *******************************************************/
+    startBtn.addEventListener("click", startGame);
+    restartBtn.addEventListener("click", startGame);
+
+    /*******************************************************
+     * 7) On Page Load, init DB & load leaderboard
+     *******************************************************/
+    window.addEventListener("load", () => {
+      initDB()
+        .then(() => loadLeaderboard())
+        .then((records) => renderLeaderboard(records))
+        .catch((err) => console.error("DB init error:", err));
+    });
+  </script>
+</body>
+</html>

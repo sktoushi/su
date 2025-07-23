@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  <script>
+    function getSecureRandomIndex(length) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] % length;
+    }
+
+    window.onload = function () {
+      const urls = [
+        "https://www.youtube.com/watch?v=UMZeynogqqc&list=PLutcJfNEwNkSzUWW3NW3858GhsDJ5XYHV&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=kbZF5tjwc14&list=PLutcJfNEwNkRMsNMeukpjbBCEhTl_ulFs&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=l9IaBAsjf9g&list=PLutcJfNEwNkQOXmi2WGfwN6bnhLcT57Iw&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=iXfpn9LRjj4&list=PLutcJfNEwNkT5y3G8NnI5VMJsIDk_NUZa&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=_My-oKQYjaE&list=PLutcJfNEwNkTz7gnDLFHZdYcvZ-Dp9bbw&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=T_-d9enwrBk&list=PLutcJfNEwNkQbGL4qPKHYmXKlp0uSWNgc&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=UMZeynogqqc&list=PLutcJfNEwNkToVsFJXVFFWnH9gvPp_8oX&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=mjBvwOtZwRs&list=PLL9AhEufGvwSf1d4VopHUEo1aykbw39Zv&ab_channel=Masteringmonday",
+        "https://www.youtube.com/watch?v=oUQwZ7yqGjQ&list=PLutcJfNEwNkRcY5BWqxGEm-ffTAb2GBM6",
+        "https://www.youtube.com/watch?v=vicfgRpdPZQ&list=PLutcJfNEwNkQDD1VNrXyVYPFYq0vZWjc7&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=xxCJf8HqzJM&list=PLutcJfNEwNkQvXGOE04AzwLtGkH4noPuz&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=WPu0KKdVFXQ&list=PLvrJ_6ivO_aQhufsfJ5b1toX1s68RGNQX&ab_channel=BusinessGuide",
+        "https://www.youtube.com/watch?v=kEMTdx9WInw&list=PLQUjxh812CQlEgUQY71G6TANxWbxxbWI9&ab_channel=mondayappdeveloper",
+        "https://www.youtube.com/watch?v=9ZTDRcWds_A&list=PLYpO6RCCVZ1R5KfN6oHvAUdISlqTvXQEO&ab_channel=ProperProjectManagement",
+        "https://www.youtube.com/watch?v=NGLK_H5D9BA&list=PLCEpVSI3PLFtzpN4sUfG6fnfCwury5apn&ab_channel=AndyO%27Neil-AutomationforEntrepreneurs",
+        "https://www.youtube.com/watch?v=clYQR0vsTl8&list=PLL9AhEufGvwQp63iRgnVx1ou7UZHdBgU1&ab_channel=Masteringmonday",
+        "https://www.youtube.com/watch?v=KptS7AUI3hI&list=PLBPwGLoQUZaycnhWxxR482e5NJtIg2zJj&ab_channel=DevSamuraiTeam",
+        "https://www.youtube.com/watch?v=_TmCtSTmOM4&list=PL463FcxrHCrDFSz4-SDkrTBbYI614o0uD&ab_channel=Opennetworks",
+        "https://www.youtube.com/watch?v=EPxa_uYJy3w&list=PLutcJfNEwNkQuOuvr-3NxIaYZoiWzEiZU&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=8TlmOkhMhQ8&list=PLutcJfNEwNkSbl6YFDTy5OBlErMaM2QCS&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=oGEhFmASa0w&list=PLzXQar-54wI4XiSl_UKu5hTZ0BkNfIuii&ab_channel=Achievan",
+        "https://www.youtube.com/watch?v=iII6xa0RUuA&list=PLutcJfNEwNkR1Hqw32Ru0TQEjITV2EWYX",
+        "https://www.youtube.com/watch?v=Z4qS_I3eQxs&list=PLzpPHCGcKsHMnWSlUuquhveyTRROu_kr5&ab_channel=TeamBoard",
+        "https://www.youtube.com/watch?v=CUZzZxKt0vA&list=PLjV3GzYr37FhdSPx7BgvESQSA_NfaIMYM",
+        "https://www.youtube.com/watch?v=CKgFjcFMhTI&list=PLL9AhEufGvwQgsxswUudtoHxCVHEfLja8&ab_channel=Masteringmonday",
+        "https://www.youtube.com/watch?v=4vY8wqZ4oY0&list=PLutcJfNEwNkS8tt-BOUfVj4RPICuiVQAS&ab_channel=monday.com",
+        "https://www.youtube.com/watch?v=6BhZzXxdF0g&list=PLjV3GzYr37Fipuh5EuWYT8TrV-QGmQLd7"
+      ];
+      const index = getSecureRandomIndex(urls.length);
+      window.location.href = urls[index];
+    };
+  </script>
+</head>
+<body>
+  <p>Redirecting securely to a random monday.com YouTube video...</p>
+</body>
+</html>

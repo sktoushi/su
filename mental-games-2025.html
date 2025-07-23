@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Redirect</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const urls = [
+                "https://sktoushi.github.io/stash-utils/game-diffs.html?gridSize=9",
+                "https://sktoushi.github.io/stash-utils/game-memory-matching.html",
+                "https://github.com/mdr19ganseki95cf/redirect0915/issues/148",
+                "https://sktoushi.github.io/stash-utils/clairvoyance-2025.html"
+            ];
+            
+            const randomUrl = urls[Math.floor(getSecureRandomNumber() * urls.length)];
+            window.location.href = randomUrl;
+        });
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

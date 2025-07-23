@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  <script>
+    function getSecureRandomIndex(length) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] % length;
+    }
+
+    window.onload = function () {
+      const urls = [
+        "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=artificial-intelligence-a-modern-approach-p4-1-316.pdf",
+        "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=artificial-intelligence-a-modern-approach-p3-1-250.pdf",
+        "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=artificial-intelligence-a-modern-approach-p2-1-250.pdf",
+        "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=artificial-intelligence-a-modern-approach-p1-1-250.pdf"
+      ];
+      const index = getSecureRandomIndex(urls.length);
+      window.location.href = urls[index];
+    };
+  </script>
+</head>
+<body>
+  <p>Redirecting you securely to a random AI book section...</p>
+</body>
+</html>

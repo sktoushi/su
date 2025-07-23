@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GitHub Issue Randomizer</title>
+  <script>
+    async function init() {
+      try {
+        // 1. Load the JSON file containing the color data
+        const response = await fetch('pantone-colors.json');
+        const data = await response.json();
+        
+        // 2. Get the color values array from the JSON data
+        const colorValues = data.values;
+        
+        // 3. Generate a secure random number for picking a random color
+        const randomColorIndex = Math.floor(getSecureRandomNumber() * colorValues.length);
+        const chosenColor = colorValues[randomColorIndex];
+        
+        // 4. Set the background color
+        document.body.style.backgroundColor = chosenColor;
+        
+        // 5. Proceed with fetching URL parameters, picking an issue, and redirecting
+        getURLParams();
+      } catch (error) {
+        console.error('Error fetching or applying random color:', error);
+      }
+    }
+
+
+    function getURLParams() {
+      const params = new URLSearchParams(window.location.search);
+      const username = params.get('username');
+      const repository = params.get('repository');
+      const issueNumbers = params.get('issueNumbers');
+
+      if (!username || !repository || !issueNumbers) {
+        alert('Missing required URL parameters.');
+        return;
+      }
+
+      const issueList = issueNumbers.split(',')
+        .map(Number)
+        .filter(num => !isNaN(num));
+
+      if (issueList.length === 0) {
+        alert('No valid issue numbers found.');
+        return;
+      }
+
+      // Randomly select an issue number
+      const randomIssue = issueList[Math.floor(getSecureRandomNumber() * issueList.length)];
+
+      // Construct the GitHub issue URL
+      const url = `https://github.com/${username}/${repository}/issues/${randomIssue}`;
+
+      // Delay the redirect by 1 second before opening the issue page
+      setTimeout(() => {
+        window.open(url, '_blank');
+      }, 1000);
+    }
+  </script>
+</head>
+<body onload="init()">
+  <h1>GitHub Issue Randomizer</h1>
+  <p>Randomizing and redirecting to a random issue...</p>
+</body>
+</html>

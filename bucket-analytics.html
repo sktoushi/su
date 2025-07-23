@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Analytics Dashboard</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Chart.js -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"
+    integrity="sha384-/07/2xP5bCawIzzZWu7dQuvs7Q4MOLCWfNw6FxzF5k6U/kKWewUZJJ3GWeat6qIF"
+    crossorigin="anonymous"
+  ></script>
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    body.dark-mode {
+      background-color: #343a40;
+      color: #f8f9fa;
+    }
+    .table-container {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .dark-mode .card,
+    .dark-mode .modal-content {
+      background-color: #495057;
+      color: #f8f9fa;
+    }
+    .dark-mode .form-control,
+    .dark-mode .form-select {
+      background-color: #6c757d;
+      color: #f8f9fa;
+      border: 1px solid #ced4da;
+    }
+    .dark-mode .btn-primary {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    .dark-mode .btn-secondary {
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+    .dark-mode .btn-close {
+      filter: invert(1);
+    }
+    /* Custom scrollbar for dark mode */
+    body.dark-mode ::-webkit-scrollbar {
+      width: 8px;
+    }
+    body.dark-mode ::-webkit-scrollbar-track {
+      background: #343a40;
+    }
+    body.dark-mode ::-webkit-scrollbar-thumb {
+      background: #6c757d;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Analytics Dashboard</a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div
+        class="collapse navbar-collapse justify-content-end"
+        id="navbarNav"
+      >
+        <ul class="navbar-nav">
+          <li class="nav-item me-2">
+            <button class="btn btn-secondary" onclick="toggleDarkMode()">
+              Dark Mode
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="btn btn-info"
+              data-bs-toggle="modal"
+              data-bs-target="#helpModal"
+            >
+              Help
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main container -->
+  <div class="container my-4">
+    <h1 class="text-center mb-4">Analytics Overview</h1>
+
+    <!-- Top-level summary row -->
+    <div class="row g-4">
+      <div class="col-lg-4 col-md-6">
+        <div class="card text-dark h-100">
+          <div class="card-body">
+            <h5 class="card-title">Bucket 1 Total</h5>
+            <p class="card-text fs-3" id="bucket1Total">0</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6">
+        <div class="card text-dark h-100">
+          <div class="card-body">
+            <h5 class="card-title">Bucket 2 Total</h5>
+            <p class="card-text fs-3" id="bucket2Total">0</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6">
+        <div class="card text-dark h-100">
+          <div class="card-body">
+            <h5 class="card-title">Bucket 3 Total</h5>
+            <p class="card-text fs-3" id="bucket3Total">0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-4" />
+
+    <!-- Charts row -->
+    <div class="row g-4">
+      <!-- Bar chart: frequencies in Bucket 1 & 2 -->
+      <div class="col-lg-6">
+        <div class="card text-dark">
+          <div class="card-body">
+            <h5 class="card-title">Bucket 1 &amp; 2 Frequency Comparison</h5>
+            <canvas id="b1b2BarChart" height="250"></canvas>
+          </div>
+        </div>
+      </div>
+      <!-- Doughnut chart: distribution across buckets -->
+      <div class="col-lg-6">
+        <div class="card text-dark">
+          <div class="card-body">
+            <h5 class="card-title">Overall Distribution</h5>
+            <canvas id="distDoughnutChart" height="250"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-4" />
+
+    <!-- Tables row -->
+    <div class="row g-4">
+      <div class="col-lg-4 col-md-12">
+        <div class="card text-dark">
+          <div class="card-body table-responsive table-container">
+            <h5>Bucket 1 Items (Sorted by Frequency)</h5>
+            <table class="table table-striped" id="bucket1Table">
+              <thead>
+                <tr>
+                  <th>URL</th>
+                  <th>Frequency</th>
+                </tr>
+              </thead>
+              <tbody><!-- Filled dynamically --></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card text-dark">
+          <div class="card-body table-responsive table-container">
+            <h5>Bucket 2 Items (Sorted by Frequency)</h5>
+            <table class="table table-striped" id="bucket2Table">
+              <thead>
+                <tr>
+                  <th>URL</th>
+                  <th>Frequency</th>
+                </tr>
+              </thead>
+              <tbody><!-- Filled dynamically --></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card text-dark">
+          <div class="card-body table-responsive table-container">
+            <h5>Bucket 3 Items (Sorted by Frequency)</h5>
+            <table class="table table-striped" id="bucket3Table">
+              <thead>
+                <tr>
+                  <th>Description/URL</th>
+                  <th>Frequency</th>
+                </tr>
+              </thead>
+              <tbody><!-- Filled dynamically --></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-4" />
+
+    <!-- Export/Import Buttons -->
+    <div class="text-center mb-5">
+      <button class="btn btn-secondary me-2" onclick="exportAnalytics()">
+        <i class="fas fa-file-export"></i> Export Analytics
+      </button>
+      <button class="btn btn-secondary" onclick="importAnalytics()">
+        <i class="fas fa-file-import"></i> Import Analytics
+      </button>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div
+    class="modal fade"
+    id="helpModal"
+    tabindex="-1"
+    aria-labelledby="helpModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="helpModalLabel">Help &amp; Instructions</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <h6>What Is This?</h6>
+          <p>
+            This is a sample analytics dashboard that displays frequency data
+            for three different “buckets.” It's meant to be a companion or
+            extension to any “bucket” system you might have, such as a random
+            picker or a flashcard-based system.
+          </p>
+
+          <h6>How to Use</h6>
+          <ul>
+            <li>
+              The page automatically loads the analytics state from local
+              storage or from your server.
+            </li>
+            <li>
+              The top-level cards show total item counts for each bucket, and
+              the charts visualize frequency comparisons and overall
+              distribution.
+            </li>
+            <li>
+              Each bucket’s items are shown in sortable tables. By default,
+              we’re sorting in descending order by frequency.
+            </li>
+            <li>
+              Click <strong>Export Analytics</strong> to download the entire
+              analytics state as a JSON file. You can then reload it into this
+              same or another environment by using <strong>Import Analytics</strong>.
+            </li>
+            <li>
+              Toggle <strong>Dark Mode</strong> to switch themes for a more
+              comfortable viewing environment.
+            </li>
+          </ul>
+
+          <h6>Where Does the Data Come From?</h6>
+          <p>
+            In this example, we simulate loading from localStorage. You’d adapt
+            it to read from your actual data source. This example is purely
+            illustrative; real usage might connect to an API or your existing
+            local storage keys.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (Bundle) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+7HAuoqlN0zAtJbK5zRZ5jc49UpnT"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- Font Awesome for Icons -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"
+    integrity="sha512-yvILZrxJ3u5OovP3jkGym2yjLf1bKRbD3B2pHCDq36f2+0UQQ9SaHXC/ZJxO+F2Qcaelz61fMBhtp2bda0LBeQ=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+
+  <script>
+    /*************************************************************
+     * SAMPLE Analytics State Structure
+     * In a real scenario, you'd fetch this from localStorage
+     * or from an API. We’ll emulate it here with a default object.
+     *
+     * For demonstration, we expect something like:
+     * {
+     *   "b1": {
+     *     "1": 5,
+     *     "2": 3,
+     *     "7": 10
+     *   },
+     *   "b2": {
+     *     "3": 6,
+     *     "5": 9
+     *   },
+     *   "bucket3": [
+     *     { "url": "some-fun-card", "description": "Fun", "freq": 2 },
+     *     { "url": "some-study-card", "description": "Study", "freq": 4 }
+     *   ]
+     * }
+     *************************************************************/
+
+    let analyticsState = {
+      b1: {
+        // key=item ID, value=frequency
+      },
+      b2: {},
+      bucket3: [
+        // each item has { url, description, freq }
+      ]
+    };
+
+    // Chart.js references
+    let b1b2BarChartRef = null;
+    let distDoughnutChartRef = null;
+
+    /*************************************************************
+     * LOAD Analytics
+     *************************************************************/
+    function loadAnalyticsState() {
+      // Attempt to load from localStorage
+      // Replace "myAnalyticsKey" with your actual key or logic
+      const stored = localStorage.getItem("myAnalyticsKey");
+      if (stored) {
+        try {
+          analyticsState = JSON.parse(stored);
+        } catch (e) {
+          console.error("Failed to parse localStorage data:", e);
+        }
+      } else {
+        // Optionally, fetch from server or set a default
+        // For demonstration, set a default
+        analyticsState = {
+          b1: {
+            1: 5,
+            2: 10,
+            3: 2
+          },
+          b2: {
+            4: 8,
+            5: 1,
+            6: 6
+          },
+          bucket3: [
+            { url: "https://shorts.youtube.com/xyz", description: "Fun #1", freq: 3 },
+            { url: "https://example.com/abc", description: "Study #1", freq: 5 },
+            { url: "https://example.com/def", description: "Study #2", freq: 1 }
+          ]
+        };
+      }
+    }
+
+    /*************************************************************
+     * SAVE Analytics
+     *************************************************************/
+    function saveAnalyticsState() {
+      localStorage.setItem("myAnalyticsKey", JSON.stringify(analyticsState));
+    }
+
+    /*************************************************************
+     * EXPORT Analytics
+     *************************************************************/
+    function exportAnalytics() {
+      const dataStr = JSON.stringify(analyticsState, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+
+      // Create a temporary link to download
+      const link = document.createElement("a");
+      const now = new Date().toISOString().replace(/[:.]/g, "-");
+      link.download = `analytics-export-${now}.json`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+    }
+
+    /*************************************************************
+     * IMPORT Analytics
+     *************************************************************/
+    function importAnalytics() {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".json,application/json";
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            // Overwrite or Merge
+            analyticsState = imported;
+            saveAnalyticsState();
+            renderAll();
+          } catch (err) {
+            alert("Invalid JSON file.");
+          }
+        };
+        reader.readAsText(file);
+      };
+      fileInput.click();
+    }
+
+    /*************************************************************
+     * RENDER: Summaries, Charts, and Tables
+     *************************************************************/
+    function renderAll() {
+      // Summaries:
+      const b1Total = getTotalFreq(analyticsState.b1);
+      const b2Total = getTotalFreq(analyticsState.b2);
+      const b3Total = analyticsState.bucket3.reduce((sum, item) => sum + (item.freq || 0), 0);
+
+      document.getElementById("bucket1Total").textContent = b1Total;
+      document.getElementById("bucket2Total").textContent = b2Total;
+      document.getElementById("bucket3Total").textContent = b3Total;
+
+      // Render tables (descending freq)
+      renderBucketTable(
+        "bucket1Table",
+        mapObjectToArray(analyticsState.b1, "Bucket1"),
+        true
+      );
+      renderBucketTable(
+        "bucket2Table",
+        mapObjectToArray(analyticsState.b2, "Bucket2"),
+        true
+      );
+      renderBucket3Table("bucket3Table", analyticsState.bucket3, true);
+
+      // Render charts
+      renderCharts(b1Total, b2Total, b3Total);
+    }
+
+    /**
+     * Return total frequency from an object { id: freq, ... }.
+     */
+    function getTotalFreq(obj) {
+      return Object.values(obj).reduce((sum, val) => sum + val, 0);
+    }
+
+    /**
+     * Map an object { "id": freq, ... } to an array of { url, freq }
+     * In a real scenario, you’d match “id” to an actual URL from your data store.
+     * For demonstration, we just store "Item #<id>" as the URL.
+     */
+    function mapObjectToArray(obj, bucketName) {
+      const arr = [];
+      for (const key in obj) {
+        arr.push({
+          url: `Item #${key} (in ${bucketName})`,
+          freq: obj[key]
+        });
+      }
+      return arr;
+    }
+
+    /**
+     * Render Bucket1/Bucket2 table
+     */
+    function renderBucketTable(tableId, dataArr, sortDesc = false) {
+      // Sort by freq descending
+      if (sortDesc) {
+        dataArr.sort((a, b) => b.freq - a.freq);
+      }
+
+      const tableBody = document.querySelector(`#${tableId} tbody`);
+      tableBody.innerHTML = "";
+      dataArr.forEach((item) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><a href="${item.url}" target="_blank">${item.url}</a></td>
+          <td>${item.freq}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    /**
+     * Render Bucket3 table
+     */
+    function renderBucket3Table(tableId, bucket3Arr, sortDesc = false) {
+      // Sort by freq descending
+      if (sortDesc) {
+        bucket3Arr.sort((a, b) => b.freq - a.freq);
+      }
+
+      const tableBody = document.querySelector(`#${tableId} tbody`);
+      tableBody.innerHTML = "";
+      bucket3Arr.forEach((item) => {
+        const tr = document.createElement("tr");
+        const linkText = item.url
+          ? `<a href="${item.url}" target="_blank">${item.url}</a>`
+          : "(No URL)";
+        const desc = item.description ? item.description : "(No Description)";
+        tr.innerHTML = `
+          <td>${desc}<br>${linkText}</td>
+          <td>${item.freq || 0}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    /**
+     * Render or Update Charts
+     */
+    function renderCharts(b1Total, b2Total, b3Total) {
+      const ctxBar = document.getElementById("b1b2BarChart").getContext("2d");
+      const ctxDoughnut = document
+        .getElementById("distDoughnutChart")
+        .getContext("2d");
+
+      // Destroy old charts if they exist (to handle re-renders)
+      if (b1b2BarChartRef) {
+        b1b2BarChartRef.destroy();
+      }
+      if (distDoughnutChartRef) {
+        distDoughnutChartRef.destroy();
+      }
+
+      // Bar chart comparing Bucket1 & Bucket2 totals
+      b1b2BarChartRef = new Chart(ctxBar, {
+        type: "bar",
+        data: {
+          labels: ["Bucket 1", "Bucket 2"],
+          datasets: [
+            {
+              label: "Frequency",
+              data: [b1Total, b2Total],
+              backgroundColor: ["#0d6efd", "#6c757d"] // bootstrap primary, secondary
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // Doughnut chart for distribution across buckets
+      distDoughnutChartRef = new Chart(ctxDoughnut, {
+        type: "doughnut",
+        data: {
+          labels: ["Bucket 1", "Bucket 2", "Bucket 3"],
+          datasets: [
+            {
+              label: "Distribution",
+              data: [b1Total, b2Total, b3Total],
+              backgroundColor: ["#0d6efd", "#6c757d", "#198754"] // primary, secondary, success
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+
+    /*************************************************************
+     * THEME (Dark Mode)
+     *************************************************************/
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+      const isDark = document.body.classList.contains("dark-mode");
+      localStorage.setItem("analyticsDarkMode", isDark);
+    }
+
+    function loadDarkMode() {
+      const isDark = localStorage.getItem("analyticsDarkMode") === "true";
+      if (isDark) {
+        document.body.classList.add("dark-mode");
+      }
+    }
+
+    /*************************************************************
+     * ON WINDOW LOAD
+     *************************************************************/
+    window.addEventListener("DOMContentLoaded", () => {
+      loadDarkMode();
+      loadAnalyticsState();
+      renderAll();
+    });
+  </script>
+</body>
+</html>

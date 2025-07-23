@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/random-utils.js"></script>
+    <script src="common/skyway-utils.js"></script>
+    <script src="common/color-utils.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta charset="UTF-8">
+  <title>skyway.html – Hierarchical Multi-Mode Randomizer (multi-distribution)</title>
+  <style>
+    /* === GitHub-Issues-Dark Portal === */
+    #portal{display:none;box-sizing:border-box;padding:1rem;max-width:640px;margin:0 auto;height:100%;overflow-y:auto;background:#0d1117;color:#c9d1d9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Open Sans","Helvetica Neue",sans-serif;}
+    #portal h3{margin-top:0;color:#58a6ff;font-size:1.25rem;font-weight:600;}
+    #portal p{margin:.4rem 0;font-size:.875rem;}
+    #portal button{display:inline-block;margin:.25rem .25rem .5rem 0;padding:.45rem .85rem;font-size:.75rem;font-weight:600;border-radius:6px;border:1px solid #30363d;background:#2ea44f;color:#fff;}
+    #portal button:hover{background:#2c974b;cursor:pointer;}
+    #textareaImport{width:100%;box-sizing:border-box;background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem;font-size:.75rem;}
+    @media(max-width:480px){#portal{padding:.75rem;}}
+  </style>
+</head>
+<body>
+  <div id="progressBarContainer" style="position:fixed;top:0;left:0;width:100%;display:none;z-index:9999;">
+    <div class="progress" style="height:30px;">
+      <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+  </div>
+  <div id="progressSubtext" style="position:fixed;top:calc(50% + 40px);left:50%;transform:translateX(-50%);text-align:center;font-family:Helvetica, sans-serif;font-size:1.5rem;display:none;z-index:9999;"></div>
+  <div id="progressCount" style="position:fixed;top:calc(50% + 80px);left:50%;transform:translateX(-50%);text-align:center;font-family:Helvetica, sans-serif;font-size:1.5rem;display:none;z-index:9999;"></div>
+  <div id="portal"></div>
+<script>
+/*╔══════════════════════════════════════════╗
+  ║  HIERARCHICAL DECISION STACK             ║
+  ║  1) modeWeights  → chooses randomMode.   ║
+  ║  2) distributions / distribution         ║
+  ║     • if present → forces “segments”.    ║
+  ║  3) randomMode   → manual override.      ║
+  ║  4) default      → “weighted”.           ║
+  ╚══════════════════════════════════════════╝*/
+
+/* ──────────────── URL PARAM PARSE ──────────────── */
+const urlParams   = new URLSearchParams(location.search);
+const targetCsv   = urlParams.get('target');                         // required
+let lastPantoneColor = '#ffffff';
+
+/* ——— SINGLE distribution=1-2-3-2-1 etc. ——— */
+let   distributionArr = null;
+const distributionStr = urlParams.get('distribution');
+if (distributionStr) {
+  distributionArr = distributionStr
+      .split(/[-,]/)                                                 // hyphen / comma both OK
+      .map(n => parseInt(n.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0);
+}
+
+/* ——— MULTI distributions=dist:weight;dist:weight ——— */
+let distributionPool = [];                                           // [{arr:[…], weight:…}, …]
+const distributionsStr = urlParams.get('distributions');
+if (distributionsStr) {
+  const distEntries = distributionsStr.split(/[;|]/);                // allow ; or |
+  for (const entry of distEntries) {
+    const [distPart, wPart] = entry.split(/[:=]/);                   // allow : or =
+    if (!distPart || !wPart) continue;
+    const w = parseInt(wPart.trim(), 10);
+    if (w <= 0 || isNaN(w)) continue;
+    const arr = distPart
+        .split(/[-,]/)
+        .map(x => parseInt(x.trim(),10))
+        .filter(x => !isNaN(x) && x > 0);
+    if (arr.length) distributionPool.push({ arr, weight: w });
+  }
+}
+
+/* ——— randomMode fallback (before overrides) ——— */
+let randomMode = (urlParams.get('randomMode') || 'weighted').toLowerCase();
+
+/* ——— modeWeights=weighted:3,segments:4 … ——— */
+const modeWeightsStr = urlParams.get('modeWeights');
+if (modeWeightsStr) {
+  const allowed = new Set(['weighted','uniform','contiguous','segments']);
+  const mwList  = modeWeightsStr.split(/[;,]/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => {
+        const [k,v] = p.split(/[:=|]/);
+        return { mode: k?.trim().toLowerCase(), w: parseInt(v?.trim(),10) };
+      })
+      .filter(o => allowed.has(o.mode) && o.w > 0 && !isNaN(o.w));
+  if (mwList.length) {
+    const tot = mwList.reduce((s,m)=>s+m.w,0);
+    let  rnd  = randInt(1, tot);
+    for (const m of mwList) { if (rnd <= m.w) { randomMode = m.mode; break; } rnd -= m.w; }
+  }
+}
+
+/* ——— distributions override → segments mode ——— */
+if ((distributionArr && distributionArr.length) || distributionPool.length)
+  randomMode = 'segments';
+
+/* DEBUG (optional) */
+// console.log('Chosen randomMode:', randomMode);
+// console.log('distributionPool', distributionPool);
+
+/* ──────────────── CONFIG HANDLING ──────────────── */
+let configValues = {};
+async function loadConfig() {
+  if (Object.keys(configValues).length) return configValues;
+  try {
+    const resp = await fetch('config/values.json');
+    if (resp.ok) {
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if (Array.isArray(raw.patches) && raw.patches.length) {
+        const weights = raw.patches.map(p => Number(p.distributionWeight) || 1);
+        const tot = weights.reduce((a, b) => a + b, 0);
+        let rnd = getSecureRandomNumber() * tot;
+        for (let i = 0; i < raw.patches.length; i++) {
+          if (rnd < weights[i]) { patch = { ...raw.patches[i] }; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+      for (const [k,v] of Object.entries(configValues)) {
+        if (typeof v === 'string' && /^\d+(?:\.\d+)?$/.test(v)) {
+          configValues[k] = Number(v);
+        }
+      }
+    }
+  } catch (err) { console.error('Config load failed:', err); }
+  return configValues;
+}
+
+/* ──────────────── RANDOM HELPERS ──────────────── */
+function randInt(min, max) { return Math.floor(getSecureRandomNumber()*(max-min+1))+min; }
+function pickIdxByWeights(freq) {
+  const tot=freq.reduce((s,v)=>s+v,0);
+  let rnd=randInt(1,tot);
+  for(let i=0;i<freq.length;i++){ if(rnd<=freq[i]) return i; rnd-=freq[i]; }
+  return freq.length-1;
+}
+
+/* ──────────────── CSV HELPERS ──────────────── */
+function cleanCell(c){ return c.trim().replace(/^["']+|["']+$/g,''); }
+function parseCsvLine(l){
+  const out=[];let cell='',inQ=false;
+  for(let i=0;i<l.length;i++){
+    const ch=l[i];
+    if(ch==='"'){ if(inQ && l[i+1]==='"'){cell+='"';i++;} else inQ=!inQ; }
+    else if(ch===',' && !inQ){ out.push(cell); cell=''; }
+    else cell+=ch;
+  }
+  out.push(cell); return out;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(getSecureRandomNumber()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ───── placeholder + numeric-expr substitution ───── */
+function tryEvalExpr(str){
+  if(!/^[0-9+\-*/ ().]+$/.test(str)) return str;
+  try{ const v=Function('"use strict";return ('+str+')')(); return Number.isFinite(v)?String(v):str; }
+  catch{ return str; }
+}
+function applyConfig(rows){
+  const re=/\{([^}]+)}/g;
+  return rows.map(r=>r.map(c=>{
+    const sub=c.replace(re,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m);
+    return tryEvalExpr(sub);
+  }));
+}
+
+/* ──────────────── FETCH CSV ──────────────── */
+async function fetchCSV(name){
+  await loadConfig();
+  try{
+    const res=await fetch(name);
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const raw=(await res.text()).split('\n').map(l=>l.trim()).filter(Boolean);
+    let rows=raw.map(l=>parseCsvLine(l).map(cleanCell));
+    rows=applyConfig(rows);
+    const inj=[]; const normal=[];
+    for(const r of rows){
+      if(r[0].trim().toLowerCase()==='injection'){
+        const c=Math.max(1,parseInt(r[1],10)||1);
+        for(let i=0;i<c;i++) inj.push(['injection','1',r[2]]);
+      }else normal.push(r);
+    }
+    if(!['contiguous','segments'].includes(randomMode)) shuffle(normal);
+    rows=normal;
+    if(inj.length){
+      const total=rows.length+inj.length;
+      const step=total/inj.length;
+      let next=step/2,idx=0; const out=[];
+      for(let i=0;i<total;i++){
+        if(idx<inj.length && i>=Math.round(next)){
+          out.push(inj[idx++]);
+          next+=step;
+        }else if(rows.length) out.push(rows.shift());
+        else out.push(inj[idx++]);
+      }
+      rows=out;
+    }
+    return rows;
+  }catch(e){ throw new Error('Error fetching "'+name+'": '+e.message); }
+}
+
+/* ──────────────── PICK ALGORITHMS ──────────────── */
+function pickUniform(rows){ return rows[randInt(0,rows.length-1)]; }
+function pickWeighted(rows){
+  const list=rows.map(r=>({r,w:Math.max(1,parseInt(r[1],10)||1)}));
+  const tot = list.reduce((s,x)=>s+x.w,0);
+  let rnd=getSecureRandomNumber()*tot;
+  for(const x of list){ if(rnd<x.w) return x.r; rnd-=x.w; }
+  return list[list.length-1].r;
+}
+function pickContiguous(rows){
+  const tot=rows.reduce((s,r)=>s+Math.max(1,parseInt(r[1],10)||1),0);
+  let rnd=randInt(1,tot);
+  for(const r of rows){
+    const w=Math.max(1,parseInt(r[1],10)||1);
+    if(rnd<=w) return r; rnd-=w;
+  }
+  return rows[rows.length-1];
+}
+function pickSegments(rows){
+  /* 1️⃣ choose which distribution to use */
+  let freq = null;
+  if (distributionPool.length) {                           // weighted pool
+    const weights = distributionPool.map(d=>d.weight);
+    freq = distributionPool[pickIdxByWeights(weights)].arr.slice();
+  } else if (distributionArr && distributionArr.length) {  // single
+    freq = distributionArr.slice();
+  } else {
+    return pickUniform(rows);                              // fallback
+  }
+
+  /* 2️⃣ ensure region count ≤ rows */
+  const nRows=rows.length;
+  if (freq.length>nRows){
+    const extra=freq.slice(nRows).reduce((s,v)=>s+v,0);
+    freq=freq.slice(0,nRows);
+    freq[nRows-1]+=extra;
+  }
+
+  /* 3️⃣ divide rows → regions */
+  const nReg=freq.length;
+  const base=Math.floor(nRows/nReg);
+  let   rem =nRows%nReg;
+  const bounds=[]; let start=0;
+  for(let i=0;i<nReg;i++){
+    const sz=base+(i<rem?1:0);
+    bounds.push([start,start+sz-1]);
+    start+=sz;
+  }
+
+  /* 4️⃣ pick region by freq, then pick row uniformly within region */
+  const regIdx = pickIdxByWeights(freq);
+  const [l,r]  = bounds[regIdx];
+  return rows[randInt(l,r)];
+}
+function pickRow(rows){
+  switch(randomMode){
+    case 'uniform'   : return pickUniform(rows);
+    case 'contiguous': return pickContiguous(rows);
+    case 'segments'  : return pickSegments(rows);
+    case 'weighted'  :
+    default          : return pickWeighted(rows);
+  }
+}
+
+/* ──────────────── BUCKET HANDLING ──────────────── */
+const DB_NAME='skyBuckets';
+const STORE='state';
+const DB_VERSION=1;
+let bucketDb=null, bucketState=null;
+
+function openBucketDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VERSION);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE,{keyPath:'id'});
+    };
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>res(r.result);
+  });
+}
+function idbGet(key){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readonly').objectStore(STORE).get(key);
+    tx.onsuccess=()=>res(tx.result?tx.result.data:null);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+function idbPut(key,val){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readwrite').objectStore(STORE).put({id:key,data:val});
+    tx.onsuccess=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+function extractVideoId(url){
+  const m=url.match(/[?&]v=([^&]+)/); if(m) return m[1];
+  const m2=url.match(/youtu\.be\/([^?]+)/); if(m2) return m2[1];
+  return url;
+}
+
+async function loadBucketState(){
+  bucketDb=await openBucketDB();
+  bucketState=await idbGet('main');
+  if(!bucketState){
+    bucketState={reviewBucket:[],newBucket:[],initiated:false};
+  }
+  if(!bucketState.initiated){
+    initNewBucketFromQuery();
+    bucketState.initiated=true;
+    await saveBucketState();
+  }
+}
+function initNewBucketFromQuery(){
+  const p=new URLSearchParams(location.search);
+  const vid=p.get('video');
+  if(!vid) return;
+  const start=p.get('start')||'0';
+  const end=p.get('end')||'0';
+  const u=new URL('looptube.html',location.origin);
+  u.searchParams.set('video',extractVideoId(vid));
+  u.searchParams.set('start',start);
+  u.searchParams.set('end',end);
+  bucketState.newBucket.push(u.toString());
+}
+async function saveBucketState(){ await idbPut('main',bucketState); }
+
+function pickBucketItem(){
+  if(!bucketState.reviewBucket.length && !bucketState.newBucket.length) return null;
+  const useReview=getSecureRandomNumber()<0.33 && bucketState.reviewBucket.length;
+  const bucket=useReview?bucketState.reviewBucket:bucketState.newBucket;
+  if(!bucket.length){
+    const other=useReview?bucketState.newBucket:bucketState.reviewBucket;
+    if(!other.length) return null;
+    return pickFromBucket(other,!useReview);
+  }
+  return pickFromBucket(bucket,useReview);
+}
+function pickFromBucket(bucket,isReview){
+  const idx=Math.floor(getSecureRandomNumber()*bucket.length);
+  const item=bucket[idx];
+  if(!isReview){
+    bucket.splice(idx,1);
+    bucketState.reviewBucket.push(item);
+  }
+  saveBucketState();
+  return item;
+}
+
+function evalFormula(formula){
+  if(formula === undefined || formula === null || formula === '') return NaN;
+  if(typeof formula === 'number') return formula;
+  let expr = String(formula);
+  for(const [k,v] of Object.entries(configValues)){
+    expr = expr.replace(new RegExp('\\b'+k+'\\b','g'), v);
+  }
+  try{ return Function('"use strict";return ('+expr+')')(); }
+  catch{ return NaN; }
+}
+
+async function showProgressAndRedirect(url, rawUrl=null){
+  await recordHistory(rawUrl || url);
+  await loadConfig();
+  const cur = evalFormula(configValues.progressCurrentValueFormula);
+  const target = evalFormula(configValues.progressTargetValueFormula);
+  const container=document.getElementById('progressBarContainer');
+  const bar=document.getElementById('progressBar');
+  if(!container||!bar){ location.href=url; return; }
+  if(isNaN(cur)||isNaN(target)||target<=cur){ location.href=url; return; }
+  container.style.display='block';
+  bar.style.width='0%';
+  bar.setAttribute('aria-valuenow','0');
+  bar.textContent='0%';
+  const steps=60; const duration=2000; let step=0;
+  const inc=(target-cur)/steps; let val=cur;
+  return new Promise(resolve=>{
+    const timer=setInterval(()=>{
+      val += inc; step++;
+      const pct=((val-cur)/(target-cur))*100;
+      bar.style.width=pct+'%';
+      bar.setAttribute('aria-valuenow',pct);
+      bar.textContent=Math.floor(pct)+'%';
+      if(step>=steps){
+        clearInterval(timer);
+        const delay=0.5+getSecureRandomNumber()*(5000-0.5);
+        setTimeout(()=>{ location.href=url; resolve(); }, delay);
+      }
+    }, duration/steps);
+  });
+}
+
+async function animateProgressCount(){
+  await loadConfig();
+  const target=evalFormula(configValues.progressCurrentValueFormula);
+  const el=document.getElementById('progressCount');
+  if(!el||isNaN(target)) return;
+  el.style.display='block';
+  const steps=60; const duration=2000; let step=0; let val=0;
+  const inc=target/steps;
+  const timer=setInterval(()=>{
+    val+=inc; step++;
+    if(step>=steps){ clearInterval(timer); val=target; }
+    el.textContent=Math.round(val).toLocaleString();
+  }, duration/steps);
+}
+
+function updateVisitCounter(){
+  const key='skywayVisitCount';
+  let count=parseInt(localStorage.getItem(key)||'0',10);
+  count++; localStorage.setItem(key,count);
+  return count;
+}
+
+/* ──────────────── HISTORY DB ──────────────── */
+const HIST_DB_NAME='skyHistory';
+const HIST_STORE='links';
+const HIST_VERSION=1;
+let historyDb=null;
+const LOCAL_HIST_KEY='skyway250628v3History';
+
+function openHistoryDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(HIST_DB_NAME,HIST_VERSION);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(HIST_STORE))
+        db.createObjectStore(HIST_STORE,{keyPath:'id'});
+    };
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>res(r.result);
+  });
+}
+
+async function histGet(id){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readonly').objectStore(HIST_STORE).get(id);
+    tx.onsuccess=()=>res(tx.result||null);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+async function histPut(rec){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readwrite').objectStore(HIST_STORE).put(rec);
+    tx.onsuccess=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+async function getAllHistory(){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readonly').objectStore(HIST_STORE).getAll();
+    tx.onsuccess=()=>res(tx.result||[]);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+/* store non-local links for the history gate */
+let skipBegins=null, skipContains=null, skipEnds=null;
+async function loadSkipConfig(){
+  if(skipBegins&&skipContains&&skipEnds) return;
+  skipBegins=[]; skipContains=[]; skipEnds=[];
+  try{
+    const resp=await fetch('config/skyway-url-prefix-skip-list');
+    if(resp.ok){
+      const data=await resp.json();
+      if(Array.isArray(data.beginsWith))  skipBegins=data.beginsWith.map(s=>s.toLowerCase());
+      if(Array.isArray(data.contains))    skipContains=data.contains.map(s=>s.toLowerCase());
+      if(Array.isArray(data.endsWith))    skipEnds=data.endsWith.map(s=>s.toLowerCase());
+    }
+  }catch(e){ console.warn('Failed to load skip config',e); }
+}
+
+function shouldSkip(url){
+  const decoded=decodeURIComponent(url||'').toLowerCase();
+  if(skipBegins.some(p=>decoded.startsWith(p))) return true;
+  if(skipEnds.some(e=>decoded.endsWith(e))) return true;
+  if(skipContains.some(c=>decoded.includes(c))) return true;
+  return false;
+}
+
+async function recordHistory(url){
+  await loadSkipConfig();
+  if(shouldSkip(url)) return;
+  try{
+    let arr=JSON.parse(localStorage.getItem(LOCAL_HIST_KEY)||'[]');
+    if(!Array.isArray(arr)) arr=[];
+    arr=arr.filter(u=>u!==url);
+    arr.push(url);
+    if(arr.length>10) arr=arr.slice(-10);
+    localStorage.setItem(LOCAL_HIST_KEY,JSON.stringify(arr));
+  }catch(e){ console.warn('local history fail',e); }
+  await updateHistoryRecord(url);
+}
+
+async function syncLocalHistory(){
+  let arr;
+  try{ arr=JSON.parse(localStorage.getItem(LOCAL_HIST_KEY)||'[]'); }
+  catch{ arr=[]; }
+  if(!Array.isArray(arr)) arr=[];
+  for(const url of arr){
+    try{ await updateHistoryRecord(url); }catch{}
+  }
+}
+
+async function getHistory(){
+  try{
+    await syncLocalHistory();
+    const all=await getAllHistory();
+    all.sort((a,b)=>(b.lastSeen||0)-(a.lastSeen||0));
+    return all.slice(0,10).map(r=>r.url);
+  }catch(e){ console.error('getHistory fail',e); return []; }
+}
+
+async function updateHistoryRecord(url){
+  const now=Date.now();
+  try{
+    const existing=await histGet(url);
+    const rec=existing?{...existing,freq:(existing.freq||0)+1,lastSeen:now}:{id:url,url,freq:1,lastSeen:now};
+    await histPut(rec);
+  }catch(e){ console.error('hist update fail',e); }
+}
+
+function getPhilippineNow(){
+  const now=new Date();
+  const utc=now.getTime()+now.getTimezoneOffset()*60000;
+  return new Date(utc+8*3600000);
+}
+
+/* === Portal === */
+async function showPortal(){
+  const arr=await getAllHistory();
+  const size=new Blob([JSON.stringify({links:arr})]).size;
+  const earliest=arr.length?new Date(Math.min(...arr.map(r=>r.lastSeen))).toLocaleString():'N/A';
+  const latest=arr.length?new Date(Math.max(...arr.map(r=>r.lastSeen))).toLocaleString():'N/A';
+  const div=document.getElementById('portal');
+  div.style.display='block';
+  div.innerHTML=`<h3>History Portal</h3><p>Total JSON size: ${size} bytes</p><p>${arr.length} unique URLs</p><p>First seen: ${earliest}</p><p>Last seen: ${latest}</p><button onclick="exportData()">Export JSON</button><button onclick="importPrompt()">Import JSON</button><button onclick="resetData()">Reset State</button><br/><textarea id="textareaImport" style="display:none" placeholder="Paste JSON here"></textarea>`;
+}
+
+async function exportData(){
+  const arr=await getAllHistory();
+  const blob=new Blob([JSON.stringify({links:arr})],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='skywayHistory.json';a.click();URL.revokeObjectURL(url);
+}
+function importPrompt(){
+  const area=document.getElementById('textareaImport');area.style.display='block';area.value='';
+  const btn=document.createElement('button');btn.textContent='Import';area.after(btn);
+  btn.onclick=async()=>{await importData(area.value);location.reload();};
+}
+async function importData(txt){
+  txt=txt.trim();if(!txt)return;let j;try{j=JSON.parse(txt);}catch(e){alert('Invalid JSON');return;}
+  if(!Array.isArray(j.links)){alert('Malformed JSON');return;}
+  for(const r of j.links){if(!r.url)continue;await histPut({id:r.url,url:r.url,freq:r.freq||1,lastSeen:r.lastSeen||Date.now()});}
+}
+function resetData(){const r=indexedDB.deleteDatabase(HIST_DB_NAME);r.onsuccess=()=>location.reload();}
+
+/* ──────────────── MAIN PROCESSOR ──────────────── */
+async function processRows(rows,depth=0){
+  if(depth>2000) return document.body.textContent='Max CSV nesting depth exceeded.';
+  if(!rows.length)  return document.body.textContent='CSV empty.';
+  // auto-weight rows with "csv,0,child.csv"
+  for(const r of rows){
+    if(r[0].trim()==='csv' && parseInt(r[1],10)===0){
+      try{ r[1]=(await fetchCSV(r[2])).length.toString(); }
+      catch(e){ console.error(e); r[1]='1'; }
+    }
+  }
+  const sel=pickRow(rows);
+  const type=sel[0].trim();
+  if(type==='link' || type==='injection'){
+    await showProgressAndRedirect(handleSkywayLink(sel,pickBucketItem), sel[2]);
+    return;
+  }
+  if(type==='link-jp'){
+    await showProgressAndRedirect(handleSkywayLink(sel,pickBucketItem,true), sel[2]);
+    return;
+  }
+
+  if(type==='git-specific'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const list=sel[4].split('=')[1].split('_');
+    location.href=`https://github.com/${user}/${repo}/issues/${list[randInt(0,list.length-1)]}`; return;
+  }
+  if(type==='git-range'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const [min,max]=sel[4].split('=')[1].split('_').map(Number);
+    if(isNaN(min)||isNaN(max)) return document.body.textContent='Bad git-range row';
+    location.href=`https://github.com/${user}/${repo}/issues/${randInt(min,max)}`; return;
+  }
+  if(type==='csv'){
+    try{ return processRows(await fetchCSV(sel[2]),depth+1); }
+    catch(e){ return document.body.textContent=e.message; }
+  }
+  document.body.textContent='Unknown row type: '+type;
+}
+
+
+/* helper to compute the terminal URL without navigating */
+async function computeTerminalUrl(){
+  let final=null;
+  const orig=showProgressAndRedirect;
+  try{
+    showProgressAndRedirect=async (url, raw)=>{ await recordHistory(raw || url); final=url; };
+    await processRows(await fetchCSV(targetCsv));
+  }catch(e){ console.error('terminal url capture failed',e); }
+  finally{ showProgressAndRedirect=orig; }
+  return final;
+}
+
+/* run the original skyway algorithm */
+async function runOriginal(){
+  await getRandomColor();
+  await loadConfig();
+  animateProgressCount();
+  const count=updateVisitCounter();
+  const sub=document.getElementById('progressSubtext');
+  if(sub && configValues.lastUpdated){
+    const last=new Date(configValues.lastUpdated);
+    const now=getPhilippineNow();
+    const days=Math.max(1,(now-last)/86400000);
+    const avg=(count/days).toFixed(2);
+    sub.textContent=`+${count} since ${configValues.lastUpdated}! average: ${avg}`;
+    sub.style.display='block';
+  }
+  await loadBucketState();
+  let url=null;
+  try{ url=await computeTerminalUrl(); }
+  catch(e){ return document.body.textContent=e.message; }
+  if(url) await showProgressAndRedirect(url);
+}
+
+/* pick a random previously visited link */
+async function runHistoryGate(){
+  try{
+    await loadConfig();
+    await loadBucketState();
+  }catch(e){ console.error('history gate prep failed',e); }
+  const hist=await getHistory();
+  if(!hist.length) return runOriginal();
+  try{ await computeTerminalUrl(); }
+  catch(e){ console.error('terminal url capture failed',e); }
+  const records=[];
+  for(const url of hist){
+    try{
+      const rec=await histGet(url);
+      records.push({url,freq:rec?.freq||0,lastSeen:rec?.lastSeen||0});
+    }catch{ records.push({url,freq:0,lastSeen:0}); }
+  }
+  if(!records.length) return runOriginal();
+  const now=Date.now();
+  let best=records[0];
+  let bestScore=-Infinity;
+  for(const r of records){
+    const score=(now-r.lastSeen)/(r.freq+1);
+    if(score>bestScore){ bestScore=score; best=r; }
+  }
+  await showProgressAndRedirect(best.url);
+}
+
+/* ──────────────── ENTRY ──────────────── */
+window.onload = async ()=>{
+  if(urlParams.has('portal')){
+    return showPortal();
+  }
+  if(!targetCsv){ document.body.textContent='Missing ?target=…'; return; }
+  if(getSecureRandomNumber()<0.33){
+    await runHistoryGate();
+  } else {
+    await runOriginal();
+  }
+};
+</script>
+</body>
+</html>

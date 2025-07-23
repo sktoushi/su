@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+        
+        
+        function parseUrlParams() {
+            var params = {};
+            var queryString = window.location.search.substring(1);
+            var vars = queryString.split("&");
+            for (var i = 0; i < vars.length; i++) {
+                var pair = vars[i].split("=");
+                var key = decodeURIComponent(pair[0]);
+                var value = decodeURIComponent(pair[1]);
+                params[key] = value;
+            }
+            return params;
+        }
+
+        function pickIssueNumber(allocArr) {
+            var issueNumbers = [];
+            var frequencies = [];
+            var totalFrequency = 0;
+
+            var pairs = allocArr.split(",");
+            for (var i = 0; i < pairs.length; i++) {
+                var parts = pairs[i].split("_");
+                var issueNumber = parts[0];
+                var frequency = parseInt(parts[1]);
+                issueNumbers.push(issueNumber);
+                frequencies.push(frequency);
+                totalFrequency += frequency;
+            }
+
+            // Generate a random number between 0 and totalFrequency
+            var rand = getSecureRandomNumber() * totalFrequency;
+
+            // Select the issueNumber based on frequency
+            var cumulative = 0;
+            for (var i = 0; i < frequencies.length; i++) {
+                cumulative += frequencies[i];
+                if (rand <= cumulative) {
+                    return issueNumbers[i];
+                }
+            }
+            // In case of rounding errors
+            return issueNumbers[issueNumbers.length - 1];
+        }
+
+        function redirectToIssue() {
+            var params = parseUrlParams();
+            var username = params["username"];
+            var repository = params["repository"];
+            var allocArr = params["allocArr"];
+
+            if (username && repository && allocArr) {
+                var issueNumber = pickIssueNumber(allocArr);
+
+                var url = "http://github.com/" + encodeURIComponent(username) + "/" + encodeURIComponent(repository) + "/issues/" + encodeURIComponent(issueNumber);
+
+                window.open(url);
+                window.location.href = url;
+            } else {
+                alert("Missing parameters.");
+            }
+        }
+
+        window.onload = redirectToIssue;
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Memory Matching Game</title>
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      margin: 20px;
+      background-color: #f8f9fa;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .memory-card {
+      position: relative;
+      width: 100%;
+      padding-top: 100%; /* Force square shape */
+      cursor: pointer;
+      perspective: 800px;
+    }
+    .memory-card-inner {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .memory-card.flipped .memory-card-inner {
+      transform: rotateY(180deg);
+    }
+    .memory-card-front,
+    .memory-card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .memory-card-front {
+      background: #17a2b8; /* "info" color */
+      color: #fff;
+    }
+    .memory-card-back {
+      background: #ffffff;
+      transform: rotateY(180deg);
+      border: 2px solid #6c757d;
+    }
+    .matched {
+      cursor: default;
+      opacity: 0.75;
+    }
+    .hidden {
+      display: none;
+    }
+    .leaderboard-table {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+    <h1>Memory Matching Game</h1>
+    <p class="text-muted">Flip the cards to find matching pairs. This trains your memory!</p>
+
+    <!-- Controls -->
+    <div class="my-3">
+      <button id="startBtn" class="btn btn-primary">Start Game</button>
+    </div>
+
+    <!-- The game area -->
+    <div id="gameArea" class="hidden">
+      <p><strong>Time:</strong> <span id="timeCounter">0.00</span> seconds</p>
+      <div id="cardGrid" class="card-grid"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden">
+      <h2>All Matched!</h2>
+      <p>Your total time: <span id="timeTaken"></span> seconds.</p>
+      <h4>Leaderboard (Top 15 Fastest)</h4>
+      <table class="table table-bordered leaderboard-table">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Time (s)</th>
+            <th scope="col">Date</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardTbody"></tbody>
+      </table>
+      <button id="restartBtn" class="btn btn-success">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (bundle) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+  ></script>
+
+  <script>
+    /*******************************************************
+     * 0) Fallback for crypto.randomUUID()
+     *******************************************************/
+    function generateUUID() {
+      if (typeof crypto.randomUUID === "function") {
+        // Modern browsers
+        return crypto.randomUUID();
+      }
+      // Fallback for older browsers: generate a random v4 UUID manually
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      // Set bits 4 and 5 of 7th byte to 4 and 2, per RFC 4122
+      arr[6] = (arr[6] & 0x0f) | 0x40;
+      arr[8] = (arr[8] & 0x3f) | 0x80;
+      const hex = [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
+      return [
+        hex.substring(0, 8),
+        hex.substring(8, 12),
+        hex.substring(12, 16),
+        hex.substring(16, 20),
+        hex.substring(20),
+      ].join("-");
+    }
+
+    /*******************************************************
+     * 1) Card set: pairs of symbols
+     *    We'll shuffle them for each new game.
+     *******************************************************/
+    const SYMBOLS = [
+      "🐱", "🐶", "🐧", "🐸", "🐙", "🐞", 
+      "🍎", "🍊", "🍌", "🍉", "🍩", "🍔",
+      "⭐", "🌙", "⚡", "☂️", "🎵", "❤️"
+    ];
+    // We'll randomly pick 8 pairs (16 cards total) from these symbols by default.
+    const TOTAL_PAIRS = 8;
+
+    let selectedSymbols = [];
+    let deck = []; // Each element: { symbol, id, matched: bool }
+
+    let firstCard = null;
+    let secondCard = null;
+    let totalMatches = 0;
+
+    let startTime = 0;
+    let timerInterval = null;
+
+    const timeCounterEl = document.getElementById("timeCounter");
+    const startBtn = document.getElementById("startBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const cardGrid = document.getElementById("cardGrid");
+    const gameArea = document.getElementById("gameArea");
+    const resultsSection = document.getElementById("resultsSection");
+    const timeTakenEl = document.getElementById("timeTaken");
+
+    /*******************************************************
+     * 2) Shuffle Utility
+     *******************************************************/
+    function secureRandomIndex(max) {
+      // random float in [0,1)
+      const randomVal = crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1);
+      return Math.floor(randomVal * max);
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = secureRandomIndex(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    /*******************************************************
+     * 3) Setup new game
+     *******************************************************/
+    function setupGame() {
+      try {
+        // Hide results, show game area
+        resultsSection.classList.add("hidden");
+        gameArea.classList.remove("hidden");
+
+        // Pick 8 distinct symbols randomly out of SYMBOLS
+        selectedSymbols = [...SYMBOLS];
+        shuffleArray(selectedSymbols);
+        selectedSymbols = selectedSymbols.slice(0, TOTAL_PAIRS);
+
+        // Create the deck: for each symbol, create 2 cards
+        deck = [];
+        selectedSymbols.forEach((sym) => {
+          deck.push({ symbol: sym, id: generateUUID(), matched: false });
+          deck.push({ symbol: sym, id: generateUUID(), matched: false });
+        });
+
+        // Shuffle deck
+        deck = shuffleArray(deck);
+
+        // Reset game state
+        firstCard = null;
+        secondCard = null;
+        totalMatches = 0;
+        timeCounterEl.textContent = "0.00";
+
+        renderCards();
+        startTimer();
+      } catch (err) {
+        console.error("Error setting up game:", err);
+        alert("An error occurred when starting the game. Check console for details.");
+      }
+    }
+
+    /*******************************************************
+     * 4) Render cards
+     *******************************************************/
+    function renderCards() {
+      cardGrid.innerHTML = "";
+      deck.forEach((card, index) => {
+        const cardEl = document.createElement("div");
+        cardEl.classList.add("memory-card");
+
+        cardEl.innerHTML = `
+          <div class="memory-card-inner" data-index="${index}">
+            <div class="memory-card-front d-flex justify-content-center align-items-center">
+              ?
+            </div>
+            <div class="memory-card-back d-flex justify-content-center align-items-center">
+              ${card.symbol}
+            </div>
+          </div>
+        `;
+        cardGrid.appendChild(cardEl);
+
+        // Card click logic
+        cardEl.addEventListener("click", () => handleCardClick(cardEl, index));
+      });
+    }
+
+    /*******************************************************
+     * 5) Card click handler
+     *******************************************************/
+    function handleCardClick(cardEl, index) {
+      const cardObj = deck[index];
+
+      // If already matched, ignore
+      if (cardObj.matched) return;
+
+      // If this is the same card as firstCard, ignore
+      if (firstCard && firstCard.index === index) return;
+
+      // Flip the card
+      cardEl.classList.add("flipped");
+
+      if (!firstCard) {
+        // This is the first card in the pair
+        firstCard = { el: cardEl, index, symbol: cardObj.symbol };
+      } else if (!secondCard) {
+        // This is the second card
+        secondCard = { el: cardEl, index, symbol: cardObj.symbol };
+
+        // Check match
+        if (firstCard.symbol === secondCard.symbol) {
+          // Mark them matched
+          deck[firstCard.index].matched = true;
+          deck[secondCard.index].matched = true;
+          firstCard.el.classList.add("matched");
+          secondCard.el.classList.add("matched");
+
+          totalMatches++;
+          firstCard = null;
+          secondCard = null;
+
+          // Check if game over
+          if (totalMatches === TOTAL_PAIRS) {
+            endGame();
+          }
+        } else {
+          // No match; flip them back after a short delay
+          setTimeout(() => {
+            firstCard.el.classList.remove("flipped");
+            secondCard.el.classList.remove("flipped");
+            firstCard = null;
+            secondCard = null;
+          }, 1000);
+        }
+      }
+    }
+
+    /*******************************************************
+     * 6) Timer logic
+     *******************************************************/
+    function startTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      startTime = performance.now();
+
+      timerInterval = setInterval(() => {
+        const now = performance.now();
+        const elapsed = (now - startTime) / 1000;
+        timeCounterEl.textContent = elapsed.toFixed(2);
+      }, 100);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      const now = performance.now();
+      return ((now - startTime) / 1000).toFixed(2);
+    }
+
+    /*******************************************************
+     * 7) End game
+     *******************************************************/
+    function endGame() {
+      const finalTime = stopTimer();
+      timeTakenEl.textContent = finalTime;
+
+      // Show results
+      gameArea.classList.add("hidden");
+      resultsSection.classList.remove("hidden");
+
+      // Save time to leaderboard
+      saveTimeToDB(parseFloat(finalTime))
+        .then(() => {
+          loadLeaderboard().then(renderLeaderboard);
+        })
+        .catch((err) => {
+          console.error("Error saving time to DB:", err);
+        });
+    }
+
+    /*******************************************************
+     * 8) IndexedDB for Leaderboard
+     *******************************************************/
+    let db = null;
+    const DB_NAME = "memoryGameDB";
+    const DB_VERSION = 1;
+    const STORE_NAME = "leaderboard";
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => {
+          console.error("IndexedDB failed to open");
+          reject(request.error);
+        };
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
+        request.onupgradeneeded = (e) => {
+          db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            store.createIndex("time", "time", { unique: false });
+          }
+        };
+      });
+    }
+
+    // Save time record
+    function saveTimeToDB(timeVal) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+
+        const record = {
+          time: timeVal,
+          date: new Date().toISOString(),
+        };
+        const request = store.add(record);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // Load top 15 sorted by time ascending
+    function loadLeaderboard() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject("DB not initialized");
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const times = [];
+
+        store.openCursor().onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            times.push(cursor.value);
+            cursor.continue();
+          } else {
+            times.sort((a, b) => a.time - b.time);
+            resolve(times.slice(0, 15));
+          }
+        };
+      });
+    }
+
+    function renderLeaderboard(records) {
+      const tbody = document.getElementById("leaderboardTbody");
+      tbody.innerHTML = "";
+      records.forEach((rec, idx) => {
+        const tr = document.createElement("tr");
+        const rankTd = document.createElement("td");
+        const timeTd = document.createElement("td");
+        const dateTd = document.createElement("td");
+
+        rankTd.textContent = idx + 1;
+        timeTd.textContent = rec.time.toFixed(2);
+        const dateObj = new Date(rec.date);
+        dateTd.textContent = dateObj.toLocaleString();
+
+        tr.appendChild(rankTd);
+        tr.appendChild(timeTd);
+        tr.appendChild(dateTd);
+        tbody.appendChild(tr);
+      });
+    }
+
+    /*******************************************************
+     * 9) Event Listeners
+     *******************************************************/
+    startBtn.addEventListener("click", setupGame);
+    restartBtn.addEventListener("click", setupGame);
+
+    /*******************************************************
+     * 10) On page load, initialize DB and load initial board
+     *******************************************************/
+    window.addEventListener("load", () => {
+      initDB()
+        .then(() => {
+          return loadLeaderboard();
+        })
+        .then((records) => {
+          renderLeaderboard(records);
+        })
+        .catch((err) => {
+          console.error("Error initializing DB or loading leaderboard:", err);
+        });
+    });
+  </script>
+</body>
+</html>

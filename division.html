@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Random Divider</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container-custom {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .number-display {
+            font-size: 2rem;
+            margin: 20px 0;
+        }
+        .result {
+            font-size: 1.5rem;
+            color: #4CAF50;
+            margin-top: 20px;
+        }
+        .btn-reveal {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-custom">
+    <h1 class="mb-4">Random Divider</h1>
+    <div class="number-display">
+        <span id="number1">--</span> ÷ <span id="number2">--</span>
+    </div>
+    <button class="btn btn-primary btn-reveal" id="revealBtn">Reveal Answer</button>
+    <div class="result" id="result" style="display: none;">
+        = <span id="divisionResult">--</span>
+    </div>
+</div>
+
+<!-- Bootstrap JS and dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Function to get URL parameters
+    function getURLParameters() {
+        const params = new URLSearchParams(window.location.search);
+        let ceiling1 = parseInt(params.get('ceiling1'));
+        let ceiling2 = parseInt(params.get('ceiling2'));
+
+        // Initialize to 9 if parameters are absent or invalid
+        if (isNaN(ceiling1) || ceiling1 < 4) { // Minimum ceiling1 is 4 to allow first number >=2
+            ceiling1 = 9;
+        }
+        if (isNaN(ceiling2) || ceiling2 < Math.ceil(ceiling1 / 2) + 1) { // Ensure ceiling2 is sufficiently large
+            ceiling2 = 9;
+        }
+
+        return { ceiling1, ceiling2 };
+    }
+
+    // Function to generate a random integer between min and max (inclusive)
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(getSecureRandomNumber() * (max - min + 1)) + min;
+    }
+
+    // Initialize the numbers
+    const { ceiling1, ceiling2 } = getURLParameters();
+
+    // Generate first number between 2 and ceiling1 / 2
+    const maxFirst = Math.floor(ceiling1 / 2);
+    const number1 = getRandomInt(2, maxFirst > 2 ? maxFirst : 2); // Ensure at least 2
+
+    // Generate second number between ceiling1 / 2 and ceiling2
+    const minSecond = Math.ceil(ceiling1 / 2);
+    const number2 = getRandomInt(minSecond > 2 ? minSecond : 2, ceiling2 > minSecond ? ceiling2 : minSecond);
+
+    // Display the numbers
+    document.getElementById('number1').textContent = number1;
+    document.getElementById('number2').textContent = number2;
+
+    // Variable to track if an answer has been revealed
+    let answerRevealed = false;
+
+    // Handle the reveal button
+    document.getElementById('revealBtn').addEventListener('click', function() {
+        if (!answerRevealed) {
+            // Randomly decide the division direction: true for number1 / number2, false for number2 / number1
+            const divideFirstBySecond = getSecureRandomNumber() < 0.5;
+
+            let division;
+            if (divideFirstBySecond) {
+                division = (number1 / number2).toFixed(3);
+                document.getElementById('divisionResult').textContent = division;
+                // Update the display to show the division direction
+                document.querySelector('.number-display').innerHTML = `<span id="number1">${number1}</span> ÷ <span id="number2">${number2}</span>`;
+            } else {
+                division = (number2 / number1).toFixed(3);
+                document.getElementById('divisionResult').textContent = division;
+                // Update the display to show the division direction
+                document.querySelector('.number-display').innerHTML = `<span id="number2">${number2}</span> ÷ <span id="number1">${number1}</span>`;
+            }
+
+            // Show the result
+            document.getElementById('result').style.display = 'block';
+
+            // Optionally, disable the button after revealing the answer
+            // this.disabled = true;
+
+            // Set the flag to prevent multiple reveals
+            answerRevealed = true;
+        }
+    });
+</script>
+
+</body>
+</html>

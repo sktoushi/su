@@ -1,0 +1,205 @@
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+        (function(){
+            function updateCounter() {
+                const UPDATE_VISITOR_API = "https://script.google.com/macros/s/AKfycbx-c7HUH9OnQBMwDAss1WpMV0uZAs8zHwGEHSn9EIQ_hTRBKVYLiPStXQTkbhfpcS7T/exec"; // 20240819_1530
+                fetch(UPDATE_VISITOR_API, { mode: 'no-cors' })
+                    .then(response => {
+                        // Since we can't read the response due to no-cors, you can handle it here if necessary
+                        console.log('Request completed');
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+
+
+            // Linear Congruential Generator
+            function LCG(seed) {
+                this.m = 0x80000000; // 2**31
+                this.a = 1103515245;
+                this.c = 12345;
+                this.state = seed ? seed : Math.floor(getSecureRandomNumber() * (this.m - 1));
+            }
+
+            LCG.prototype.nextInt = function() {
+                this.state = (this.a * this.state + this.c) % this.m;
+                return this.state;
+            }
+
+            LCG.prototype.nextFloat = function() {
+                // returns in range [0,1)
+                return this.nextInt() / (this.m - 1);
+            }
+
+            // Function to generate a UUID based on URL parameters
+            function generateUuidFromParams(params) {
+                const str = params.toString();
+                const bytes = [];
+                for (let i = 0; i < str.length; i++) {
+                    bytes.push(str.charCodeAt(i));
+                }
+                // Pad bytes to at least 16 bytes
+                while (bytes.length < 16) {
+                    bytes.push(0);
+                }
+                // Trim bytes to 16 bytes
+                bytes.length = 16;
+                // Format as UUID
+                const hex = bytes.map(b => b.toString(16).padStart(2, '0'));
+                return [
+                    hex.slice(0, 4).join(''),
+                    hex.slice(4, 6).join(''),
+                    hex.slice(6, 8).join(''),
+                    hex.slice(8, 10).join(''),
+                    hex.slice(10, 16).join('')
+                ].join('-');
+            }
+
+            function seedFromUuid(uuid) {
+                // Remove dashes
+                const hex = uuid.replace(/-/g, '');
+                // Take first 8 characters as seed
+                const seedStr = hex.slice(0, 8);
+                const seed = parseInt(seedStr, 16);
+                return seed;
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            const username = params.get('username');
+            const repository = params.get('repository');
+            const startIndex = parseInt(params.get('startIndex'));
+            const endIndex = parseInt(params.get('endIndex'));
+
+            const startDateParam = params.get('startDate');
+            const goalParam = params.get('goal');
+            let percentileParam = params.get('percentile');
+
+            // Get custom URL prefix and suffix
+            const customUrlPrefix = params.get('customUrlPrefix');
+            const customUrlSuffix = params.get('customUrlSuffix');
+            const zeroPadding = params.get('zeroPadding');  // New: Get zeroPadding parameter
+
+            let percentile;
+
+            if (startDateParam && goalParam) {
+                const goal = parseInt(goalParam);
+                if (isNaN(goal) || goal <= 0) {
+                    alert('Invalid goal parameter.');
+                    return;
+                }
+
+                const year = parseInt(startDateParam.substring(0, 4));
+                const month = parseInt(startDateParam.substring(4, 6)) - 1;
+                const day = parseInt(startDateParam.substring(6, 8));
+
+                const startDate = new Date(year, month, day);
+                const currentDate = new Date();
+                startDate.setHours(0, 0, 0, 0);
+                currentDate.setHours(0, 0, 0, 0);
+
+                // Check if today exceeds the deadline
+                const deadlineDate = new Date(startDate);
+                deadlineDate.setDate(startDate.getDate() + goal);
+                if (currentDate > deadlineDate) {
+                    alert("Today exceeds the deadline. Adjust it accordingly.");
+                }
+
+                const timeDiff = currentDate - startDate;
+                const daysSinceStart = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+                if (daysSinceStart <= 0) {
+                    percentile = 1;
+                } else if (daysSinceStart >= goal) {
+                    percentile = 100;
+                } else {
+                    percentile = ((daysSinceStart / goal) * 99) + 1;
+                }
+            } else {
+                if (percentileParam === "random") {
+                    percentile = Math.floor(getSecureRandomNumber() * 100) + 1;
+                } else {
+                    percentile = parseFloat(percentileParam);
+                }
+            }
+
+            let isCustomUrl = customUrlPrefix || customUrlSuffix;
+            if(!isCustomUrl) {
+                if (!username || !repository || isNaN(startIndex) || isNaN(endIndex) || isNaN(percentile)) {
+                    alert('Missing or invalid parameters.');
+                    return;
+                }
+            }
+
+            percentile = Math.min(Math.max(percentile, 1), 100);
+
+            const totalRange = endIndex - startIndex + 1;
+
+            // Generate UUID from params
+            const uuid = generateUuidFromParams(params);
+            // Generate seed from UUID
+            const seed = seedFromUuid(uuid);
+            // Initialize PRNG with seed
+            const rng = new LCG(seed);
+
+            // Calculate hashResult for inflated range size
+            // Modify hashUrlParams to produce a positive integer
+            function hashUrlParams(params) {
+                const str = params.toString();
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                    hash |= 0; // Convert to 32bit integer
+                }
+                return Math.abs(hash);
+            }
+
+            const hashResult = hashUrlParams(params);
+
+            let mappedNumber;
+
+            if (totalRange >= hashResult) {
+                const percentileEnd = startIndex + Math.ceil(totalRange * (percentile / 100)) - 1;
+                const adjustedPercentileEnd = Math.min(Math.max(percentileEnd, startIndex), endIndex);
+                const rangeSize = adjustedPercentileEnd - startIndex + 1;
+                const randomNumber = getSecureRandomNumber() <= 0.8 ? Math.floor(getSecureRandomNumber() * rangeSize) + startIndex : Math.floor(rng.nextFloat() * rangeSize) + startIndex;
+                mappedNumber = randomNumber;
+            } else {
+                const percentileEnd = startIndex + Math.ceil(totalRange * (percentile / 100)) - 1;
+                const adjustedPercentileEnd = Math.min(Math.max(percentileEnd, startIndex), endIndex);
+                const rangeSize = adjustedPercentileEnd - startIndex + 1;
+                const inflatedRangeSize = hashResult;
+                const inflatedRangeStart = startIndex;
+                const inflatedRangeEnd = startIndex + inflatedRangeSize - 1;
+                const inflatedRandomIndex = getSecureRandomNumber() <= 0.8 ? Math.floor(getSecureRandomNumber() * inflatedRangeSize) + startIndex : Math.floor(rng.nextFloat() * inflatedRangeSize) + startIndex;
+                mappedNumber = startIndex + ((inflatedRandomIndex - startIndex) % rangeSize);
+            }
+
+            updateCounter();
+
+            // Apply zeroPadding if present
+            if (zeroPadding !== null) {
+                const zeroPaddingThreshold = parseInt(zeroPadding);
+                if (mappedNumber <= zeroPaddingThreshold) {
+                    mappedNumber = '0' + mappedNumber;
+                }
+            }
+
+            // Construct URL
+            let url;
+            if (customUrlPrefix && customUrlSuffix) {
+                url = `${customUrlPrefix}${mappedNumber}${customUrlSuffix}`;
+            } else {
+                url = `https://github.com/${username}/${repository}/issues/${mappedNumber}`;
+            }
+
+            window.open(url, '_self');
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

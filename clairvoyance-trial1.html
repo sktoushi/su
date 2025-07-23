@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lockpick-Inspired Progress Bar Game</title>
+  <!-- Bootstrap CSS from CDN -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeA6bwZRoHwb23RJkSmJ6CuhTmnwj3KC5q8fqmX0Qf3ZVNaH"
+    crossorigin="anonymous"
+  >
+  <style>
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .weight-label {
+      min-width: 50px;
+      font-weight: bold;
+    }
+    .range-input {
+      width: 200px;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="mb-4">Lockpick-Inspired Progress Bar Game</h1>
+    <p class="lead">
+      Adjust the sliders to guess the secret sum. Each slider has a hidden “weight,”
+      so your final guess is the sum of (sliderValue × weight) for all sliders. You have
+      a limited number of tries—good luck!
+    </p>
+
+    <div id="progressBarsContainer"></div>
+
+    <div class="mb-3">
+      <button id="checkGuessBtn" class="btn btn-primary">Check Guess</button>
+      <button id="newGameBtn" class="btn btn-secondary ms-2">New Game</button>
+    </div>
+
+    <p id="triesLeft" class="fw-bold"></p>
+    <p id="feedback" class="fw-bold"></p>
+  </div>
+
+  <!-- Bootstrap JS (Optional for some components) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+o2Qp0hK7MqfWXi5u3yHuZT+KJZd"
+    crossorigin="anonymous"
+  ></script>
+
+  <script>
+    // Global variables
+    let targetSum = 0;
+    let triesLeft = 0;
+    let barsData = []; // Each element will be { weight, sliderValue, sliderElement }
+    let maxBars = 5;
+    let minBars = 2;
+
+    // Initialize and start a new game
+    function initGame() {
+      // Clear previous data
+      document.getElementById('progressBarsContainer').innerHTML = '';
+      document.getElementById('feedback').textContent = '';
+      
+      // Random number of bars
+      const numberOfBars = Math.floor(getSecureRandomNumber() * (maxBars - minBars + 1)) + minBars;
+
+      // Random tries
+      triesLeft = Math.floor(getSecureRandomNumber() * 3) + 3; // e.g. 3–5 tries
+
+      // Reset global barsData
+      barsData = [];
+
+      // Create each progress bar (slider) with random weight and random initial value
+      for (let i = 0; i < numberOfBars; i++) {
+        const weight = Math.floor(getSecureRandomNumber() * 5) + 1; // Weight between 1 and 5
+        const initialValue = Math.floor(getSecureRandomNumber() * 101); // 0–100
+
+        barsData.push({ weight, sliderValue: initialValue, sliderElement: null });
+      }
+
+      // Random target sum (you can tweak the range as you like)
+      // For instance, let’s allow up to 5 * 100 * 5 = 2500 as a max
+      targetSum = Math.floor(getSecureRandomNumber() * 2501);
+
+      // Build UI
+      const container = document.getElementById('progressBarsContainer');
+      barsData.forEach((bar, index) => {
+        // Create a row with a label, a range input, and a progress bar that reflects the same value
+        const row = document.createElement('div');
+        row.classList.add('progress-container');
+
+        const label = document.createElement('div');
+        label.classList.add('weight-label');
+        label.textContent = `W: ${bar.weight}`;
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = '0';
+        input.max = '100';
+        input.value = bar.sliderValue;
+        input.classList.add('form-range', 'range-input');
+
+        // Create a progress bar just for visual effect
+        const progressBarWrapper = document.createElement('div');
+        progressBarWrapper.classList.add('progress');
+        progressBarWrapper.style.width = '200px';
+
+        const progressBar = document.createElement('div');
+        progressBar.classList.add('progress-bar');
+        progressBar.style.width = bar.sliderValue + '%';
+        progressBar.setAttribute('aria-valuenow', bar.sliderValue);
+        progressBar.setAttribute('aria-valuemin', '0');
+        progressBar.setAttribute('aria-valuemax', '100');
+
+        // Keep references
+        bar.sliderElement = input;
+
+        // On input change, update data
+        input.addEventListener('input', (e) => {
+          bar.sliderValue = +e.target.value;
+          progressBar.style.width = bar.sliderValue + '%';
+          progressBar.setAttribute('aria-valuenow', bar.sliderValue);
+        });
+
+        progressBarWrapper.appendChild(progressBar);
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(progressBarWrapper);
+
+        container.appendChild(row);
+      });
+
+      // Update tries left label
+      document.getElementById('triesLeft').textContent = `Tries Left: ${triesLeft}`;
+    }
+
+    // Check guess
+    function checkGuess() {
+      if (triesLeft < 1) {
+        document.getElementById('feedback').textContent =
+          'No tries left. Click "New Game" to play again.';
+        return;
+      }
+
+      // Calculate the guess
+      let sum = 0;
+      barsData.forEach((bar) => {
+        sum += bar.weight * bar.sliderValue;
+      });
+
+      // Compare with targetSum
+      if (sum === targetSum) {
+        document.getElementById('feedback').textContent =
+          `Perfect! You got it exactly! The target was ${targetSum}.`;
+        triesLeft = 0;
+      } else {
+        triesLeft--;
+        if (sum < targetSum) {
+          document.getElementById('feedback').textContent =
+            `Your guess (${sum}) is too LOW. Try again!`;
+        } else {
+          document.getElementById('feedback').textContent =
+            `Your guess (${sum}) is too HIGH. Try again!`;
+        }
+      }
+
+      // Update tries left
+      document.getElementById('triesLeft').textContent = `Tries Left: ${triesLeft}`;
+
+      if (triesLeft === 0 && sum !== targetSum) {
+        document.getElementById('feedback').textContent +=
+          ` No more tries! The correct sum was ${targetSum}.`;
+      }
+    }
+
+    // Event listeners
+    window.addEventListener('DOMContentLoaded', initGame);
+    document.getElementById('checkGuessBtn').addEventListener('click', checkGuess);
+    document.getElementById('newGameBtn').addEventListener('click', initGame);
+  </script>
+</body>
+</html>

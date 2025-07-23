@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LoopTube Fusion</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body {padding:1rem;background-color:#0d1117;color:#c9d1d9;}
+  #player1,#player2,#player3{width:100%;height:100%;}
+  .form-control{background-color:#161b22;color:#c9d1d9;border-color:#30363d;}
+  .btn-secondary{background-color:#21262d;color:#c9d1d9;border-color:#30363d;}
+  .btn-secondary:hover{background-color:#30363d;color:#c9d1d9;border-color:#30363d;}
+  .btn-primary{background-color:#238636;border-color:#2ea043;}
+  .btn-primary:hover{background-color:#2ea043;border-color:#238636;}
+</style>
+</head>
+<body class="text-center" data-bs-theme="dark">
+<div class="container">
+  <div class="row mb-3">
+    <div class="col"><input id="url1" type="text" class="form-control" placeholder="URL 1"></div>
+    <div class="col-auto"><button id="load1" class="btn btn-primary">Load 1</button></div>
+  </div>
+  <div class="ratio ratio-16x9 mb-3" id="player1"></div>
+  <div class="row mb-3">
+    <div class="col"><input id="url2" type="text" class="form-control" placeholder="URL 2"></div>
+    <div class="col-auto"><button id="load2" class="btn btn-primary">Load 2</button></div>
+  </div>
+  <div class="ratio ratio-16x9 mb-3" id="player2"></div>
+  <div class="row mb-3">
+    <div class="col"><input id="url3" type="text" class="form-control" placeholder="URL 3"></div>
+    <div class="col-auto"><button id="load3" class="btn btn-primary">Load 3</button></div>
+  </div>
+  <div class="ratio ratio-16x9 mb-3" id="player3"></div>
+  <div class="mb-3 d-flex justify-content-center align-items-center gap-2">
+    <input id="segments1" type="number" class="form-control" style="max-width:6rem;" value="1" min="1">
+    <input id="segments2" type="number" class="form-control" style="max-width:6rem;" value="1" min="1">
+    <input id="segments3" type="number" class="form-control" style="max-width:6rem;" value="1" min="1">
+    <button id="randPlay" class="btn btn-secondary">Random Play</button>
+    <button id="shareBtn" class="btn btn-primary">Share</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+const urlParams=new URLSearchParams(location.search);
+const players=[null,null,null];
+let randMode=false,active=0,endTime=0;
+const segLens=[0,0,0];
+const segIdx=[0,0,0];
+const initSegDur=[0,0,0];
+for(let i=0;i<3;i++){
+  const v=parseFloat(urlParams.get('segd'+(i+1)));
+  initSegDur[i]=isNaN(v)?0:v;
+  const c=parseInt(urlParams.get('seg'+(i+1)),10);
+  if(!isNaN(c)&&c>0){
+    document.getElementById('segments'+(i+1)).value=c;
+  }
+}
+
+function checkLoop(){
+  for(let i=0;i<players.length;i++){
+    const p=players[i];
+    if(!p)continue;
+    const st=p.getPlayerState();
+    if(st===YT.PlayerState.ENDED){p.seekTo(1,true);p.playVideo();continue;}
+    if(st!==YT.PlayerState.PLAYING)continue;
+    const dur=p.getDuration();
+    if(dur&&p.getCurrentTime()>=dur-2){p.seekTo(1,true);}
+  }
+  requestAnimationFrame(checkLoop);
+}
+
+function extractVideoId(url){
+  const m=url.match(/[?&]v=([^&]+)/);if(m)return m[1];
+  const m2=url.match(/youtu\.be\/([^?]+)/);if(m2)return m2[1];
+  return url;
+}
+
+function onYouTubeIframeAPIReady(){
+  const pv=location.protocol==='file:'?{}:{playerVars:{origin:location.origin}};
+
+  function createPlayer(elem,idx,param){
+    players[idx]=new YT.Player(elem,Object.assign({events:{
+      onReady:()=>{const u=urlParams.get(param);if(u){document.getElementById('url'+(idx+1)).value=u;loadVideo(idx,u);}setSegFromDur(idx);},
+      onStateChange:e=>{if(e.data===YT.PlayerState.ENDED){if(randMode&&active===idx){segIdx[idx]++;playNext();}else{players[idx].seekTo(1,true);players[idx].playVideo();}}}
+    }},pv));
+  }
+
+  createPlayer('player1',0,'video1');
+  createPlayer('player2',1,'video2');
+  createPlayer('player3',2,'video3');
+
+  requestAnimationFrame(checkLoop);
+}
+
+function setSegFromDur(i){
+  if(!initSegDur[i])return;
+  const dur=players[i].getDuration();
+  if(!dur){setTimeout(()=>setSegFromDur(i),500);return;}
+  const cnt=Math.max(1,Math.round(dur/initSegDur[i]));
+  document.getElementById('segments'+(i+1)).value=cnt;
+}
+
+function loadVideo(i,u){const id=extractVideoId(u.trim());players[i].loadVideoById(id);}
+
+document.getElementById('load1').onclick=()=>loadVideo(0,document.getElementById('url1').value);
+document.getElementById('load2').onclick=()=>loadVideo(1,document.getElementById('url2').value);
+document.getElementById('load3').onclick=()=>loadVideo(2,document.getElementById('url3').value);
+
+function startRandom(){
+  if(players.some(p=>!p))return;
+  for(let i=0;i<3;i++){
+    const dur=players[i].getDuration();
+    if(!dur){alert('Load all videos before starting.');return;}
+    const c=Math.max(1,parseInt(document.getElementById('segments'+(i+1)).value)||1);
+    segLens[i]=initSegDur[i]||dur/c;
+    segIdx[i]=0;
+  }
+  randMode=true;
+  playNext();
+}
+
+function playNext(){
+  if(!randMode)return;
+  active=Math.floor(Math.random()*3);
+  const c=Math.max(1,parseInt(document.getElementById('segments'+(active+1)).value)||1);
+  const baseLen=segLens[active];
+  const start=(segIdx[active]%c)*baseLen;
+  // randomly scale the base segment length
+  const mults=[0.7,0.8,0.9,1];
+  const segLen=baseLen*mults[Math.floor(Math.random()*mults.length)];
+  const dur=players[active].getDuration();
+  endTime=Math.min(start+segLen,dur);
+  players[active].seekTo(start,true);
+  players[active].playVideo();
+  checkRand();
+}
+
+function checkRand(){
+  if(!randMode)return;
+  const p=players[active];
+  const st=p.getPlayerState();
+  if(st===YT.PlayerState.ENDED||p.getCurrentTime()>=endTime){
+    p.pauseVideo();
+    segIdx[active]++;
+    playNext();
+    return;
+  }
+  requestAnimationFrame(checkRand);
+}
+
+function shareLink(){
+  const base='https://sktoushi.github.io/stash-utils/looptube-fusion.html';
+  const p=new URLSearchParams();
+  const u1=document.getElementById('url1').value.trim();
+  const u2=document.getElementById('url2').value.trim();
+  const u3=document.getElementById('url3').value.trim();
+  if(u1)p.set('video1',u1);
+  if(u2)p.set('video2',u2);
+  if(u3)p.set('video3',u3);
+  for(let i=0;i<3;i++){
+    const dur=players[i]?players[i].getDuration():0;
+    if(dur){
+      const c=Math.max(1,parseInt(document.getElementById('segments'+(i+1)).value)||1);
+      const segd=Math.round(dur/c);
+      p.set('segd'+(i+1),segd);
+    }
+  }
+  const link=base+(p.toString()?'?'+p.toString():'');
+  navigator.clipboard.writeText(link)
+    .then(()=>alert('Link copied to clipboard'))
+    .catch(()=>alert('Copy failed'));
+}
+
+document.getElementById('randPlay').onclick=startRandom;
+document.getElementById('shareBtn').onclick=shareLink;
+</script>
+</body>
+</html>

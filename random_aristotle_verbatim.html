@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>Random Aristotle Image Redirect</title>
+  <script>
+    (function () {
+      // Range is 030–200 inclusive
+      var min = 30;
+      var max = 200;
+      var num = Math.floor(getSecureRandomNumber() * (max - min + 1)) + min;
+      var padded = ('000' + num).slice(-3);   // zero‑pad to 3 digits
+
+      // Build the verbatim GitHub URL (non‑raw, points to the blob page)
+      var url = 'https://github.com/mdr19ganseki95cf/aristotle-mix/blob/main/nicomachean-ethics-' + padded + '.jpg';
+
+      // Update fallback link once DOM is ready
+      document.addEventListener('DOMContentLoaded', function () {
+        var a = document.getElementById('target');
+        a.href = url;
+        a.textContent = url;
+      });
+
+      // Redirect immediately
+      window.location.replace(url);
+    })();
+  </script>
+</head>
+<body>
+  <p>If you’re not redirected automatically, <a id="target" href="#">click here</a>.</p>
+</body>
+</html>

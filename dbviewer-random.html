@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random DB Redirector</title>
+  <script>
+    // Return a cryptographically secure random integer in [0, maxExclusive)
+    function secureRandomIndex(maxExclusive) {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return arr[0] % maxExclusive;
+    }
+
+    async function redirectRandom() {
+      try {
+        // Fetch base and patch config, merging one patch randomly
+        const res = await fetch('config/values.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status} while loading JSON`);
+        const raw = await res.json();
+        const base = raw.base || {};
+        let patch = {};
+        if (Array.isArray(raw.patches) && raw.patches.length) {
+          const weights = raw.patches.map(p => Number(p.distributionWeight) || 1);
+          const tot = weights.reduce((a, b) => a + b, 0);
+          let rnd = getSecureRandomNumber() * tot;
+          for (let i = 0; i < raw.patches.length; i++) {
+            if (rnd < weights[i]) { patch = { ...raw.patches[i] }; break; }
+            rnd -= weights[i];
+          }
+          delete patch.distributionWeight;
+        }
+        const cfg = Object.assign({}, base, patch);
+
+        const { baseURL, files } = cfg.dbviewerLinks || {};
+        if (!baseURL || !Array.isArray(files) || files.length === 0) {
+          throw new Error('Missing or empty dbviewerLinks in JSON');
+        }
+
+        const file = files[secureRandomIndex(files.length)];
+        // Assemble and redirect—encodeURIComponent just in case
+        location.replace(`${baseURL}${encodeURIComponent(file)}`);
+      } catch (err) {
+        console.error(err);
+        document.body.textContent =
+          'Redirect failed. Check console for details.';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', redirectRandom);
+  </script>
+</head>
+<body>
+  <noscript>Please enable JavaScript to proceed.</noscript>
+</body>
+</html>

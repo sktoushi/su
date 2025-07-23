@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>Random CSV Redirect (Weighted + Nested + Variables)</title>
+</head>
+<body>
+<script>
+let configValues = {};
+async function loadConfig() {
+  if (Object.keys(configValues).length) return configValues;
+  try {
+    const resp = await fetch('config/values.json');
+    if (resp.ok) {
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if (Array.isArray(raw.patches) && raw.patches.length) {
+        const weights = raw.patches.map(p => Number(p.distributionWeight) || 1);
+        const tot = weights.reduce((a, b) => a + b, 0);
+        let rnd = getSecureRandomNumber() * tot;
+        for (let i = 0; i < raw.patches.length; i++) {
+          if (rnd < weights[i]) { patch = { ...raw.patches[i] }; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+    }
+  } catch (err) {
+    console.error('Failed to load config:', err);
+  }
+  return configValues;
+}
+/* ------------------------------------------------------------------ */
+/*  0.  SECURE RNG                                                    */
+/* ------------------------------------------------------------------ */
+/** Returns a cryptographically-secure random number in [0, 1). */
+
+/* ------------------------------------------------------------------ */
+/*  1.  STRING HELPERS                                                */
+/* ------------------------------------------------------------------ */
+/** Trim whitespace and strip leading / trailing single or double quotes. */
+function cleanCell(cell) {
+  cell = cell.trim();
+  return cell.replace(/^["']+|["']+$/g, '');
+}
+
+/* ------------------------------------------------------------------ */
+/*  2.  CSV PARSING (RESPECTS QUOTES)                                 */
+/* ------------------------------------------------------------------ */
+function parseCsvLine(line) {
+  const result = [];
+  let curCell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+
+    if (c === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        curCell += '"';          // Escaped quote
+        i++;
+      } else {
+        inQuotes = !inQuotes;    // Toggle quoted state
+      }
+    } else if (c === ',' && !inQuotes) {
+      result.push(curCell);
+      curCell = '';
+    } else {
+      curCell += c;
+    }
+  }
+  result.push(curCell);
+  return result;
+}
+
+/* ------------------------------------------------------------------ */
+/*  3.  FISHER–YATES SHUFFLE                                          */
+/* ------------------------------------------------------------------ */
+function shuffle(array) {
+  let currentIndex = array.length;
+  while (currentIndex !== 0) {
+    const randomIndex = Math.floor(getSecureRandomNumber() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] =
+      [array[randomIndex], array[currentIndex]];
+  }
+  return array;
+}
+
+/* ------------------------------------------------------------------ */
+/*  4.  VARIABLE SUPPORT                                              */
+/* ------------------------------------------------------------------ */
+/** Global variable store shared across nested CSVs. */
+const globalVariables = {};
+/**
+ * Removes rows that begin with “variable” and returns a version of the
+ * data where occurrences of `{key}` are replaced with the corresponding
+ * value collected from those rows.
+ *
+ * @param {string[][]} rows  Parsed CSV rows (already cleaned)
+ * @returns {string[][]}     Rows ready for normal processing
+ */
+function applyVariables(rows) {
+  const keptRows = [];
+
+  /* Pass 1 – extract variable definitions */
+  rows.forEach(r => {
+    if (r[0].trim() === 'variable' && r.length >= 2) {
+      const [keyPart, ...rest] = r[1].split('=');
+      if (keyPart && rest.length) {
+        const key = keyPart.trim();
+        const value = rest.join('=').trim(); // allows '=' in value
+        globalVariables[key] = value;
+      }
+    } else {
+      keptRows.push(r);
+    }
+  });
+
+  /* Pass 2 – placeholder replacement */
+  const placeholderRE = /\{([^}]+)}/g;
+  const replacedRows = keptRows.map(row => row.map(cell =>
+    cell.replace(placeholderRE, (match, p1) =>
+      Object.prototype.hasOwnProperty.call(globalVariables, p1)
+        ? globalVariables[p1]
+        : match
+    )
+  ));
+
+  return replacedRows;
+}
+
+/* ------------------------------------------------------------------ */
+/*  5.  FETCH AND PARSE A CSV FILE                                    */
+/* ------------------------------------------------------------------ */
+/**
+ * @param {string} csvFilename
+ * @returns {Promise<string[][]>}
+ */
+async function fetchCSV(csvFilename) {
+  console.log(`Attempting to fetch CSV: ${csvFilename}`);
+
+  try {
+    const response = await fetch(csvFilename);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
+    }
+    const csvText = await response.text();
+
+    const lines = csvText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    const parsedRows = lines.map(line =>
+      parseCsvLine(line).map(cell => cleanCell(cell))
+    );
+
+    /* === NEW STEP: variable extraction / substitution ============ */
+    const resolvedRows = applyVariables(parsedRows);
+
+    /* Shuffle rows (weight math is preserved because values remain) */
+    shuffle(resolvedRows);
+
+    const injections=[]; const normal=[];
+    for(const r of resolvedRows){
+      if(r[0].trim().toLowerCase()==='injection'){
+        const c=Math.max(1,parseInt(r[1],10)||1);
+        for(let i=0;i<c;i++) injections.push(['injection','1',r[2]]);
+      }else normal.push(r);
+    }
+    let rows=normal;
+    if(injections.length){
+      const total=rows.length+injections.length;
+      const step=total/injections.length;
+      let next=step/2,idx=0; const out=[];
+      for(let i=0;i<total;i++){
+        if(idx<injections.length && i>=Math.round(next)){
+          out.push(injections[idx++]);
+          next+=step;
+        }else if(rows.length) out.push(rows.shift());
+        else out.push(injections[idx++]);
+      }
+      rows=out;
+    }
+    return rows;
+  } catch (error) {
+    throw new Error('Error fetching CSV: ' + error.message);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  6.  WEIGHTED SELECTION                                            */
+/* ------------------------------------------------------------------ */
+function pickRowByAdaptiveWeight(rows) {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+
+  const weightedRows = rows.map((r, idx) => {
+    let w = parseInt(r[1], 10);
+    if (isNaN(w) || w < 1) w = 1;
+
+    const key = `skyway2-last-${idx}`;
+    const last = parseInt(localStorage.getItem(key) || '0', 10);
+    const elapsedHours = (now - last) / hour;
+    const factor = Math.min(5, 1 + elapsedHours);
+    return { row: r, weight: w * factor, key };
+  });
+
+  let totalWeight = 0;
+  for (const wr of weightedRows) totalWeight += wr.weight;
+
+  if (totalWeight <= 0) {
+    console.warn('Total weight ≤ 0 – falling back to uniform choice.');
+    const idx = Math.floor(getSecureRandomNumber() * weightedRows.length);
+    const chosen = weightedRows[idx];
+    localStorage.setItem(chosen.key, String(now));
+    return chosen.row;
+  }
+
+  let rand = getSecureRandomNumber() * totalWeight;
+  for (const wr of weightedRows) {
+    if (rand < wr.weight) {
+      localStorage.setItem(wr.key, String(now));
+      return wr.row;
+    }
+    rand -= wr.weight;
+  }
+  const fallback = weightedRows[weightedRows.length - 1];
+  localStorage.setItem(fallback.key, String(now));
+  return fallback.row;
+}
+
+/* ------------------------------------------------------------------ */
+/*  7.  ROW PROCESSING (RECURSIVE)                                    */
+/* ------------------------------------------------------------------ */
+async function processRows(rows, recursionDepth = 0) {
+  if (recursionDepth > 2000) {
+    document.body.textContent = 'Error: exceeded maximum CSV nesting depth.';
+    return;
+  }
+  if (!rows.length) {
+    document.body.textContent = 'CSV is empty or could not be parsed.';
+    return;
+  }
+
+  const selectedRow = pickRowByAdaptiveWeight(rows);
+  console.log('Selected row:', selectedRow);
+
+  const rowType = selectedRow[0].trim();
+
+  if (rowType === 'link' || rowType === 'injection') {
+    const url = selectedRow[2];
+    console.log('Redirecting to link:', url);
+    window.location.href = url;
+  }
+
+  else if (rowType === 'git-specific') {
+    const username   = selectedRow[2].split('=')[1];
+    const repository = selectedRow[3].split('=')[1];
+    const issueIds   = selectedRow[4].split('=')[1].split('_');
+    const chosen     = issueIds[Math.floor(getSecureRandomNumber() * issueIds.length)];
+    const finalUrl   = `https://github.com/${username}/${repository}/issues/${chosen}`;
+    console.log('Redirecting to git-specific issue:', finalUrl);
+    window.location.href = finalUrl;
+  }
+
+  else if (rowType === 'git-range') {
+    const username   = selectedRow[2].split('=')[1];
+    const repository = selectedRow[3].split('=')[1];
+    const [minStr, maxStr] = selectedRow[4].split('=')[1].split('_');
+    const min = parseInt(minStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (isNaN(min) || isNaN(max)) {
+      document.body.textContent = 'Invalid range in "git-range" row.';
+      return;
+    }
+    const n = Math.floor(getSecureRandomNumber() * (max - min + 1)) + min;
+    const finalUrl = `https://github.com/${username}/${repository}/issues/${n}`;
+    console.log('Redirecting to git-range issue:', finalUrl);
+    window.location.href = finalUrl;
+  }
+
+  else if (rowType === 'csv') {
+    const nestedCsv = selectedRow[2];
+    if (!nestedCsv) {
+      document.body.textContent = 'CSV type found but no filename specified.';
+      return;
+    }
+    console.log('Nested CSV – fetching:', nestedCsv);
+    try {
+      const nestedRows = await fetchCSV(nestedCsv);   // fetchCSV already applies variables
+      await processRows(nestedRows, recursionDepth + 1);
+    } catch (error) {
+      document.body.textContent = error.message;
+    }
+  }
+
+  else {
+    document.body.textContent = 'Unknown row type: ' + rowType;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  8.  MAIN ENTRY POINT                                              */
+/* ------------------------------------------------------------------ */
+async function main() {
+  // Reset global variables for a fresh run
+  for (const key in globalVariables) {
+    if (Object.prototype.hasOwnProperty.call(globalVariables, key)) {
+      delete globalVariables[key];
+    }
+  }
+  await loadConfig();
+  Object.assign(globalVariables, configValues);
+  const urlParams = new URLSearchParams(window.location.search);
+  const target = urlParams.get('target');
+
+  if (!target) {
+    document.body.textContent = 'No "target" parameter found (use ?target=file.csv).';
+    return;
+  }
+
+  try {
+    let rows = await fetchCSV(target);
+
+    /* ---------- (unchanged weight-normalisation for "null") ------- */
+    const nonNullVals = rows
+      .map(r => (r[1] !== 'null' ? parseInt(r[1], 10) : NaN))
+      .filter(v => !isNaN(v));
+
+    if (nonNullVals.length > 0) {
+      const minVal = Math.min(...nonNullVals);
+      const maxVal = Math.max(...nonNullVals);
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i][1] === 'null') {
+          const randVal = Math.floor(getSecureRandomNumber() * (maxVal - minVal + 1)) + minVal;
+          rows[i][1] = String(randVal);
+        }
+      }
+    }
+    /* -------------------------------------------------------------- */
+
+    await processRows(rows, 0);
+  } catch (error) {
+    document.body.textContent = 'Failed to process CSV: ' + error.message;
+  }
+}
+
+window.onload = main;
+</script>
+</body>
+</html>

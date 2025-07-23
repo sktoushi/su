@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <script>
+        window.onload = function() {
+            // Get the file name from the URL path
+            var path = window.location.pathname;
+            var fileName = path.substring(path.lastIndexOf('/') + 1);
+
+            // Extract integers from the filename format "{customFileName}-{integer1}-{integer2}-...-{integerN}"
+            var match = fileName.match(/-(\d+(?:-\d+)*)/);
+            var distributionVar = match ? match[1].replace(/-/g, ",") : "";
+
+            // Get URL parameters
+            var urlParams = new URLSearchParams(window.location.search);
+            var userProvidedUsername = urlParams.get("username") || "";
+            var userProvidedRepository = urlParams.get("repository") || "";
+            var userProvidedStartIdx = urlParams.get("startIndex") || "";
+            var userProvidedEndIdx = urlParams.get("endIndex") || "";
+
+            // Construct the new URL
+            var redirectUrl = `https://sktoushi.github.io/stash-utils/redirect0915-random.html?distribution=${distributionVar}&username=${encodeURIComponent(userProvidedUsername)}&repository=${encodeURIComponent(userProvidedRepository)}&startIndex=${encodeURIComponent(userProvidedStartIdx)}&endIndex=${encodeURIComponent(userProvidedEndIdx)}`;
+
+            // Redirect the user
+            window.location.href = redirectUrl;
+        };
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

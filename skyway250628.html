@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <!-- external helpers you already had -->
+    <script src="common/random-utils.js"></script>
+    <script src="common/skyway-utils.js"></script>
+    <script src="common/color-utils.js"></script>
+
+    <!-- bootstrap (modal, buttons, etc.) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+
+    <meta charset="UTF-8" />
+    <title>
+      skyway.html – hierarchical multi-mode randomizer (with SRS bucket)
+    </title>
+
+    <style>
+      /* simple styling for the last-five list in the rating modal */
+      #lastFiveList li {
+        font-size: 0.9rem;
+        word-break: break-all;
+      }
+      #portal h3 {
+        margin-top: 0.5rem;
+      }
+      #portal pre {
+        max-height: 40vh;
+        overflow: auto;
+        font-size: 0.75rem;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 0.75rem;
+        border-radius: 6px;
+      }
+    </style>
+</head>
+<body>
+  <div id="progressBarContainer" style="position:fixed;top:0;left:0;width:100%;display:none;z-index:9999;">
+    <div class="progress" style="height:30px;">
+      <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+  </div>
+  <div id="progressSubtext" style="position:fixed;top:calc(50% + 40px);left:50%;transform:translateX(-50%);text-align:center;font-family:Helvetica, sans-serif;font-size:1.5rem;display:none;z-index:9999;"></div>
+  <div id="progressCount" style="position:fixed;top:calc(50% + 80px);left:50%;transform:translateX(-50%);text-align:center;font-family:Helvetica, sans-serif;font-size:1.5rem;display:none;z-index:9999;"></div>
+  <!-- ─────────────── rating-prompt modal ─────────────── -->
+  <div
+    class="modal fade"
+    id="ratingModal"
+    tabindex="-1"
+    aria-labelledby="ratingModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ratingModalLabel">
+            How well did you recall the last link?
+          </h5>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1"><strong>Last 5 links you opened via skyway:</strong></p>
+          <ul id="lastFiveList" class="mb-3"></ul>
+          <p class="mb-2">Choose an SRS score:</p>
+          <div class="d-flex justify-content-between">
+            <button class="btn btn-outline-danger srs-btn" data-score="1">1</button>
+            <button class="btn btn-outline-warning srs-btn" data-score="2">2</button>
+            <button class="btn btn-outline-secondary srs-btn" data-score="3">3</button>
+            <button class="btn btn-outline-info srs-btn" data-score="4">4</button>
+            <button class="btn btn-outline-success srs-btn" data-score="5">5</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────── simple portal ( ?portal ) ─────────────── -->
+  <div
+    id="portal"
+    style="
+      display: none;
+      box-sizing: border-box;
+      padding: 1rem;
+      max-width: 720px;
+      margin: 0 auto;
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: system-ui, sans-serif;
+    "
+  ></div>
+<script>
+/* ═══════════════════════════════════════════════
+ *  SRS / BUCKET LAYER (stand-alone, no neighbours)
+ * ═════════════════════════════════════════════ */
+const SRS_DB_NAME = "skywaySRS";
+const SRS_STORE = "cards";
+const SRS_DB_VERSION = 1;
+
+/* runtime mode: 'bucket', 'srs', or 'original' */
+let skywayMode = 'original';
+let useSrsLayer = false;
+
+/* compact timestamp helpers (same as in viewer-range-plus) */
+const encTs = (t) => t.toString(36);
+const decTs = (s) => (typeof s === "number" ? s : parseInt(s, 36));
+const nowEnc = () => encTs(Date.now());
+
+/* open (or create) indexedDB */
+function openSrsDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SRS_DB_NAME, SRS_DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(SRS_STORE))
+        db.createObjectStore(SRS_STORE, { keyPath: "id" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* basic CRUD */
+async function getAllCards(filterUrl = null) {
+  const db = await openSrsDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SRS_STORE, "readonly");
+    const st = tx.objectStore(SRS_STORE);
+    const rq = st.getAll();
+    rq.onsuccess = () => {
+      let arr = rq.result || [];
+      if (filterUrl) arr = arr.filter((c) => c.url === filterUrl);
+      resolve(arr);
+    };
+    rq.onerror = () => reject(rq.error);
+  });
+}
+
+async function updateCard(url, { added, lastSeen, freqInc = 1 } = {}) {
+  const db = await openSrsDB();
+  const id = url;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SRS_STORE, "readwrite");
+    const st = tx.objectStore(SRS_STORE);
+    const rq = st.get(id);
+    rq.onsuccess = () => {
+      const now = nowEnc();
+      let c = rq.result;
+      if (c) {
+        c.lastSeen = lastSeen || now;
+        c.frequency = (c.frequency || 0) + freqInc;
+      } else {
+        c = {
+          id,
+          url,
+          added: added || now,
+          lastSeen: lastSeen || now,
+          frequency: freqInc,
+        };
+      }
+      st.put(c);
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* SRS pick: highest (now-lastSeen)/frequency score wins */
+function srsPick(cards) {
+  if (!cards.length) return null;
+  const now = Date.now();
+  let best = null,
+    bestScore = -1e9;
+  for (const c of cards) {
+    const score =
+      (now - decTs(c.lastSeen || c.added)) / (c.frequency || 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/* fully random card */
+function pureRandomPick(cards) {
+  if (!cards.length) return null;
+  return cards[Math.floor(getSecureRandomNumber() * cards.length)];
+}
+
+/* algoPick: 50 % SRS, otherwise uniform */
+async function algoPick() {
+  const cards = await getAllCards();
+  if (!cards.length) return null;
+  if (getSecureRandomNumber() < 0.5) {
+    const c = srsPick(cards);
+    if (c) return c;
+  }
+  return pureRandomPick(cards);
+}
+
+/* ───────── history helpers (localStorage) ───────── */
+const LS_PENDING = "skywayPendingUrl";
+const LS_HISTORY = "skywayHistory"; // json array
+
+function pushHistory(url) {
+  let arr;
+  try {
+    arr = JSON.parse(localStorage.getItem(LS_HISTORY) || "[]");
+    if (!Array.isArray(arr)) arr = [];
+  } catch {
+    arr = [];
+  }
+  arr.push(url);
+  if (arr.length > 5) arr = arr.slice(-5);
+  localStorage.setItem(LS_HISTORY, JSON.stringify(arr));
+}
+
+/* build modal list */
+function renderLastFive() {
+  const listEl = document.getElementById("lastFiveList");
+  listEl.innerHTML = "";
+  let arr;
+  try {
+    arr = JSON.parse(localStorage.getItem(LS_HISTORY) || "[]");
+  } catch {
+    arr = [];
+  }
+  arr
+    .slice()
+    .reverse()
+    .forEach((u) => {
+      const li = document.createElement("li");
+      li.textContent = u;
+      listEl.appendChild(li);
+    });
+}
+
+/* prompt SRS rating if pending */
+function promptRatingIfNeeded() {
+  return new Promise((resolve) => {
+    const pending = localStorage.getItem(LS_PENDING);
+    if (!pending) return resolve(); // nothing to do
+
+    renderLastFive();
+
+    /* hook buttons once */
+    document
+      .querySelectorAll(".srs-btn")
+      .forEach((btn) =>
+        btn.addEventListener("click", async (ev) => {
+          const score = parseInt(ev.currentTarget.dataset.score, 10) || 3;
+          await updateCard(pending, { freqInc: score, lastSeen: nowEnc() });
+          localStorage.removeItem(LS_PENDING);
+          const modal = bootstrap.Modal.getInstance(
+            document.getElementById("ratingModal")
+          );
+          modal.hide();
+          resolve();
+        })
+      );
+
+    /* show modal */
+    const m = new bootstrap.Modal(document.getElementById("ratingModal"), {
+      backdrop: "static",
+      keyboard: false,
+    });
+    m.show();
+  });
+}
+
+/* ───────── PORTAL ( ?portal ) ───────── */
+async function showPortal() {
+  const portalDiv = document.getElementById("portal");
+  const cards = await getAllCards();
+  const size = new Blob([JSON.stringify(cards)]).size;
+  const earliest = cards.length
+    ? new Date(
+        Math.min(...cards.map((c) => decTs(c.added)))
+      ).toLocaleString()
+    : "N/A";
+  const latest = cards.length
+    ? new Date(
+        Math.max(...cards.map((c) => decTs(c.lastSeen)))
+      ).toLocaleString()
+    : "N/A";
+
+  portalDiv.innerHTML = `
+        <h3>skyway SRS portal</h3>
+        <p>Total JSON size: ${size} bytes</p>
+        <p>Cards in Bucket 1: ${cards.length}</p>
+        <p>First added: ${earliest}</p>
+        <p>Last seen: ${latest}</p>
+        <button id="exportBtn" class="btn btn-sm btn-outline-light me-2">Export JSON</button>
+        <button id="importBtn" class="btn btn-sm btn-outline-light me-2">Import JSON</button>
+        <button id="resetBtn"  class="btn btn-sm btn-outline-danger">Reset state</button>
+        <pre id="portalPre">${JSON.stringify(cards, null, 2)}</pre>
+      `;
+  portalDiv.style.display = "block";
+
+  document
+    .getElementById("exportBtn")
+    .addEventListener("click", async () => {
+      const blob = new Blob([JSON.stringify(cards)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "skywaySRS.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+  document
+    .getElementById("importBtn")
+    .addEventListener("click", async () => {
+      const txt = prompt("Paste exported JSON here:");
+      if (!txt) return;
+      let arr;
+      try {
+        arr = JSON.parse(txt);
+        if (!Array.isArray(arr)) throw new Error();
+      } catch {
+        alert("Bad JSON");
+        return;
+      }
+      /* wipe + import */
+      const db = await openSrsDB();
+      const tx = db.transaction(SRS_STORE, "readwrite");
+      const st = tx.objectStore(SRS_STORE);
+      st.clear();
+      arr.forEach((c) => st.put(c));
+      tx.oncomplete = () => location.reload();
+    });
+
+  document
+    .getElementById("resetBtn")
+    .addEventListener("click", () => {
+      indexedDB.deleteDatabase(SRS_DB_NAME).onsuccess = () =>
+        location.reload();
+    });
+}
+/* ═══════════════════════════════════════════════════════════════
+ *  ✂ — existing ORIGINAL code (unchanged) starts below this line
+ *  except: we’ll *hook* into its redirect to record SRS + pending
+ * ═════════════════════════════════════════════════════════════ */
+/*╔══════════════════════════════════════════╗
+  ║  HIERARCHICAL DECISION STACK             ║
+  ║  1) modeWeights  → chooses randomMode.   ║
+  ║  2) distributions / distribution         ║
+  ║     • if present → forces “segments”.    ║
+  ║  3) randomMode   → manual override.      ║
+  ║  4) default      → “weighted”.           ║
+  ╚══════════════════════════════════════════╝*/
+
+/* ──────────────── URL PARAM PARSE ──────────────── */
+const urlParams   = new URLSearchParams(location.search);
+const targetCsv   = urlParams.get('target');                         // required
+let lastPantoneColor = '#ffffff';
+
+/* ——— SINGLE distribution=1-2-3-2-1 etc. ——— */
+let   distributionArr = null;
+const distributionStr = urlParams.get('distribution');
+if (distributionStr) {
+  distributionArr = distributionStr
+      .split(/[-,]/)                                                 // hyphen / comma both OK
+      .map(n => parseInt(n.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0);
+}
+
+/* ——— MULTI distributions=dist:weight;dist:weight ——— */
+let distributionPool = [];                                           // [{arr:[…], weight:…}, …]
+const distributionsStr = urlParams.get('distributions');
+if (distributionsStr) {
+  const distEntries = distributionsStr.split(/[;|]/);                // allow ; or |
+  for (const entry of distEntries) {
+    const [distPart, wPart] = entry.split(/[:=]/);                   // allow : or =
+    if (!distPart || !wPart) continue;
+    const w = parseInt(wPart.trim(), 10);
+    if (w <= 0 || isNaN(w)) continue;
+    const arr = distPart
+        .split(/[-,]/)
+        .map(x => parseInt(x.trim(),10))
+        .filter(x => !isNaN(x) && x > 0);
+    if (arr.length) distributionPool.push({ arr, weight: w });
+  }
+}
+
+/* ——— randomMode fallback (before overrides) ——— */
+let randomMode = (urlParams.get('randomMode') || 'weighted').toLowerCase();
+
+/* ——— modeWeights=weighted:3,segments:4 … ——— */
+const modeWeightsStr = urlParams.get('modeWeights');
+if (modeWeightsStr) {
+  const allowed = new Set(['weighted','uniform','contiguous','segments']);
+  const mwList  = modeWeightsStr.split(/[;,]/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => {
+        const [k,v] = p.split(/[:=|]/);
+        return { mode: k?.trim().toLowerCase(), w: parseInt(v?.trim(),10) };
+      })
+      .filter(o => allowed.has(o.mode) && o.w > 0 && !isNaN(o.w));
+  if (mwList.length) {
+    const tot = mwList.reduce((s,m)=>s+m.w,0);
+    let  rnd  = randInt(1, tot);
+    for (const m of mwList) { if (rnd <= m.w) { randomMode = m.mode; break; } rnd -= m.w; }
+  }
+}
+
+/* ——— distributions override → segments mode ——— */
+if ((distributionArr && distributionArr.length) || distributionPool.length)
+  randomMode = 'segments';
+
+/* DEBUG (optional) */
+// console.log('Chosen randomMode:', randomMode);
+// console.log('distributionPool', distributionPool);
+
+/* ──────────────── CONFIG HANDLING ──────────────── */
+let configValues = {};
+async function loadConfig() {
+  if (Object.keys(configValues).length) return configValues;
+  try {
+    const resp = await fetch('config/values.json');
+    if (resp.ok) {
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if (Array.isArray(raw.patches) && raw.patches.length) {
+        const weights = raw.patches.map(p => Number(p.distributionWeight) || 1);
+        const tot = weights.reduce((a, b) => a + b, 0);
+        let rnd = getSecureRandomNumber() * tot;
+        for (let i = 0; i < raw.patches.length; i++) {
+          if (rnd < weights[i]) { patch = { ...raw.patches[i] }; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+      for (const [k,v] of Object.entries(configValues)) {
+        if (typeof v === 'string' && /^\d+(?:\.\d+)?$/.test(v)) {
+          configValues[k] = Number(v);
+        }
+      }
+    }
+  } catch (err) { console.error('Config load failed:', err); }
+  return configValues;
+}
+
+/* ──────────────── RANDOM HELPERS ──────────────── */
+function randInt(min, max) { return Math.floor(getSecureRandomNumber()*(max-min+1))+min; }
+function pickIdxByWeights(freq) {
+  const tot=freq.reduce((s,v)=>s+v,0);
+  let rnd=randInt(1,tot);
+  for(let i=0;i<freq.length;i++){ if(rnd<=freq[i]) return i; rnd-=freq[i]; }
+  return freq.length-1;
+}
+
+/* ──────────────── CSV HELPERS ──────────────── */
+function cleanCell(c){ return c.trim().replace(/^["']+|["']+$/g,''); }
+function parseCsvLine(l){
+  const out=[];let cell='',inQ=false;
+  for(let i=0;i<l.length;i++){
+    const ch=l[i];
+    if(ch==='"'){ if(inQ && l[i+1]==='"'){cell+='"';i++;} else inQ=!inQ; }
+    else if(ch===',' && !inQ){ out.push(cell); cell=''; }
+    else cell+=ch;
+  }
+  out.push(cell); return out;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(getSecureRandomNumber()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ───── placeholder + numeric-expr substitution ───── */
+function tryEvalExpr(str){
+  if(!/^[0-9+\-*/ ().]+$/.test(str)) return str;
+  try{ const v=Function('"use strict";return ('+str+')')(); return Number.isFinite(v)?String(v):str; }
+  catch{ return str; }
+}
+function applyConfig(rows){
+  const re=/\{([^}]+)}/g;
+  return rows.map(r=>r.map(c=>{
+    const sub=c.replace(re,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m);
+    return tryEvalExpr(sub);
+  }));
+}
+
+/* ──────────────── FETCH CSV ──────────────── */
+async function fetchCSV(name){
+  await loadConfig();
+  try{
+    const res=await fetch(name);
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const raw=(await res.text()).split('\n').map(l=>l.trim()).filter(Boolean);
+    let rows=raw.map(l=>parseCsvLine(l).map(cleanCell));
+    rows=applyConfig(rows);
+    const inj=[]; const normal=[];
+    for(const r of rows){
+      if(r[0].trim().toLowerCase()==='injection'){
+        const c=Math.max(1,parseInt(r[1],10)||1);
+        for(let i=0;i<c;i++) inj.push(['injection','1',r[2]]);
+      }else normal.push(r);
+    }
+    if(!['contiguous','segments'].includes(randomMode)) shuffle(normal);
+    rows=normal;
+    if(inj.length){
+      const total=rows.length+inj.length;
+      const step=total/inj.length;
+      let next=step/2,idx=0; const out=[];
+      for(let i=0;i<total;i++){
+        if(idx<inj.length && i>=Math.round(next)){
+          out.push(inj[idx++]);
+          next+=step;
+        }else if(rows.length) out.push(rows.shift());
+        else out.push(inj[idx++]);
+      }
+      rows=out;
+    }
+    return rows;
+  }catch(e){ throw new Error('Error fetching "'+name+'": '+e.message); }
+}
+
+/* ──────────────── PICK ALGORITHMS ──────────────── */
+function pickUniform(rows){ return rows[randInt(0,rows.length-1)]; }
+function pickWeighted(rows){
+  const list=rows.map(r=>({r,w:Math.max(1,parseInt(r[1],10)||1)}));
+  const tot = list.reduce((s,x)=>s+x.w,0);
+  let rnd=getSecureRandomNumber()*tot;
+  for(const x of list){ if(rnd<x.w) return x.r; rnd-=x.w; }
+  return list[list.length-1].r;
+}
+function pickContiguous(rows){
+  const tot=rows.reduce((s,r)=>s+Math.max(1,parseInt(r[1],10)||1),0);
+  let rnd=randInt(1,tot);
+  for(const r of rows){
+    const w=Math.max(1,parseInt(r[1],10)||1);
+    if(rnd<=w) return r; rnd-=w;
+  }
+  return rows[rows.length-1];
+}
+function pickSegments(rows){
+  /* 1️⃣ choose which distribution to use */
+  let freq = null;
+  if (distributionPool.length) {                           // weighted pool
+    const weights = distributionPool.map(d=>d.weight);
+    freq = distributionPool[pickIdxByWeights(weights)].arr.slice();
+  } else if (distributionArr && distributionArr.length) {  // single
+    freq = distributionArr.slice();
+  } else {
+    return pickUniform(rows);                              // fallback
+  }
+
+  /* 2️⃣ ensure region count ≤ rows */
+  const nRows=rows.length;
+  if (freq.length>nRows){
+    const extra=freq.slice(nRows).reduce((s,v)=>s+v,0);
+    freq=freq.slice(0,nRows);
+    freq[nRows-1]+=extra;
+  }
+
+  /* 3️⃣ divide rows → regions */
+  const nReg=freq.length;
+  const base=Math.floor(nRows/nReg);
+  let   rem =nRows%nReg;
+  const bounds=[]; let start=0;
+  for(let i=0;i<nReg;i++){
+    const sz=base+(i<rem?1:0);
+    bounds.push([start,start+sz-1]);
+    start+=sz;
+  }
+
+  /* 4️⃣ pick region by freq, then pick row uniformly within region */
+  const regIdx = pickIdxByWeights(freq);
+  const [l,r]  = bounds[regIdx];
+  return rows[randInt(l,r)];
+}
+function pickRow(rows){
+  switch(randomMode){
+    case 'uniform'   : return pickUniform(rows);
+    case 'contiguous': return pickContiguous(rows);
+    case 'segments'  : return pickSegments(rows);
+    case 'weighted'  :
+    default          : return pickWeighted(rows);
+  }
+}
+
+/* ──────────────── BUCKET HANDLING ──────────────── */
+const DB_NAME='skyBuckets';
+const STORE='state';
+const DB_VERSION=1;
+let bucketDb=null, bucketState=null;
+
+function openBucketDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VERSION);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE,{keyPath:'id'});
+    };
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>res(r.result);
+  });
+}
+function idbGet(key){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readonly').objectStore(STORE).get(key);
+    tx.onsuccess=()=>res(tx.result?tx.result.data:null);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+function idbPut(key,val){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readwrite').objectStore(STORE).put({id:key,data:val});
+    tx.onsuccess=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+function extractVideoId(url){
+  const m=url.match(/[?&]v=([^&]+)/); if(m) return m[1];
+  const m2=url.match(/youtu\.be\/([^?]+)/); if(m2) return m2[1];
+  return url;
+}
+
+async function loadBucketState(){
+  bucketDb=await openBucketDB();
+  bucketState=await idbGet('main');
+  if(!bucketState){
+    bucketState={reviewBucket:[],newBucket:[],initiated:false};
+  }
+  if(!bucketState.initiated){
+    initNewBucketFromQuery();
+    bucketState.initiated=true;
+    await saveBucketState();
+  }
+}
+function initNewBucketFromQuery(){
+  const p=new URLSearchParams(location.search);
+  const vid=p.get('video');
+  if(!vid) return;
+  const start=p.get('start')||'0';
+  const end=p.get('end')||'0';
+  const u=new URL('looptube.html',location.origin);
+  u.searchParams.set('video',extractVideoId(vid));
+  u.searchParams.set('start',start);
+  u.searchParams.set('end',end);
+  bucketState.newBucket.push(u.toString());
+}
+async function saveBucketState(){ await idbPut('main',bucketState); }
+
+function pickBucketItem(){
+  if(!bucketState.reviewBucket.length && !bucketState.newBucket.length) return null;
+  const useReview=getSecureRandomNumber()<0.33 && bucketState.reviewBucket.length;
+  const bucket=useReview?bucketState.reviewBucket:bucketState.newBucket;
+  if(!bucket.length){
+    const other=useReview?bucketState.newBucket:bucketState.reviewBucket;
+    if(!other.length) return null;
+    return pickFromBucket(other,!useReview);
+  }
+  return pickFromBucket(bucket,useReview);
+}
+function pickFromBucket(bucket,isReview){
+  const idx=Math.floor(getSecureRandomNumber()*bucket.length);
+  const item=bucket[idx];
+  if(!isReview){
+    bucket.splice(idx,1);
+    bucketState.reviewBucket.push(item);
+  }
+  saveBucketState();
+  return item;
+}
+
+function evalFormula(formula){
+  if(formula === undefined || formula === null || formula === '') return NaN;
+  if(typeof formula === 'number') return formula;
+  let expr = String(formula);
+  for(const [k,v] of Object.entries(configValues)){
+    expr = expr.replace(new RegExp('\\b'+k+'\\b','g'), v);
+  }
+  try{ return Function('"use strict";return ('+expr+')')(); }
+  catch{ return NaN; }
+}
+
+
+async function showProgressAndRedirect(url) {
+  /* 1️⃣ record card (+1 frequency) & write pending-rating marker */
+  if (useSrsLayer) {
+    await updateCard(url, { freqInc: 1, lastSeen: nowEnc() });
+    localStorage.setItem(LS_PENDING, url); // to be rated on next load
+    pushHistory(url);
+  }
+
+  /* 2️⃣ existing progress-bar animation (unchanged) */
+  await loadConfig();
+  const cur = evalFormula(configValues.progressCurrentValueFormula);
+  const target = evalFormula(configValues.progressTargetValueFormula);
+  const container = document.getElementById("progressBarContainer");
+  const bar = document.getElementById("progressBar");
+  if (!container || !bar) {
+    location.href = url;
+    return;
+  }
+  if (isNaN(cur) || isNaN(target) || target <= cur) {
+    location.href = url;
+    return;
+  }
+  container.style.display = "block";
+  bar.style.width = "0%";
+  bar.setAttribute("aria-valuenow", "0");
+  bar.textContent = "0%";
+  const steps = 60;
+  const duration = 2000;
+  let step = 0;
+  const inc = (target - cur) / steps;
+  let val = cur;
+  return new Promise((resolve) => {
+    const timer = setInterval(() => {
+      val += inc;
+      step++;
+      const pct = ((val - cur) / (target - cur)) * 100;
+      bar.style.width = pct + "%";
+      bar.setAttribute("aria-valuenow", pct);
+      bar.textContent = Math.floor(pct) + "%";
+      if (step >= steps) {
+        clearInterval(timer);
+        const delay = 500 + getSecureRandomNumber() * 4500;
+        setTimeout(() => {
+          location.href = url;
+          resolve();
+        }, delay);
+      }
+    }, duration / steps);
+  });
+}
+
+/* helper: simple direct redirect bypassing progress bar */
+async function quickRedirect(url) {
+  if (useSrsLayer) {
+    await updateCard(url, { freqInc: 1, lastSeen: nowEnc() });
+    localStorage.setItem(LS_PENDING, url);
+    pushHistory(url);
+  }
+  location.href = url;
+}
+
+/* =============================================================== */
+async function animateProgressCount(){
+  await loadConfig();
+  const target=evalFormula(configValues.progressCurrentValueFormula);
+  const el=document.getElementById('progressCount');
+  if(!el||isNaN(target)) return;
+  el.style.display='block';
+  const steps=60; const duration=2000; let step=0; let val=0;
+  const inc=target/steps;
+  const timer=setInterval(()=>{
+    val+=inc; step++;
+    if(step>=steps){ clearInterval(timer); val=target; }
+    el.textContent=Math.round(val).toLocaleString();
+  }, duration/steps);
+}
+
+function updateVisitCounter(){
+  const key='skywayVisitCount';
+  let count=parseInt(localStorage.getItem(key)||'0',10);
+  count++; localStorage.setItem(key,count);
+  return count;
+}
+
+function getPhilippineNow(){
+  const now=new Date();
+  const utc=now.getTime()+now.getTimezoneOffset()*60000;
+  return new Date(utc+8*3600000);
+}
+
+/* ──────────────── MAIN PROCESSOR ──────────────── */
+async function processRows(rows,depth=0){
+  if(depth>2000) return document.body.textContent='Max CSV nesting depth exceeded.';
+  if(!rows.length)  return document.body.textContent='CSV empty.';
+  // auto-weight rows with "csv,0,child.csv"
+  for(const r of rows){
+    if(r[0].trim()==='csv' && parseInt(r[1],10)===0){
+      try{ r[1]=(await fetchCSV(r[2])).length.toString(); }
+      catch(e){ console.error(e); r[1]='1'; }
+    }
+  }
+  const sel=pickRow(rows);
+  const type=sel[0].trim();
+  if(type==='link' || type==='injection'){
+    await showProgressAndRedirect(handleSkywayLink(sel,pickBucketItem));
+    return;
+  }
+  if(type==='link-jp'){
+    await showProgressAndRedirect(handleSkywayLink(sel,pickBucketItem,true));
+    return;
+  }
+
+  if(type==='git-specific'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const list=sel[4].split('=')[1].split('_');
+    location.href=`https://github.com/${user}/${repo}/issues/${list[randInt(0,list.length-1)]}`; return;
+  }
+  if(type==='git-range'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const [min,max]=sel[4].split('=')[1].split('_').map(Number);
+    if(isNaN(min)||isNaN(max)) return document.body.textContent='Bad git-range row';
+    location.href=`https://github.com/${user}/${repo}/issues/${randInt(min,max)}`; return;
+  }
+  if(type==='csv'){
+    try{ return processRows(await fetchCSV(sel[2]),depth+1); }
+    catch(e){ return document.body.textContent=e.message; }
+  }
+  document.body.textContent='Unknown row type: '+type;
+}
+
+/* ──────────────── ENTRY ──────────────── */
+window.onload = async () => {
+  /* PORTAL shortcut */
+  if (urlParams.has("portal")) {
+    return showPortal();
+  }
+
+  /* 0️⃣ confirm target param exists */
+  if (!targetCsv) {
+    document.body.textContent = "Missing ?target=…";
+    return;
+  }
+
+  /* 1️⃣ if we owe the user a rating, handle that first */
+  await promptRatingIfNeeded();
+
+  /* 2️⃣ decide mode: 25% bucket, 25% SRS, 50% original */
+  const rnd = getSecureRandomNumber();
+  if (rnd < 0.25) {
+    skywayMode = 'bucket';
+    useSrsLayer = true;
+    const cards = await getAllCards();
+    const c = pureRandomPick(cards);
+    if (c) return quickRedirect(c.url);
+  } else if (rnd < 0.5) {
+    skywayMode = 'srs';
+    useSrsLayer = true;
+    const cards = await getAllCards();
+    const c = srsPick(cards);
+    if (c) return quickRedirect(c.url);
+  } else {
+    skywayMode = 'original';
+    useSrsLayer = false;
+  }
+
+  /* 3️⃣ else fall back to NORMAL skyway CSV logic */
+  await getRandomColor();
+  await loadConfig();
+  animateProgressCount();
+  const count = updateVisitCounter();
+  const sub = document.getElementById("progressSubtext");
+  if (sub && configValues.lastUpdated) {
+    const last = new Date(configValues.lastUpdated);
+    const now = getPhilippineNow();
+    const days = Math.max(1, (now - last) / 86400000);
+    const avg = (count / days).toFixed(2);
+    sub.textContent = `+${count} since ${configValues.lastUpdated}! average: ${avg}`;
+    sub.style.display = "block";
+  }
+
+  try {
+    /* processRows eventually ends in showProgressAndRedirect(),
+       which now records the card & marks it pending. */
+    await processRows(await fetchCSV(targetCsv));
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+};
+</script>
+</body>
+</html>

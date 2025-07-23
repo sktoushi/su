@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Redirect</title>
+    <script type="text/javascript">
+        window.onload = function() {
+            // Array of URLs
+            var urls = [
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=300s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=600s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=900s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=1200s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=1500s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=1800s",
+                "https://www.youtube.com/watch?v=_FtXi0_ZMvk&t=2100s",
+                "https://www.youtube.com/watch?v=zZlD3c_1PLg&t=300s",
+                "https://www.youtube.com/watch?v=zZlD3c_1PLg&t=600s",
+                "https://www.youtube.com/watch?v=zZlD3c_1PLg&t=900s",
+                "https://www.youtube.com/watch?v=zZlD3c_1PLg&t=1200s",
+                "https://www.youtube.com/watch?v=zZlD3c_1PLg&t=1500s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=1570s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=1870s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=2170s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=2470s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=2770s",
+                "https://www.youtube.com/watch?v=3N1A14hQjZA&t=3070s",
+                "https://youtu.be/TxKzqbpLi0Y&t=0s",
+                "https://youtu.be/TxKzqbpLi0Y&t=300s",
+                "https://youtu.be/TxKzqbpLi0Y&t=600s",
+                "https://youtu.be/TxKzqbpLi0Y&t=900s",
+                "https://youtu.be/TxKzqbpLi0Y&t=1200s",
+                "https://youtu.be/TxKzqbpLi0Y&t=1500s",
+                "https://youtu.be/TxKzqbpLi0Y&t=1800s",
+                "https://youtu.be/q7WZdYAaVtQ&t=0s",
+                "https://youtu.be/q7WZdYAaVtQ&t=300s",
+                "https://youtu.be/q7WZdYAaVtQ&t=600s",
+                "https://youtu.be/q7WZdYAaVtQ&t=900s"
+            ];
+
+            // Randomly choose a URL
+            var randomIndex = Math.floor(getSecureRandomNumber() * urls.length);
+            var randomUrl = urls[randomIndex];
+
+            // Redirect to the chosen URL
+            window.location.href = randomUrl;
+        }
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

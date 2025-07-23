@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Random Letters and Sum</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container-custom {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 700px;
+            width: 100%;
+        }
+        .content {
+            margin-top: 30px;
+        }
+        .letters-display, .sum-display {
+            font-size: 3rem; /* Enlarged Font */
+            margin: 20px 0;
+        }
+        .sum-display {
+            color: #28a745;
+            display: none; /* Hidden by default */
+        }
+        .btn-reveal {
+            margin-top: 30px;
+            font-size: 1.5rem; /* Enlarged Font */
+            padding: 15px 30px;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+    </style>
+    <script>
+        // Function to get the URL parameter by name
+        function getURLParameter(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+
+        // Function to generate random lowercase letters
+        function getRandomLetters(numLetters) {
+            const letters = [];
+            for (let i = 0; i < numLetters; i++) {
+                const randomCharCode = Math.floor(getSecureRandomNumber() * 26) + 97; // a = 97, z = 122
+                letters.push(String.fromCharCode(randomCharCode));
+            }
+            return letters;
+        }
+
+        // Function to calculate the sum of the letters (a=1, b=2, ... z=26)
+        function calculateLetterSum(letters) {
+            return letters.reduce((sum, letter) => sum + (letter.charCodeAt(0) - 96), 0); // 'a' is 1, 'b' is 2, etc.
+        }
+
+        // Main function to be called when the page loads
+        function initializePage() {
+            const maxLettersParam = getURLParameter('maxLetters');
+            const maxLetters = parseInt(maxLettersParam);
+            const lettersElement = document.getElementById('letters');
+            const sumElement = document.getElementById('sum');
+            const revealButton = document.getElementById('revealBtn');
+            const sumLabel = document.getElementById('sum-label');
+
+            if (!isNaN(maxLetters) && maxLetters >= 2) {
+                // Random number between 2 and maxLetters
+                const numLetters = Math.floor(getSecureRandomNumber() * (maxLetters - 2 + 1)) + 2;
+                const randomLetters = getRandomLetters(numLetters);
+                // Display the letters in the webpage
+                lettersElement.textContent = randomLetters.join(' + ');
+                // Calculate the sum but do not display it yet
+                const letterSum = calculateLetterSum(randomLetters);
+                sumElement.textContent = letterSum;
+            } else {
+                // Display error message on the webpage
+                lettersElement.textContent = "Invalid or missing 'maxLetters' parameter. Please provide a valid number (minimum 2).";
+                sumLabel.style.display = 'none';
+                revealButton.style.display = 'none';
+            }
+
+            // Handle the reveal button
+            revealButton.addEventListener('click', function() {
+                sumElement.style.display = 'block'; // Correctly display the sum span
+                // Optionally, disable the button after revealing the sum
+                this.disabled = true;
+            });
+        }
+
+        window.onload = initializePage;
+    </script>
+</head>
+<body>
+    <div class="container-custom">
+        <h1 class="mb-5 display-4">Random Letters and Sum</h1>
+        <div class="content">
+            <p><strong>Random Letters:</strong></p>
+            <p id="letters" class="letters-display text-primary">--</p>
+            <p id="sum-label"><strong>Sum:</strong> <span id="sum" class="sum-display text-success">--</span></p>
+        </div>
+        <button class="btn btn-success btn-reveal" id="revealBtn">Reveal Sum</button>
+        <div class="footer">
+            <p>Provide a URL parameter <code>maxLetters</code> to generate random letters and calculate their sum.</p>
+            <p>Example: <code>?maxLetters=5</code></p>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

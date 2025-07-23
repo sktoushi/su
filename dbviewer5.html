@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random-or-Full DB Viewer</title>
+
+  <!-- ─── GitHub-dark-mode look ─── -->
+  <style>
+    :root{
+      --bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#c9d1d9;
+      --text-sub:#8b949e;--accent:#238636;--btn:#21262d;--btn-hov:#30363d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.5;display:flex;flex-direction:column;min-height:100vh;
+    }
+    header{padding:1rem 2rem;border-bottom:1px solid var(--border);font-weight:600;font-size:1.1rem}
+    main{flex:1;max-width:900px;width:100%;margin:2rem auto;display:flex;flex-direction:column;gap:1.5rem}
+    .card{
+      background:var(--panel);border:1px solid var(--border);border-radius:6px;
+      padding:1.5rem;overflow:auto;word-break:break-word;max-height:70vh;
+    }
+    .row-id{font-weight:600;color:var(--accent);margin-bottom:.25rem}
+    table{width:100%;border-collapse:collapse;margin-top:.5rem}
+    th,td{padding:.35rem .6rem;border:1px solid var(--border)}
+    th{background:#1e242c;color:var(--text-sub);font-weight:500;text-align:left}
+    button{
+      padding:.55rem 1rem;font-size:.95rem;cursor:pointer;margin:.3rem .4rem .3rem 0;
+      background:var(--btn);border:1px solid var(--border);border-radius:6px;color:var(--text);
+      transition:background .15s
+    }
+    button:hover{background:var(--btn-hov)}
+    footer{text-align:center;padding:1rem 0 2rem;font-size:.8rem;color:var(--text-sub);border-top:1px solid var(--border)}
+    a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+    .sticky-head th{position:sticky;top:0;z-index:1}
+
+    /* toast */
+    #toast{
+      position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+      background:var(--panel);border:1px solid var(--border);color:var(--text);
+      padding:.6rem 1.2rem;border-radius:6px;opacity:0;pointer-events:none;
+      transition:opacity .2s;
+    }
+  </style>
+
+  <!-- sql.js (WebAssembly) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/sql-wasm.js"></script>
+</head>
+<body>
+<header>📚 Random-or-Full DB Viewer</header>
+
+<main>
+  <div>
+    <button id="drawBtn"  disabled>🎲 Random Entry</button>
+    <button id="allBtn"   disabled>📜 Show All Entries</button>
+    <button id="copyBtn"  disabled>📋 Copy Front</button>
+    <button id="searchBtn" disabled>🤖 ChatGPT Search</button>
+  </div>
+
+  <article id="randCard" class="card"><p>Loading database…</p></article>
+  <article id="allCard"  class="card" style="display:none;"></article>
+</main>
+
+<div id="toast"></div>
+<footer>Powered by <a href="https://github.com/sql-js/sql.js" target="_blank" rel="noopener">sql.js</a></footer>
+
+<script>
+(async function () {
+  /* ─── URL params ─── */
+  const p          = new URLSearchParams(location.search);
+  const dbFile     = p.get('db')    || 'memo_20250607-1.db';
+  const forcedTbl  = p.get('table');              // optional ?table=name
+
+  /* ─── DOM refs ─── */
+  const randCard = document.getElementById('randCard');
+  const allCard  = document.getElementById('allCard');
+  const drawBtn  = document.getElementById('drawBtn');
+  const allBtn   = document.getElementById('allBtn');
+  const copyBtn  = document.getElementById('copyBtn');
+  const searchBtn= document.getElementById('searchBtn');
+  const toast    = document.getElementById('toast');
+
+  /* ─── helper: toast ─── */
+  function showToast(msg){
+    toast.textContent=msg; toast.style.opacity='1';
+    setTimeout(()=>toast.style.opacity='0',1600);
+  }
+
+  /* ─── Load sql.js ─── */
+  const SQL = await initSqlJs({
+    locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.9.0/${f}`
+  });
+
+  /* ─── Fetch DB ─── */
+  let db;
+  try{
+    const res = await fetch(dbFile,{cache:'no-store'});
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    db = new SQL.Database(new Uint8Array(await res.arrayBuffer()));
+  }catch(e){
+    randCard.innerHTML = `<p style="color:#f85149"><strong>Error loading DB:</strong> ${e.message}</p>`;
+    console.error(e); return;
+  }
+
+  /* ─── Pick table ─── */
+  let table = forcedTbl;
+  if(!table){
+    const t = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`);
+    if(!t.length){ randCard.innerHTML='<p>No user tables.</p>'; return; }
+    const names = t[0].values.map(v=>v[0]);
+    let best='',max=-1;
+    for(const n of names){
+      try{
+        const c = db.exec(`SELECT COUNT(*) AS c FROM "${n}";`)[0].values[0][0];
+        if(c>max){max=c;best=n;}
+      }catch(e){console.warn('count fail',n,e)}
+    }
+    table = best;
+  }
+
+  /* ─── HTML escape helper ─── */
+  const esc = s=>String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+  /* ─── clipboard/search state ─── */
+  let currentFront='';            // text used by copy/search buttons
+  function setFront(txt){
+    currentFront = txt;
+    copyBtn.disabled = searchBtn.disabled = !txt;
+  }
+
+  /* ─── Render functions ─── */
+  function drawRandom(){
+    let r;
+    try{
+      r = db.exec(`SELECT * FROM "${table}" ORDER BY RANDOM() LIMIT 1;`);
+      if(!r.length){randCard.innerHTML='<p>No rows.</p>';return;}
+    }catch(e){
+      randCard.innerHTML=`<p style="color:#f85149"><strong>Query error:</strong> ${e.message}</p>`;return;
+    }
+    const col=r[0].columns,val=r[0].values[0];
+    const idI=col.findIndex(c=>/id$/i.test(c)), id= idI!==-1? val[idI]: val[0];
+    let h=`<div class="row-id">#${esc(id)}</div><table><thead><tr>`;
+    col.forEach(c=>h+=`<th>${esc(c)}</th>`); h+='</tr></thead><tbody><tr>';
+    val.forEach(v=>h+=`<td>${esc(v)}</td>`); h+='</tr></tbody></table>';
+    randCard.innerHTML=h;
+
+    setFront(val.map(v=>String(v)).join('\t'));
+  }
+
+  let allRendered=false;
+  function toggleAll(){
+    if(allCard.style.display==='none'){       // need to show
+      if(!allRendered){ renderAll(); allRendered=true; }
+      allCard.style.display='block';
+      randCard.style.display='none';
+      allBtn.textContent='↩️ Hide All Entries';
+      drawBtn.disabled=true;
+    }else{
+      allCard.style.display='none';
+      randCard.style.display='block';
+      allBtn.textContent='📜 Show All Entries';
+      drawBtn.disabled=false;
+    }
+  }
+
+  function renderAll(){
+    let rs;
+    try{ rs=db.exec(`SELECT * FROM "${table}";`); }
+    catch(e){
+      allCard.innerHTML=`<p style="color:#f85149"><strong>Query error:</strong> ${e.message}</p>`;return;
+    }
+    if(!rs.length){allCard.innerHTML='<p>No rows.</p>';return;}
+    const col=rs[0].columns, rows=rs[0].values;
+    let h='<table class="sticky-head"><thead><tr>';
+    col.forEach(c=>h+=`<th>${esc(c)}</th>`); h+='</tr></thead><tbody>';
+    rows.forEach((rw,idx)=>{
+      h+=`<tr data-idx="${idx}">`; rw.forEach(v=>h+=`<td>${esc(v)}</td>`); h+='</tr>';
+    });
+    h+='</tbody></table>';
+    allCard.innerHTML=h;
+
+    /* click-to-select row for copy/search */
+    allCard.querySelectorAll('tbody tr').forEach(tr=>{
+      tr.addEventListener('click',()=>{
+        const cells=[...tr.children].map(td=>td.textContent).join('\t');
+        setFront(cells);
+        showToast('Row selected ✔︎');
+      });
+    });
+  }
+
+  /* ─── copy / search ─── */
+  function copyFrontText(){
+    if(!currentFront) return;
+    navigator.clipboard.writeText(currentFront)
+      .then(()=>showToast('Front copied to clipboard!'))
+      .catch(()=>alert('Unable to copy.'));
+  }
+  function chatGPTSearchFront(){
+    if(!currentFront) return;
+    window.open('https://chat.openai.com/?q='+encodeURIComponent(currentFront),'_blank');
+  }
+
+  /* ─── Wire up & initial ─── */
+  drawBtn.disabled=allBtn.disabled=false;
+  drawBtn.addEventListener('click',drawRandom);
+  allBtn.addEventListener('click',toggleAll);
+  copyBtn.addEventListener('click',copyFrontText);
+  searchBtn.addEventListener('click',chatGPTSearchFront);
+  drawRandom();            // first random row
+})();
+</script>
+</body>
+</html>

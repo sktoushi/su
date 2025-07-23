@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Flashcard Reviewer</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        body.dark-mode {
+            background-color: #343a40;
+            color: #f8f9fa;
+        }
+        .container {
+            max-width: 900px;
+            margin-top: 30px;
+        }
+        .btn-draw, .btn-reveal {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .slider-container {
+            margin-bottom: 20px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn-export {
+            margin-top: 10px;
+        }
+        .gauge-container {
+            margin-bottom: 20px;
+        }
+        .bucket-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .dark-mode .card {
+            background-color: #495057;
+            color: #f8f9fa;
+        }
+        .dark-mode .form-control, .dark-mode .form-select, .dark-mode .list-group-item {
+            background-color: #6c757d;
+            color: #f8f9fa;
+            border: 1px solid #ced4da;
+        }
+        .dark-mode .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .dark-mode .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+        /* Custom scrollbar for dark mode */
+        body.dark-mode ::-webkit-scrollbar {
+            width: 8px;
+        }
+        body.dark-mode ::-webkit-scrollbar-track {
+            background: #343a40;
+        }
+        body.dark-mode ::-webkit-scrollbar-thumb {
+            background: #6c757d;
+            border-radius: 4px;
+        }
+        /* Flashcard styling */
+        .flashcard {
+            border: 2px dashed #aaa;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column; /* Stack front and back vertically */
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            background-color: #ffffff;
+        }
+        body.dark-mode .flashcard {
+            background-color: #444;
+            border-color: #666;
+        }
+        .reveal-section {
+            display: none; /* Hidden until "Reveal Answer" is clicked */
+        }
+
+        /* Extra spacing between front/back containers */
+        #frontTextContainer {
+            margin-bottom: 40px; /* bigger gap so it’s not just side by side */
+        }
+    </style>
+</head>
+<body>
+    <!-- Display random Pantone color in top-right corner (optional) -->
+    <div id="pantoneColorDisplay" style="position: absolute; top: 10px; right: 10px; background-color: #ffffffcc; padding: 5px; border-radius: 5px; font-weight: bold;"></div>
+
+    <div class="container">
+        <h1 class="text-center" id="pageTitle"></h1>
+
+        <!-- Theme Toggle & Help -->
+        <div class="text-end mb-3">
+            <button class="btn btn-secondary" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i> Dark Mode
+            </button>
+            <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal" title="Help">
+                <i class="fas fa-question-circle"></i> Help
+            </button>
+        </div>
+
+        <!-- Probability Slider -->
+        <div class="slider-container">
+            <label for="probSlider" class="form-label">Adjust Probabilities (Bucket1 vs Bucket2):</label>
+            <input type="range" class="form-range" id="probSlider" min="0" max="100" value="33" oninput="updateProbabilities()" title="Probability of drawing from Bucket 1">
+            <div class="slider-label">
+                <span>Bucket 1: <span id="probBucket1">33%</span></span>
+                <span>Bucket 2: <span id="probBucket2">67%</span></span>
+            </div>
+        </div>
+
+        <!-- Draw, Reveal, Undo -->
+        <button class="btn btn-primary btn-draw" onclick="drawCard()" title="Draw a card to review">
+            <i class="fas fa-random"></i> Draw Card
+        </button>
+        <button class="btn btn-secondary btn-reveal" onclick="revealAnswer()" title="Reveal the back of the card">
+            <i class="fas fa-eye"></i> Reveal Answer
+        </button>
+        <button class="btn btn-warning btn-draw" onclick="undoLastDraw()" title="Undo the last drawn card">
+            <i class="fas fa-undo"></i> Undo Last Draw
+        </button>
+
+        <!-- Flashcard Display -->
+        <div class="flashcard" id="flashcard">
+            <!-- FRONT TEXT container -->
+            <div id="frontTextContainer">
+                <span id="frontText"></span>
+            </div>
+            <!-- BACK TEXT container (hidden by default until reveal) -->
+            <div id="backTextContainer" class="reveal-section">
+                <span id="backText"></span>
+            </div>
+        </div>
+
+        <!-- Search Buttons (Google & ChatGPT); hidden until reveal -->
+        <div id="googleSearchButtons" style="display: none; text-align:center; margin-bottom:20px;">
+            <button class="btn btn-outline-primary" onclick="googleSearchFront()">Search Google (Front)</button>
+            <button class="btn btn-outline-primary" onclick="googleSearchBack()">Search Google (Back)</button>
+            <button class="btn btn-outline-success" onclick="chatGPTSearchFront()">Search ChatGPT (Front)</button>
+            <button class="btn btn-outline-success" onclick="chatGPTSearchBack()">Search ChatGPT (Back)</button>
+            <!-- Added Jisho.org search buttons -->
+            <button class="btn btn-outline-info" onclick="jishoSearchFront()">Search Jisho (Front)</button>
+            <button class="btn btn-outline-info" onclick="jishoSearchBack()">Search Jisho (Back)</button>
+        </div>
+
+        <!-- Review Gauges -->
+        <div class="gauge-container">
+            <label for="review1Gauge" class="form-label">Review1 (Unique Bucket1 Items / Total Cards):</label>
+            <progress id="review1Gauge" class="form-range w-100" value="0" max="100" aria-label="Review1 Gauge"></progress>
+            <div class="text-center">
+                <span id="review1Text">0%</span>
+            </div>
+        </div>
+
+        <div class="gauge-container">
+            <label for="review2Gauge" class="form-label">Remaining (100% - Review1):</label>
+            <progress id="review2Gauge" class="form-range w-100" value="100" max="100" aria-label="Review2 Gauge"></progress>
+            <div class="text-center">
+                <span id="review2Text">100%</span>
+            </div>
+        </div>
+
+        <!-- Bucket Lists -->
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Bucket 1 Total Frequency: <span id="bucket1Freq">0</span></h5>
+                <ul class="list-group bucket-list" id="bucket1List" aria-label="Bucket 1 Items"></ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Bucket 2 Total Frequency: <span id="bucket2Freq">0</span></h5>
+                <ul class="list-group bucket-list" id="bucket2List" aria-label="Bucket 2 Items"></ul>
+            </div>
+        </div>
+
+        <!-- Draw History -->
+        <div class="mt-4">
+            <h5>Draw History (Last 5):</h5>
+            <ul class="list-group history-list" id="historyList" aria-label="Draw History"></ul>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-center mt-4">
+            <button class="btn btn-secondary btn-export" onclick="exportState()" title="Export current review state as JSON">
+                <i class="fas fa-file-export"></i> Export State
+            </button>
+            <button class="btn btn-secondary btn-export" onclick="importState()" title="Import an existing state from a JSON file">
+                <i class="fas fa-file-import"></i> Import State
+            </button>
+            <button class="btn btn-danger btn-export" onclick="resetState()" title="Reset everything">
+                <i class="fas fa-trash-alt"></i> Reset State
+            </button>
+        </div>
+
+        <!-- Toast Container -->
+        <div aria-live="polite" aria-atomic="true" class="position-relative">
+            <div id="toastContainer" class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+                <!-- Toasts appended here -->
+            </div>
+        </div>
+
+        <!-- Help Modal -->
+        <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="helpModalLabel">Help & Instructions</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Overview</h6>
+                        <p>
+                            This flashcard reviewer randomly selects cards (front/back) from two buckets (Bucket 1, Bucket 2).
+                            Bucket 1 is effectively your “reviewed” set, while Bucket 2 contains the remaining items.
+                        </p>
+                        <h6>Usage</h6>
+                        <ol>
+                            <li>
+                                <strong>Load via URL param</strong>: Use <code>?target=filename.csv</code> to pick the CSV file you want. 
+                                Example: <code>?target=flashcards.csv</code> or <code>?target=flashcards-jp.csv</code>.
+                            </li>
+                            <li><strong>Draw Card</strong>: Click “Draw Card” to select one card front/back side according to the set probabilities.</li>
+                            <li>
+                                <strong>Reveal Answer</strong>: Shows the back side of the currently drawn card. 
+                                It also displays four extra buttons to search Google or ChatGPT for the front or back text.
+                            </li>
+                            <li><strong>Undo Last Draw</strong>: Reverts the last drawn card’s bucket changes.</li>
+                            <li><strong>Probabilities Slider</strong>: Adjust how often to pick from Bucket 1 vs. Bucket 2.</li>
+                            <li><strong>Import/Export State</strong>: Save or load your progress (buckets & frequencies) as JSON.</li>
+                            <li><strong>Reset State</strong>: Clears all local progress. Reloads the CSV from scratch.</li>
+                            <li><strong>Dark Mode</strong>: Toggle the button at the top-right to switch themes.</li>
+                            <li>
+                                <strong>Background Color Updates</strong>: On each button click, 
+                                a new random Pantone color is fetched from <code>pantone-colors.json</code> and applied as the page background.
+                            </li>
+                        </ol>
+                        <h6>Notes</h6>
+                        <ul>
+                            <li><strong>Draw History</strong> keeps track of the last 5 cards drawn.</li>
+                            <li><strong>Review1 gauge</strong> shows the percentage of unique items that have been moved into Bucket 1 vs. the total number of cards.</li>
+                            <li>The code automatically doubles each CSV line: if you have "food,食べ物", you'll get both a "food→食べ物" card and a "食べ物→food" card.</li>
+                            <li>If either front or back text is very short (few characters), the display font size will be bigger for visibility.</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- /container -->
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-wpsYrgENSMwvWDnK+0hqyc+8zhu+uZdzsOCS8KQmS1b2y2lZjY0Chvh6e+GD44G"
+            crossorigin="anonymous"></script>
+
+    <script>
+        /* ---------------------------
+         * GLOBAL STATE & VARIABLES
+         * --------------------------- */
+        let state = {
+            b1: {},              // { cardId: frequency }
+            b2: {},              // { cardId: frequency }
+            uniqueBucket1Count: 0,
+            b1Prob: 0.33,        // default 33%
+            b2Prob: 0.67,        // default 67%
+            drawHistory: [],     // last 5 draws
+        };
+        const historyLimit = 5;  // track last 5 draws
+        let allCards = [];       // entire list of cards (front/back)
+        let lastDrawnId = null;  // track last drawn card ID for "undo"
+        let localStorageKey = ""; // will be set dynamically, e.g. "flashcardReviewerState_flashcards.csv"
+
+        // For storing the currently displayed front/back:
+        let currentFront = "";
+        let currentBack = "";
+
+        /* ---------------------------
+         * MAIN INIT
+         * --------------------------- */
+        async function main() {
+            loadDarkMode();
+            await getRandomColor();
+
+            // 1) Read the 'target' param from the URL
+            const csvTarget = getUrlParameter("target");
+            if (!csvTarget) {
+                alert("Error: No 'target' parameter found. Please use ?target=yourfile.csv");
+                return;
+            }
+            localStorageKey = "flashcardReviewerState_" + csvTarget;
+
+            // 2) Fetch and parse the CSV
+            const success = await fetchAndParseCSV(csvTarget);
+            if (!success || allCards.length === 0) {
+                alert("No flashcards loaded. Check your CSV file or 'target' parameter!");
+                return;
+            }
+
+            // 3) Load or initialize buckets from localStorage
+            loadState();
+            if (Object.keys(state.b1).length === 0 && Object.keys(state.b2).length === 0) {
+                // Populate all cards into Bucket2 with freq=1
+                for (let c of allCards) {
+                    state.b2[c.id] = 1;
+                }
+                saveState();
+            }
+
+            // 4) Update the page
+            updateProbabilities(); // sets slider UI
+            updateDisplay();
+            populateBucketLists();
+            populateHistoryList();
+
+            // Show which CSV we loaded in the pageTitle
+            const pageTitle = document.getElementById("pageTitle");
+            if (pageTitle) {
+                pageTitle.innerText = `${csvTarget}`;
+            }
+
+            // 5) Make *all* buttons also trigger a background color change
+            const allButtons = document.querySelectorAll('button');
+            allButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    getRandomColor();
+                });
+            });
+        }
+
+        window.onload = main;
+
+        /* ---------------------------
+         * FETCH & PARSE CSV
+         * --------------------------- */
+        async function fetchAndParseCSV(csvFile) {
+            try {
+                const response = await fetch(csvFile);
+                if (!response.ok) {
+                    throw new Error("Cannot fetch " + csvFile);
+                }
+                const csvText = await response.text();
+                const lines = csvText.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+
+                let cardId = 0;
+                for (let line of lines) {
+                    const parts = line.split(",");
+                    if (parts.length < 2) continue; // skip invalid lines
+                    const f = parts[0].trim();
+                    const b = parts[1].trim();
+
+                    // Create two card entries: front->back and back->front
+                    allCards.push({ id: cardId++, front: f, back: b });
+                    allCards.push({ id: cardId++, front: b, back: f });
+                }
+                return true;
+            } catch (err) {
+                console.error(err);
+                return false;
+            }
+        }
+
+        /* ---------------------------
+         * URL PARAM HELPER
+         * --------------------------- */
+        function getUrlParameter(name) {
+            name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            const results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        /* ---------------------------
+         * LOCAL STORAGE
+         * --------------------------- */
+        function saveState() {
+            localStorage.setItem(localStorageKey, JSON.stringify(state));
+        }
+
+        function loadState() {
+            const raw = localStorage.getItem(localStorageKey);
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    state = { ...state, ...parsed };
+                } catch(e) {
+                    console.warn("Failed to parse saved state, ignoring.");
+                }
+            }
+        }
+
+        /* ---------------------------
+         * DRAW / REVEAL / UNDO
+         * --------------------------- */
+        function drawCard() {
+            // Hide the card's back if it was previously revealed
+            document.getElementById("backTextContainer").style.display = "none";
+
+            // Also hide the Google/ChatGPT search buttons again upon new draw
+            document.getElementById("googleSearchButtons").style.display = "none";
+
+            // Weighted pick from b1 or b2
+            const rand = cryptoRand();
+            let chosenBucket = (rand < state.b1Prob) ? "b1" : "b2";
+
+            // If chosen bucket is empty, pick the other
+            if (getTotalFreq(state[chosenBucket]) === 0) {
+                chosenBucket = (chosenBucket === "b1") ? "b2" : "b1";
+            }
+
+            // If *both* are empty, there's nothing to draw
+            if (getTotalFreq(state[chosenBucket]) === 0) {
+                alert("No cards left in either bucket!");
+                return;
+            }
+
+            // Weighted selection from that bucket
+            const selectedId = weightedPick(state[chosenBucket]);
+            lastDrawnId = selectedId;
+
+            // Add to b1 (or increment)
+            if (!(selectedId in state.b1)) {
+                state.b1[selectedId] = 1;
+                state.uniqueBucket1Count++;
+            } else {
+                state.b1[selectedId]++;
+            }
+
+            // Decrement in b2
+            if (selectedId in state.b2) {
+                state.b2[selectedId] = Math.max(0, state.b2[selectedId] - 1);
+                if (state.b2[selectedId] === 0) {
+                    delete state.b2[selectedId];
+                }
+            }
+
+            // Update UI
+            saveState();
+            updateDisplay();
+            populateBucketLists();
+
+            // Show the card on screen
+            const card = allCards.find(c => c.id === selectedId);
+            if (!card) {
+                alert("Something went wrong: card not found.");
+                return;
+            }
+            currentFront = card.front;
+            currentBack = card.back;
+
+            const frontEl = document.getElementById("frontText");
+            const backEl = document.getElementById("backText");
+
+            frontEl.innerText = currentFront;
+            backEl.innerText = currentBack;
+
+            // Adjust font sizes depending on length
+            adjustFontSize(frontEl, currentFront);
+            adjustFontSize(backEl, currentBack);
+
+            // Add to drawHistory
+            addToHistory(selectedId);
+            populateHistoryList();
+        }
+
+        function revealAnswer() {
+            document.getElementById("backTextContainer").style.display = "block";
+
+            // Show the Google/ChatGPT search buttons
+            document.getElementById("googleSearchButtons").style.display = "block";
+        }
+
+        function undoLastDraw() {
+            if (lastDrawnId == null) {
+                alert("No recent draw to undo!");
+                return;
+            }
+            if (!(lastDrawnId in state.b1)) {
+                alert("Cannot undo: card not found in Bucket 1.");
+                return;
+            }
+            // Decrement or remove from b1
+            state.b1[lastDrawnId]--;
+            if (state.b1[lastDrawnId] <= 0) {
+                delete state.b1[lastDrawnId];
+                state.uniqueBucket1Count--;
+            }
+            // Increment in b2
+            if (lastDrawnId in state.b2) {
+                state.b2[lastDrawnId]++;
+            } else {
+                state.b2[lastDrawnId] = 1;
+            }
+
+            // Remove from drawHistory’s front
+            state.drawHistory.shift();
+
+            lastDrawnId = null;
+            saveState();
+            updateDisplay();
+            populateBucketLists();
+            populateHistoryList();
+            showToast("Last draw undone.");
+        }
+
+        /* ---------------------------
+         * GOOGLE / CHATGPT / JISHO SEARCH FUNCTIONS
+         * --------------------------- */
+        function googleSearchFront() {
+            if (!currentFront) return;
+            const query = encodeURIComponent(currentFront);
+            window.open("https://www.google.com/search?q=" + query, "_blank");
+        }
+
+        function googleSearchBack() {
+            if (!currentBack) return;
+            const query = encodeURIComponent(currentBack);
+            window.open("https://www.google.com/search?q=" + query, "_blank");
+        }
+
+        function chatGPTSearchFront() {
+            if (!currentFront) return;
+            const query = encodeURIComponent(currentFront);
+            window.open("https://chat.openai.com/?q=" + query);
+        }
+
+        function chatGPTSearchBack() {
+            if (!currentBack) return;
+            const query = encodeURIComponent(currentBack);
+            window.open("https://chat.openai.com/?q=" + query);
+        }
+
+        // Added Jisho.org search functions
+        function jishoSearchFront() {
+            if (!currentFront) return;
+            const query = encodeURIComponent(currentFront);
+            window.open("https://jisho.org/search/" + query, "_blank");
+        }
+
+        function jishoSearchBack() {
+            if (!currentBack) return;
+            const query = encodeURIComponent(currentBack);
+            window.open("https://jisho.org/search/" + query, "_blank");
+        }
+
+        /* ---------------------------
+         * FONT SIZE LOGIC
+         * --------------------------- */
+        function adjustFontSize(element, text) {
+            // If text is very short (e.g. 1-3 chars), bump up size significantly.
+            // If medium length, somewhat large. If very long, default to a smaller size for readability.
+            const length = text.length;
+            if (length <= 3) {
+                element.style.fontSize = "3rem";   // Very large for single character or short
+            } else if (length <= 10) {
+                element.style.fontSize = "2.5rem"; // Large
+            } else if (length <= 30) {
+                element.style.fontSize = "2rem";   // Medium
+            } else {
+                element.style.fontSize = "1.25rem"; // Normal paragraph size
+            }
+        }
+
+        /* ---------------------------
+         * HISTORY & BUCKET VIEWS
+         * --------------------------- */
+        function addToHistory(cardId) {
+            const ts = new Date().toLocaleString();
+            const card = allCards.find(c => c.id === cardId);
+            if (!card) return;
+            const entry = {
+                id: cardId,
+                front: card.front,
+                back: card.back,
+                timestamp: ts
+            };
+            state.drawHistory.unshift(entry);
+            while (state.drawHistory.length > historyLimit) {
+                state.drawHistory.pop();
+            }
+        }
+
+        function populateHistoryList() {
+            const historyList = document.getElementById("historyList");
+            historyList.innerHTML = "";
+            for (let h of state.drawHistory) {
+                const li = document.createElement("li");
+                li.className = "list-group-item";
+                li.innerHTML = `<strong>${h.timestamp}:</strong> ${h.front} → ${h.back}`;
+                historyList.appendChild(li);
+            }
+        }
+
+        function populateBucketLists() {
+            // Bucket1
+            const b1List = document.getElementById("bucket1List");
+            b1List.innerHTML = "";
+            for (let cardId in state.b1) {
+                const freq = state.b1[cardId];
+                const card = allCards.find(c => c.id === Number(cardId));
+                if (!card) continue;
+                const li = document.createElement("li");
+                li.className = "list-group-item";
+                li.textContent = `${card.front} → ${card.back} (Freq: ${freq})`;
+                b1List.appendChild(li);
+            }
+            // Bucket2
+            const b2List = document.getElementById("bucket2List");
+            b2List.innerHTML = "";
+            for (let cardId in state.b2) {
+                const freq = state.b2[cardId];
+                const card = allCards.find(c => c.id === Number(cardId));
+                if (!card) continue;
+                const li = document.createElement("li");
+                li.className = "list-group-item";
+                li.textContent = `${card.front} → ${card.back} (Freq: ${freq})`;
+                b2List.appendChild(li);
+            }
+
+            document.getElementById("bucket1Freq").innerText = getTotalFreq(state.b1);
+            document.getElementById("bucket2Freq").innerText = getTotalFreq(state.b2);
+        }
+
+        /* ---------------------------
+         * GAUGES & DISPLAY
+         * --------------------------- */
+        function updateDisplay() {
+            const totalCards = allCards.length;
+            const fraction = (state.uniqueBucket1Count / totalCards) * 100;
+            const fraction2 = 100 - fraction;
+
+            // Review1 gauge
+            document.getElementById("review1Gauge").value = fraction.toFixed(2);
+            document.getElementById("review1Text").innerText = fraction.toFixed(2) + "%";
+
+            // Remaining gauge
+            document.getElementById("review2Gauge").value = fraction2.toFixed(2);
+            document.getElementById("review2Text").innerText = fraction2.toFixed(2) + "%";
+        }
+
+        /* ---------------------------
+         * PROBABILITY SLIDER
+         * --------------------------- */
+        function updateProbabilities() {
+            const sliderVal = parseInt(document.getElementById("probSlider").value);
+            state.b1Prob = sliderVal / 100;
+            state.b2Prob = 1 - state.b1Prob;
+            document.getElementById("probBucket1").innerText = (state.b1Prob * 100).toFixed(0) + "%";
+            document.getElementById("probBucket2").innerText = (state.b2Prob * 100).toFixed(0) + "%";
+            saveState();
+        }
+
+        /* ---------------------------
+         * EXPORT / IMPORT / RESET
+         * --------------------------- */
+        function exportState() {
+            const str = JSON.stringify(state, null, 2);
+            const blob = new Blob([str], { type: "application/json" });
+            const now = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `flashcard-state-${now}.json`;
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+
+            showToast("State exported successfully.");
+        }
+
+        function importState() {
+            const fileInput = document.createElement("input");
+            fileInput.type = "file";
+            fileInput.accept = ".json,application/json";
+            fileInput.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        try {
+                            const imported = JSON.parse(event.target.result);
+                            // Merge or overwrite
+                            state = {
+                                ...state,
+                                ...imported
+                            };
+                            saveState();
+                            updateDisplay();
+                            populateBucketLists();
+                            populateHistoryList();
+                            showToast("State imported successfully.");
+                        } catch (err) {
+                            alert("Invalid JSON file.");
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            fileInput.click();
+        }
+
+        function resetState() {
+            if (!confirm("Reset all progress? This cannot be undone.")) return;
+            localStorage.removeItem(localStorageKey);
+            location.reload();
+        }
+
+        /* ---------------------------
+         * UTILS
+         * --------------------------- */
+        function showToast(msg) {
+            const toastContainer = document.getElementById("toastContainer");
+            const toastEl = document.createElement("div");
+            toastEl.className = "toast align-items-center text-bg-primary border-0";
+            toastEl.setAttribute("role", "alert");
+            toastEl.setAttribute("aria-live", "assertive");
+            toastEl.setAttribute("aria-atomic", "true");
+
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${msg}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            toastContainer.appendChild(toastEl);
+            const bsToast = new bootstrap.Toast(toastEl);
+            bsToast.show();
+            toastEl.addEventListener("hidden.bs.toast", () => {
+                toastContainer.removeChild(toastEl);
+            });
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            localStorage.setItem("flashcardsDarkMode", document.body.classList.contains("dark-mode"));
+        }
+
+        function loadDarkMode() {
+            const isDark = localStorage.getItem("flashcardsDarkMode") === "true";
+            if (isDark) {
+                document.body.classList.add("dark-mode");
+            }
+        }
+
+        function cryptoRand() {
+            const arr = new Uint32Array(1);
+            window.crypto.getRandomValues(arr);
+            return arr[0] / (0xffffffff + 1);
+        }
+
+        function getTotalFreq(bucket) {
+            return Object.values(bucket).reduce((acc, val) => acc + val, 0);
+        }
+
+        function weightedPick(bucketObj) {
+            // bucketObj: { cardId: freq, ... }
+            // Convert to cumulative freq
+            const entries = Object.entries(bucketObj);
+            const total = entries.reduce((acc, [_, freq]) => acc + freq, 0);
+            const randVal = Math.floor(cryptoRand() * total);
+
+            let sum = 0;
+            for (let [key, freq] of entries) {
+                sum += freq;
+                if (randVal < sum) {
+                    return Number(key);
+                }
+            }
+            // fallback
+            return Number(entries[entries.length - 1][0]);
+        }
+
+        /* ---------------------------
+         * OPTIONAL: PANTONE COLOR
+         * --------------------------- */
+        async function getRandomColor() {
+            try {
+                const response = await fetch("pantone-colors.json");
+                const pantoneData = await response.json();
+                const { names, values } = pantoneData;
+                if (!names || !values || names.length !== values.length) {
+                    throw new Error("Invalid pantone-colors.json format");
+                }
+                const arr = new Uint32Array(1);
+                window.crypto.getRandomValues(arr);
+                const rand = arr[0] / (0xFFFFFFFF + 1);
+                const randomIndex = Math.floor(rand * names.length);
+                document.body.style.backgroundColor = values[randomIndex];
+                const colorDisplay = document.getElementById("pantoneColorDisplay");
+                if (colorDisplay) {
+                    colorDisplay.textContent = `${names[randomIndex]} (${values[randomIndex]})`;
+                }
+            } catch (error) {
+                // If we can’t load pantone-colors.json, fallback to white
+                console.warn("pantone-colors.json fetch failed or missing; ignoring.");
+                document.body.style.backgroundColor = "#ffffff";
+            }
+        }
+    </script>
+</body>
+</html>

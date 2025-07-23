@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+</head>
+<body style="background-color:#4e6856">
+
+<script>
+
+var links = [];
+
+	
+function getRandomIndexBasedOnStringFrequencies(frequencyStrings) {
+    // Convert the array of strings to an array of integers
+    const frequencies = frequencyStrings.map(Number);
+
+    // Calculate the total sum of all frequencies
+    const totalSum = frequencies.reduce((sum, frequency) => sum + frequency, 0);
+    
+    // Generate a random number between 0 and totalSum
+    let randomValue = getSecureRandomNumber() * totalSum;
+
+    // Iterate through the frequencies array
+    for (let i = 0; i < frequencies.length; i++) {
+        // Subtract the current frequency from the randomValue
+        randomValue -= frequencies[i];
+        
+        // If randomValue is less than 0, return the current index
+        if (randomValue < 0) {
+            return i;
+        }
+    }
+
+    // Fallback: in case of any floating point arithmetic issues
+    return frequencies.length - 1;
+}
+	
+function randomIntFromInterval(min, max) { // min and max included 
+    return Math.floor(getSecureRandomNumber() * (Number(max) - Number(min) + 1)) + Number(min);
+}
+
+function randomIntFromInterval2(min, max) { // min and max included 
+  return Math.floor(getSecureRandomNumber() * (max - min + 1) + min)
+}
+
+function randomRangeFromInterval3(min, max) { // min and max included 
+  const total = max - min;
+  const part = Math.trunc(total / 21);
+  let start = min;
+  let frequencyArr2 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 4, 7, 11, 17, 28, 44, 72, 116, 187];
+  let frequencyArr = [
+  1, 2, 3, 1, // 1 is the 3rd Fibonacci number
+  4, 5, 6, 2, // 2 is the 4th Fibonacci number
+  7, 8, 9, 3, // 3 is the 5th Fibonacci number
+  10, 11, 12, 5, // 5 is the 6th Fibonacci number
+  13, 14, 15, 8, // 8 is the 7th Fibonacci number
+  16, 17, 18, 13, // 13 is the 8th Fibonacci number
+  19, 20, 21
+];
+
+  if (getSecureRandomNumber() <= 0.33) {
+      frequencyArr = frequencyArr2;
+  }
+  
+  let resultArr = [];
+  
+  for(let i = 0; i < 21; i++) {
+      let tmpArrElement = [start, start + part];
+      let zzzMax = frequencyArr[i];
+      if (getSecureRandomNumber() < getSecureRandomNumber()) {
+          zzzMax = frequencyArr[i] * 5 * getSecureRandomNumber();
+      }
+      for (let zzz = 0; zzz < zzzMax ; zzz++) {
+          resultArr.push(tmpArrElement);
+      }
+      start = start + part;
+  }
+  let newMax = resultArr.length + 1;
+  let newMin = 1;
+  let randIdx = Math.floor(getSecureRandomNumber() * (newMax - newMin + 1) + newMin);
+  return resultArr[randIdx];
+}
+
+openStuff = function () {
+    
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const repository = urlParams.get('repository');
+    const allocArr = urlParams.get('allocArr').split(",");
+    const chosenGithubIssue = getRandomIndexBasedOnStringFrequencies(allocArr) + 1;
+    // const startIndex = Number(urlParams.get('startIndex'));
+    // const endIndex = Number(urlParams.get('endIndex'));
+    // let randomInt = randomIntFromInterval2(startIndex1, endIndex1);
+    // window.open("https://github.com/mdr19ganseki95cf/" + repository1 + "/issues/" + randomInt);
+    //// let randomRange = randomRangeFromInterval3(startIndex1, endIndex1);
+    //// let randomInt = randomIntFromInterval2(randomRange[0], randomRange[1]);
+    window.open("https://github.com/mdr19ganseki95cf/" + repository + "/issues/" + chosenGithubIssue);
+
+};
+
+window.onload = function() {
+    document.getElementById('randomButton').click();
+}
+
+econRated = function () {
+    
+    let url = 'https://raw.githubusercontent.com/mdr19ganseki95cf/info/main/limits.js';
+
+    fetch(url)
+    .then(res => res.json())
+    .then(useValueForEconRated)
+    .catch(err => { throw err });    
+};
+
+async function useValueForEconRated(value) {
+
+    var maxOf1s = value["skills0915OneStarMax"];
+    var maxOf2s = value["skills0915TwoStarMax"];
+    var maxOf3s = value["skills0915ThreeStarMax"];
+    var maxOf4s = value["skills0915FourStarMax"];
+    var maxOf5s = value["skills0915FiveStarMax"];
+
+	var buckets = [];
+	var probabilityOf1s = 9;
+	var probabilityOf2s = 13;
+	var probabilityOf3s = 17;
+	var probabilityOf4s = 25;
+	var probabilityOf5s = 36;
+    
+    for (let i = 0; i < probabilityOf1s; i++) {
+      buckets.push(1);
+    }
+    for (let i = 0; i < probabilityOf2s; i++) {
+      buckets.push(2);
+    }
+    for (let i = 0; i < probabilityOf3s; i++) {
+      buckets.push(3);
+    }
+    for (let i = 0; i < probabilityOf4s; i++) {
+      buckets.push(4);
+    }
+    for (let i = 0; i < probabilityOf5s; i++) {
+      buckets.push(5);
+    }
+    
+    var randIdx = getRandomNumber(uuidv4()) % buckets.length;
+    randIdx = parseInt(randIdx, 10);
+    
+    var chosenBucket = [];
+    
+    if (buckets[randIdx] === 1) {
+        for (let i = 1; i <= maxOf1s; i++) {
+          chosenBucket.push(i);
+        }
+    	shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        randIdx = parseInt(randIdx, 10);
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-one-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 2) {
+        for (let i = 1; i <= maxOf2s; i++) {
+          chosenBucket.push(i);
+        }
+    	shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        randIdx = parseInt(randIdx, 10);
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-two-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 3) {
+        for (let i = 1; i <= maxOf3s; i++) {
+          chosenBucket.push(i);
+        }
+    	shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        randIdx = parseInt(randIdx, 10);
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-three-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 4) {
+        for (let i = 1; i <= maxOf4s; i++) {
+          chosenBucket.push(i);
+        }
+    	shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        randIdx = parseInt(randIdx, 10);
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-four-star/issues/' + chosenBucket[randIdx]);
+    } else if (buckets[randIdx] === 5) {
+        for (let i = 1; i <= maxOf5s; i++) {
+          chosenBucket.push(i);
+        }
+    	shuffleArray(chosenBucket);
+        randIdx = getRandomNumber(uuidv4()) % chosenBucket.length;
+        randIdx = parseInt(randIdx, 10);
+        window.open('https://github.com/mdr19ganseki95cf/skills0915-five-star/issues/' + chosenBucket[randIdx]);
+    }
+
+}
+
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(getSecureRandomNumber() * (i + 1));
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+
+
+
+
+</script>
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<div style="text-align:center">
+   <button id="randomButton" onclick="openStuff();" >RDR</button>
+   <button id="econRated" onclick="econRated();" class="btn btn-success btn-lg">econRated</button>
+</div>
+
+</body>
+</html>

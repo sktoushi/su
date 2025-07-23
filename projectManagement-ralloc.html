@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Ralloc</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <!-- Include Chart.js for bar graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS for styling -->
+    <style>
+        body {
+            padding: 20px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+        }
+        .frequency-label {
+            margin-left: 10px;
+        }
+        .frequency-slider {
+            width: 100%;
+        }
+        @media (max-width: 576px) {
+            .frequency-label {
+                display: block;
+                margin-top: 5px;
+            }
+        }
+        textarea.record-link, input.record-name {
+            width: 100%;
+            resize: vertical;
+        }
+        .record-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        #controls-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #additional-controls-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #import-links-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #rollBtn {
+            margin-left: 10px;
+        }
+        .top-records-percentage {
+            font-weight: bold;
+        }
+        #topRecordsContainer {
+            display: none; /* Hidden by default */
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        /* Configuration section styles */
+        #configuration-section {
+            margin-top: 30px;
+        }
+        #editDestinationBtn {
+            margin-left: 10px;
+        }
+        .total-records {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Ralloc</h1>
+        <!-- Slider for Review/Generator split -->
+        <div class="slider-label">
+            <span>Review</span>
+            <span>Generator</span>
+        </div>
+        <input type="range" class="custom-range" id="typeSlider" min="0" max="100" value="66">
+        <div class="text-center">
+            <span id="sliderValue">66% Review / 34% Generator</span>
+        </div>
+        <br>
+        <!-- Buttons for state management -->
+        <div id="controls-row">
+            <button class="btn btn-primary" id="importStateBtn">Import State</button>
+            <button class="btn btn-primary" id="exportStateBtn">Export State</button>
+            <button class="btn btn-danger" id="resetStateBtn">Reset State</button>
+            <button class="btn btn-secondary" id="addRecordBtn">Add Record</button>
+            <button class="btn btn-success" id="rollBtn">Roll</button>
+        </div>
+        <!-- Additional algorithm buttons -->
+        <div id="additional-controls-row">
+            <button class="btn btn-info" id="smootheningBtn">Smoothening</button>
+            <button class="btn btn-info" id="solidifyingBtn">Solidifying</button>
+            <button class="btn btn-info" id="reviewingBtn">Reviewing</button>
+            <button class="btn btn-info" id="exploringBtn">Exploring</button>
+            <button class="btn btn-info" id="randomizingBtn">Randomizing</button>
+            <button class="btn btn-info" id="spacedRepetitionBtn">Spaced Repetition</button>
+            <button class="btn btn-info" id="focusWeakestBtn">Focus Weakest</button>
+        </div>
+        <!-- Import Links Button -->
+        <div id="import-links-row">
+            <button class="btn btn-warning" id="importLinksBtn">Import Links</button>
+            <input type="file" id="importLinksInput" accept=".txt" style="display: none;">
+        </div>
+        <input type="file" id="importFileInput" accept="application/json" style="display: none;">
+        <br>
+        <!-- Total Records -->
+        <div class="total-records" id="totalRecordsDisplay">
+            Total Records: 0
+        </div>
+        <!-- Table of records -->
+        <table class="table table-bordered" id="recordsTable">
+            <thead>
+                <tr>
+                    <th>Select</th>
+                    <th>Visit Link</th>
+                    <th>Record Name</th>
+                    <th>Link</th>
+                    <th>Type</th>
+                    <th>Frequency</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="recordsTableBody">
+                <!-- Records will be dynamically added here -->
+            </tbody>
+        </table>
+        <br>
+        <!-- Top 10 Most-Picked Records -->
+        <div id="topRecordsContainer">
+            <h3>Top 10 Most-Picked Records</h3>
+            <!-- Bar Graph -->
+            <div class="chart-container">
+                <canvas id="topRecordsChart"></canvas>
+            </div>
+            <!-- Historical reference text -->
+            <div id="historicalReferenceText">
+                <!-- Text will be dynamically added here -->
+            </div>
+            <ol id="topRecordsList">
+                <!-- Top records will be dynamically added here -->
+            </ol>
+        </div>
+        <!-- Configuration Section -->
+        <div id="configuration-section">
+            <h3>Configuration</h3>
+            <!-- Storage Destination -->
+            <div class="form-group">
+                <label for="storageDestination">State Storage Destination:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="storageDestination" disabled>
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" id="editDestinationBtn">Edit</button>
+                        <button class="btn btn-outline-secondary" id="saveDestinationBtn" style="display: none;">Save</button>
+                        <button class="btn btn-outline-secondary" id="cancelDestinationBtn" style="display: none;">Cancel</button>
+                    </div>
+                </div>
+                <small class="form-text text-muted">
+                    This value will be the destination page upon clicking the <strong>Export State</strong> button after the JSON file has been downloaded.
+                </small>
+            </div>
+            <!-- Local Storage Key -->
+            <div class="form-group">
+                <label for="localStorageKey">Local Storage Key:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="localStorageKey" disabled>
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" id="editLocalStorageKeyBtn">Edit</button>
+                        <button class="btn btn-outline-secondary" id="saveLocalStorageKeyBtn" style="display: none;">Save</button>
+                        <button class="btn btn-outline-secondary" id="cancelLocalStorageKeyBtn" style="display: none;">Cancel</button>
+                    </div>
+                </div>
+                <small class="form-text text-muted">
+                    This key is used for storing data in the browser's localStorage.
+                </small>
+            </div>
+            <!-- Maximum Records Shown -->
+            <div class="form-group">
+                <label for="maxRecordsShown">Maximum Records Shown:</label>
+                <div class="input-group">
+                    <input type="number" class="form-control" id="maxRecordsShown" disabled>
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" id="editMaxRecordsBtn">Edit</button>
+                        <button class="btn btn-outline-secondary" id="saveMaxRecordsBtn" style="display: none;">Save</button>
+                        <button class="btn btn-outline-secondary" id="cancelMaxRecordsBtn" style="display: none;">Cancel</button>
+                    </div>
+                </div>
+                <small class="form-text text-muted">
+                    Determines the maximum number of records displayed in the table.
+                </small>
+            </div>
+            <!-- JSON Prefix -->
+            <div class="form-group">
+                <label for="jsonPrefix">JSON Prefix:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="jsonPrefix" disabled>
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" id="editJsonPrefixBtn">Edit</button>
+                        <button class="btn btn-outline-secondary" id="saveJsonPrefixBtn" style="display: none;">Save</button>
+                        <button class="btn btn-outline-secondary" id="cancelJsonPrefixBtn" style="display: none;">Cancel</button>
+                    </div>
+                </div>
+                <small class="form-text text-muted">
+                    This prefix is used for naming the state JSON file (e.g., prefix-ralloc-state.json).
+                </small>
+            </div>
+        </div>
+    </div>
+    <!-- Include necessary scripts -->
+    <!-- Include jQuery and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Popper and Bootstrap JS for Bootstrap 4 -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script>
+	
+	
+        $(document).ready(function() {
+            // Global variables
+            let totalRolls = 0;
+            let totalReviewRolls = 0;
+            let totalGeneratorRolls = 0;
+            let topRecordsChart;
+            let defaultStorageDestination = "https://github.com/sktoushi/stash-utils/upload/main";
+            let defaultLocalStorageKey = "lsk240925";
+            let defaultMaxRecordsShown = 5;
+            let defaultJsonPrefix = "projectManagement";
+            let localStorageKey = defaultLocalStorageKey;
+            let maxRecordsShown = defaultMaxRecordsShown;
+            let jsonPrefix = defaultJsonPrefix;
+
+            // Update slider value display
+            $('#typeSlider').on('input change', function() {
+                let reviewPercent = $(this).val();
+                let generatorPercent = 100 - reviewPercent;
+                $('#sliderValue').text(reviewPercent + '% Review / ' + generatorPercent + '% Generator');
+                // Save to LocalStorage
+                let data = getCurrentData();
+                localStorage.setItem(localStorageKey, JSON.stringify(data));
+            });
+
+            // Load data from LocalStorage or prefixed ralloc-state.json
+            function loadData() {
+                let data = localStorage.getItem(localStorageKey);
+                if (data) {
+                    data = JSON.parse(data);
+                    totalRolls = data.totalRolls || 0;
+                    totalReviewRolls = data.totalReviewRolls || 0;
+                    totalGeneratorRolls = data.totalGeneratorRolls || 0;
+                    // Use the data
+                    $('#typeSlider').val(data.sliderValue || 66);
+                    $('#typeSlider').trigger('change');
+                    localStorageKey = data.localStorageKey || defaultLocalStorageKey;
+                    maxRecordsShown = data.maxRecordsShown || defaultMaxRecordsShown;
+                    jsonPrefix = data.jsonPrefix || defaultJsonPrefix;
+                    populateRecords(data.records);
+                    populateTopRecords(data.topRecords);
+                    // Load configuration values
+                    $('#storageDestination').val(data.storageDestination || defaultStorageDestination);
+                    $('#localStorageKey').val(localStorageKey);
+                    $('#maxRecordsShown').val(maxRecordsShown);
+                    $('#jsonPrefix').val(jsonPrefix);
+                } else {
+                    // Try to fetch prefixed ralloc-state.json
+                    let jsonFileName = jsonPrefix + '-ralloc-state.json';
+                    $.ajax({
+                        url: jsonFileName,
+                        dataType: 'json',
+                        success: function(jsonData) {
+                            // Store in LocalStorage
+                            localStorage.setItem(localStorageKey, JSON.stringify(jsonData));
+                            totalRolls = jsonData.totalRolls || 0;
+                            totalReviewRolls = jsonData.totalReviewRolls || 0;
+                            totalGeneratorRolls = jsonData.totalGeneratorRolls || 0;
+                            // Use the data
+                            $('#typeSlider').val(jsonData.sliderValue || 66);
+                            $('#typeSlider').trigger('change');
+                            localStorageKey = jsonData.localStorageKey || defaultLocalStorageKey;
+                            maxRecordsShown = jsonData.maxRecordsShown || defaultMaxRecordsShown;
+                            jsonPrefix = jsonData.jsonPrefix || defaultJsonPrefix;
+                            populateRecords(jsonData.records);
+                            populateTopRecords(jsonData.topRecords);
+                            // Load configuration values
+                            $('#storageDestination').val(jsonData.storageDestination || defaultStorageDestination);
+                            $('#localStorageKey').val(localStorageKey);
+                            $('#maxRecordsShown').val(maxRecordsShown);
+                            $('#jsonPrefix').val(jsonPrefix);
+                        },
+                        error: function() {
+                            // No data available, initialize empty data
+                            let initialData = {
+                                sliderValue: 66,
+                                records: [],
+                                topRecords: [],
+                                totalRolls: 0,
+                                totalReviewRolls: 0,
+                                totalGeneratorRolls: 0,
+                                storageDestination: defaultStorageDestination,
+                                localStorageKey: defaultLocalStorageKey,
+                                maxRecordsShown: defaultMaxRecordsShown,
+                                jsonPrefix: defaultJsonPrefix
+                            };
+                            localStorage.setItem(localStorageKey, JSON.stringify(initialData));
+                            $('#storageDestination').val(defaultStorageDestination);
+                            $('#localStorageKey').val(defaultLocalStorageKey);
+                            $('#maxRecordsShown').val(defaultMaxRecordsShown);
+                            $('#jsonPrefix').val(defaultJsonPrefix);
+                        }
+                    });
+                }
+            }
+
+            loadData();
+
+            // Function to create a record row
+            function createRecordRow(record) {
+                let row = $('<tr></tr>');
+                let checkbox = $('<input type="checkbox" class="record-select">').prop('checked', record.selected);
+                let visitBtn = $('<button class="btn btn-link">Visit Link</button>');
+                visitBtn.click(function() {
+                    window.open(record.link, '_blank');
+                });
+                let nameInput = $('<input type="text" class="form-control record-name">').val(record.name);
+                let linkInput = $('<textarea class="form-control record-link"></textarea>').val(record.link);
+                let typeSelect = $('<select class="form-control record-type"><option value="Review">Review</option><option value="Generator">Generator</option></select>').val(record.type);
+                let frequencyInput = $('<input type="range" class="custom-range record-frequency" min="1" max="100">').val(record.frequency || 1);
+                let frequencyLabel = $('<span class="frequency-label">' + (record.frequency || 1) + '</span>');
+                frequencyInput.on('input change', function() {
+                    frequencyLabel.text($(this).val());
+                });
+                let frequencyCell = $('<td></td>').append(frequencyInput).append(frequencyLabel);
+                let deleteBtn = $('<button class="btn btn-danger btn-sm">Delete</button>');
+                deleteBtn.click(function() {
+                    if (confirm('Are you sure you want to delete this record?')) {
+                        row.remove();
+                        saveData();
+                        updateTotalRecordsDisplay();
+                    }
+                });
+                let actionsCell = $('<td></td>').append(deleteBtn);
+
+                row.append($('<td></td>').append(checkbox));
+                row.append($('<td></td>').append(visitBtn));
+                row.append($('<td></td>').append(nameInput));
+                row.append($('<td></td>').append(linkInput));
+                row.append($('<td></td>').append(typeSelect));
+                row.append(frequencyCell);
+                row.append(actionsCell);
+                row.data('recordId', record.id);
+                row.data('lastPicked', record.lastPicked || null);
+                return row;
+            }
+
+            // Function to populate records table
+            function populateRecords(records) {
+                $('#recordsTableBody').empty();
+                if (!records) return;
+                updateTotalRecordsDisplay(records.length);
+                // Limit the number of records displayed
+                let recordsToShow = records.slice(0, maxRecordsShown);
+                recordsToShow.forEach(function(record) {
+                    let row = createRecordRow(record);
+                    $('#recordsTableBody').append(row);
+                });
+            }
+
+            // Update total records display
+            function updateTotalRecordsDisplay(total) {
+                let totalRecords = total || getCurrentData().records.length;
+                $('#totalRecordsDisplay').text('Total Records: ' + totalRecords);
+            }
+
+            // Function to populate top records list and chart
+            function populateTopRecords(topRecords) {
+                if (totalRolls === 0) {
+                    $('#topRecordsContainer').hide();
+                    return;
+                }
+                $('#topRecordsContainer').show();
+                $('#topRecordsList').empty();
+                $('#historicalReferenceText').empty();
+                if (!topRecords) return;
+                // Sort topRecords by totalCount descending
+                topRecords.sort(function(a, b) {
+                    return b.totalCount - a.totalCount;
+                });
+                let labels = [];
+                let reviewData = [];
+                let generatorData = [];
+                let historicalText = '';
+                let totalReviewPercentage = ((totalReviewRolls / totalRolls) * 100).toFixed(2);
+                let totalGeneratorPercentage = ((totalGeneratorRolls / totalRolls) * 100).toFixed(2);
+                historicalText = '<p>Overall: ' + totalReviewPercentage + '% Review, ' + totalGeneratorPercentage + '% Generator</p>';
+                $('#historicalReferenceText').html(historicalText);
+                topRecords.slice(0, 10).forEach(function(recordStat) {
+                    let record = getRecordById(recordStat.id);
+                    if (record) {
+                        let percentage = ((recordStat.totalCount / totalRolls) * 100).toFixed(2);
+                        let listItem = $('<li></li>').append(
+                            $('<strong>' + record.name + '</strong> - '),
+                            $('<a href="' + record.link + '" target="_blank">' + record.link + '</a>'),
+                            $('<span> - Picked: ' + recordStat.totalCount + ' times (' + percentage + '%)</span>').addClass('top-records-percentage')
+                        );
+                        $('#topRecordsList').append(listItem);
+                        labels.push(record.name || 'Unnamed');
+                        reviewData.push(recordStat.reviewCount || 0);
+                        generatorData.push(recordStat.generatorCount || 0);
+                    }
+                });
+                // Create or update the chart
+                if (topRecordsChart) {
+                    topRecordsChart.data.labels = labels;
+                    topRecordsChart.data.datasets[0].data = reviewData;
+                    topRecordsChart.data.datasets[1].data = generatorData;
+                    topRecordsChart.update();
+                } else {
+                    let ctx = document.getElementById('topRecordsChart').getContext('2d');
+                    topRecordsChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Review',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                                    data: reviewData
+                                },
+                                {
+                                    label: 'Generator',
+                                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                                    data: generatorData
+                                }
+                            ]
+                        },
+                        options: {
+                            scales: {
+                                xAxes: [{
+                                    stacked: true
+                                }],
+                                yAxes: [{
+                                    stacked: true,
+                                    ticks: {
+                                        beginAtZero: true
+                                    }
+                                }]
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Function to get current data
+            function getCurrentData() {
+                let data = {};
+                data.sliderValue = parseInt($('#typeSlider').val());
+                data.records = [];
+                $('#recordsTableBody tr').each(function() {
+                    let row = $(this);
+                    let record = {
+                        id: row.data('recordId'),
+                        selected: row.find('.record-select').is(':checked'),
+                        name: row.find('.record-name').val(),
+                        link: row.find('.record-link').val(),
+                        type: row.find('.record-type').val(),
+                        frequency: parseInt(row.find('.record-frequency').val()),
+                        lastPicked: row.data('lastPicked') || null
+                    };
+                    data.records.push(record);
+                });
+                // Include records not shown due to maxRecordsShown
+                let allRecords = JSON.parse(localStorage.getItem(localStorageKey) || '{}').records || [];
+                let unseenRecords = allRecords.filter(r => !data.records.find(dr => dr.id === r.id));
+                data.records = data.records.concat(unseenRecords);
+                data.topRecords = JSON.parse(localStorage.getItem(localStorageKey) || '{}').topRecords || [];
+                data.totalRolls = totalRolls;
+                data.totalReviewRolls = totalReviewRolls;
+                data.totalGeneratorRolls = totalGeneratorRolls;
+                data.storageDestination = $('#storageDestination').val();
+                data.localStorageKey = localStorageKey;
+                data.maxRecordsShown = maxRecordsShown;
+                data.jsonPrefix = jsonPrefix;
+                return data;
+            }
+
+            // Save data when inputs change
+            $('#recordsTableBody').on('change', 'input, select, textarea', function() {
+                saveData();
+            });
+
+            function saveData() {
+                let data = getCurrentData();
+                localStorage.setItem(localStorageKey, JSON.stringify(data));
+            }
+
+            // Get record by ID
+            function getRecordById(id) {
+                let records = [];
+                let allRecords = JSON.parse(localStorage.getItem(localStorageKey) || '{}').records || [];
+                let record = allRecords.find(r => r.id === id);
+                return record;
+            }
+
+            // Add Record button handler
+            $('#addRecordBtn').click(function() {
+                let newRecord = {
+                    id: Date.now(), // use timestamp as unique ID
+                    selected: false,
+                    name: '',
+                    link: '',
+                    type: 'Review',
+                    frequency: 1,
+                    lastPicked: null
+                };
+                let data = getCurrentData();
+                data.records.unshift(newRecord);
+                localStorage.setItem(localStorageKey, JSON.stringify(data));
+                populateRecords(data.records);
+                updateTotalRecordsDisplay();
+            });
+
+            // Roll button handler
+            $('#rollBtn').click(function() {
+                let data = getCurrentData();
+                let checkedRecords = data.records.filter(record => record.selected);
+
+                if (checkedRecords.length === 0) {
+                    alert('No records selected.');
+                    return;
+                }
+
+                // Separate checked records into Review and Generator types
+                let reviewRecords = checkedRecords.filter(record => record.type === 'Review');
+                let generatorRecords = checkedRecords.filter(record => record.type === 'Generator');
+
+                let selectedRecord;
+                let selectedType;
+
+                if (reviewRecords.length === 0) {
+                    // Only generator records are selected
+                    selectedType = 'Generator';
+                    selectedRecord = pickRecord(generatorRecords);
+                } else if (generatorRecords.length === 0) {
+                    // Only review records are selected
+                    selectedType = 'Review';
+                    selectedRecord = pickRecord(reviewRecords);
+                } else {
+                    // Both types are present, factor in their probabilities
+                    let reviewPercent = parseInt($('#typeSlider').val());
+                    let generatorPercent = 100 - reviewPercent;
+
+                    let typeRoll = getSecureRandomNumber() * 100;
+                    if (typeRoll < reviewPercent) {
+                        // Pick from reviewRecords
+                        selectedType = 'Review';
+                        selectedRecord = pickRecord(reviewRecords);
+                    } else {
+                        // Pick from generatorRecords
+                        selectedType = 'Generator';
+                        selectedRecord = pickRecord(generatorRecords);
+                    }
+                }
+
+                if (selectedRecord) {
+                    // Open the link
+                    window.open(selectedRecord.link, '_blank');
+
+                    // Update the topRecords
+                    let topRecords = data.topRecords || [];
+                    let recordStat = topRecords.find(r => r.id === selectedRecord.id);
+                    if (recordStat) {
+                        recordStat.totalCount += 1;
+                        if (selectedType === 'Review') {
+                            recordStat.reviewCount = (recordStat.reviewCount || 0) + 1;
+                        } else {
+                            recordStat.generatorCount = (recordStat.generatorCount || 0) + 1;
+                        }
+                    } else {
+                        let newRecordStat = {
+                            id: selectedRecord.id,
+                            totalCount: 1,
+                            reviewCount: selectedType === 'Review' ? 1 : 0,
+                            generatorCount: selectedType === 'Generator' ? 1 : 0
+                        };
+                        topRecords.push(newRecordStat);
+                    }
+                    totalRolls += 1;
+                    if (selectedType === 'Review') {
+                        totalReviewRolls += 1;
+                    } else {
+                        totalGeneratorRolls += 1;
+                    }
+
+                    // Update lastPicked
+                    selectedRecord.lastPicked = Date.now();
+
+                    // Move the rolled record to the top
+                    data.records = data.records.filter(r => r.id !== selectedRecord.id);
+                    data.records.unshift(selectedRecord);
+
+                    // Save topRecords and totalRolls to data and LocalStorage
+                    data.topRecords = topRecords;
+                    data.totalRolls = totalRolls;
+                    data.totalReviewRolls = totalReviewRolls;
+                    data.totalGeneratorRolls = totalGeneratorRolls;
+                    localStorage.setItem(localStorageKey, JSON.stringify(data));
+
+                    // Update the records table and top records
+                    populateRecords(data.records);
+                    populateTopRecords(topRecords);
+                }
+            });
+
+            // Function to pick a record based on frequency
+            function pickRecord(records) {
+                // Calculate total weight
+                let totalWeight = records.reduce(function(sum, record) {
+                    return sum + (record.frequency || 1);
+                }, 0);
+                // Generate a random number between 0 and totalWeight
+                let randomNum = getSecureRandomNumber() * totalWeight;
+                let cumulativeWeight = 0;
+                for (let i = 0; i < records.length; i++) {
+                    cumulativeWeight += records[i].frequency || 1;
+                    if (randomNum < cumulativeWeight) {
+                        return records[i];
+                    }
+                }
+                return null; // Should not reach here
+            }
+
+            // Export State button handler
+            $('#exportStateBtn').click(function() {
+                let data = getCurrentData();
+                let dataStr = JSON.stringify(data, null, 2);
+                let blob = new Blob([dataStr], {type: "application/json"});
+                let url = URL.createObjectURL(blob);
+
+                let a = document.createElement('a');
+                a.href = url;
+                let fileName = jsonPrefix + '-ralloc-state.json';
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // After downloading, redirect to the storage destination
+                let destination = $('#storageDestination').val();
+                if (destination) {
+                    window.open(destination, '_blank');
+                }
+            });
+
+            // Import State button handler
+            $('#importStateBtn').click(function() {
+                $('#importFileInput').click();
+            });
+
+            // File input change handler
+            $('#importFileInput').on('change', function(event) {
+                let file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let content = e.target.result;
+                    try {
+                        let data = JSON.parse(content);
+                        // Update localStorageKey if different
+                        localStorageKey = data.localStorageKey || defaultLocalStorageKey;
+                        // Save to LocalStorage
+                        localStorage.setItem(localStorageKey, JSON.stringify(data));
+                        // Reload the page
+                        location.reload();
+                    } catch (error) {
+                        alert('Invalid JSON file.');
+                    }
+                };
+                reader.readAsText(file);
+            });
+
+            // Reset State button handler
+            $('#resetStateBtn').click(function() {
+                if (confirm('Are you sure you want to reset the state? This action cannot be undone.')) {
+                    localStorage.removeItem(localStorageKey);
+                    location.reload();
+                }
+            });
+
+            // Import Links button handler
+            $('#importLinksBtn').click(function() {
+                $('#importLinksInput').click();
+            });
+
+            $('#importLinksInput').on('change', function(event) {
+                let file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let content = e.target.result;
+                    let links = content.split(/\r?\n/).filter(line => line.trim() !== '');
+                    let data = getCurrentData();
+                    let now = Date.now();
+                    links.forEach(function(link) {
+                        let newRecord = {
+                            id: now + getSecureRandomNumber(),
+                            selected: true,
+                            name: link.slice(-20),
+                            link: link,
+                            type: 'Generator',
+                            frequency: 10,
+                            lastPicked: now
+                        };
+                        data.records.unshift(newRecord);
+                    });
+                    localStorage.setItem(localStorageKey, JSON.stringify(data));
+                    populateRecords(data.records);
+                    updateTotalRecordsDisplay();
+                    alert('Imported ' + links.length + ' links.');
+                };
+                reader.readAsText(file);
+            });
+
+            // Algorithm Buttons Handlers
+            $('#smootheningBtn').click(function() {
+                // Inverse the frequencies based on total picks
+                let data = getCurrentData();
+                let topRecords = data.topRecords || [];
+                data.records.forEach(function(record) {
+                    let recordStat = topRecords.find(r => r.id === record.id);
+                    let totalCount = recordStat ? recordStat.totalCount : 0;
+                    record.frequency = 1 / (totalCount + 1) * 100;
+                    record.selected = true;
+                });
+                data.sliderValue = 50;
+                applyDataToUI(data);
+                saveData();
+            });
+
+            $('#solidifyingBtn').click(function() {
+                // Increase frequency of records with fewer Generator picks
+                let data = getCurrentData();
+                let topRecords = data.topRecords || [];
+                data.records.forEach(function(record) {
+                    let recordStat = topRecords.find(r => r.id === record.id);
+                    let generatorCount = recordStat ? recordStat.generatorCount || 0 : 0;
+                    record.frequency = 1 / (generatorCount + 1) * 100;
+                    record.selected = true;
+                });
+                data.sliderValue = 30; // Favor Review
+                applyDataToUI(data);
+                saveData();
+            });
+
+            $('#reviewingBtn').click(function() {
+                // Focus on records with most Review picks
+                let data = getCurrentData();
+                let topRecords = data.topRecords || [];
+                data.records.forEach(function(record) {
+                    let recordStat = topRecords.find(r => r.id === record.id);
+                    let reviewCount = recordStat ? recordStat.reviewCount || 0 : 0;
+                    record.frequency = reviewCount > 0 ? reviewCount * 10 : 1;
+                    record.selected = true;
+                });
+                data.sliderValue = 100; // Exclusively Review
+                applyDataToUI(data);
+                saveData();
+            });
+
+            $('#exploringBtn').click(function() {
+                // Focus on new or least picked records
+                let data = getCurrentData();
+                let topRecords = data.topRecords || [];
+                data.records.forEach(function(record) {
+                    let recordStat = topRecords.find(r => r.id === record.id);
+                    let totalCount = recordStat ? recordStat.totalCount : 0;
+                    record.frequency = 1 / (totalCount + 1) * 100;
+                    record.selected = true;
+                });
+                data.sliderValue = 0; // Exclusively Generator
+                applyDataToUI(data);
+                saveData();
+            });
+
+            $('#randomizingBtn').click(function() {
+                // Randomize frequencies and checkboxes
+                let data = getCurrentData();
+                let hasSelected = false;
+                data.records.forEach(function(record) {
+                    record.frequency = Math.floor(getSecureRandomNumber() * 100) + 1;
+                    record.selected = getSecureRandomNumber() < 0.5;
+                    if (record.selected) hasSelected = true;
+                });
+                if (!hasSelected) {
+                    // Ensure at least one record is selected
+                    data.records[0].selected = true;
+                }
+                data.sliderValue = Math.floor(getSecureRandomNumber() * 101);
+                applyDataToUI(data);
+                saveData();
+            });
+
+            // Additional Strategies
+            $('#spacedRepetitionBtn').click(function() {
+                // Increase frequency for records not recently picked
+                let data = getCurrentData();
+                let now = Date.now();
+                data.records.forEach(function(record) {
+                    let lastPicked = record.lastPicked || 0;
+                    let daysSincePicked = (now - lastPicked) / (1000 * 60 * 60 * 24);
+                    record.frequency = Math.min(daysSincePicked * 10, 100);
+                    record.selected = true;
+                });
+                data.sliderValue = 50;
+                applyDataToUI(data);
+                saveData();
+            });
+
+            $('#focusWeakestBtn').click(function() {
+                // Focus on records with fewest total picks
+                let data = getCurrentData();
+                let topRecords = data.topRecords || [];
+                data.records.forEach(function(record) {
+                    let recordStat = topRecords.find(r => r.id === record.id);
+                    let totalCount = recordStat ? recordStat.totalCount : 0;
+                    record.frequency = 1 / (totalCount + 1) * 100;
+                    record.selected = true;
+                });
+                data.sliderValue = 50;
+                applyDataToUI(data);
+                saveData();
+            });
+
+            // Apply data to UI
+            function applyDataToUI(data) {
+                // Update slider
+                $('#typeSlider').val(data.sliderValue);
+                $('#typeSlider').trigger('change');
+                // Update records
+                populateRecords(data.records);
+            }
+
+            // Configuration Section Handlers
+            $('#editDestinationBtn').click(function() {
+                $('#storageDestination').prop('disabled', false);
+                $('#editDestinationBtn').hide();
+                $('#saveDestinationBtn, #cancelDestinationBtn').show();
+            });
+
+            $('#saveDestinationBtn').click(function() {
+                $('#storageDestination').prop('disabled', true);
+                $('#editDestinationBtn').show();
+                $('#saveDestinationBtn, #cancelDestinationBtn').hide();
+                saveData();
+            });
+
+            $('#cancelDestinationBtn').click(function() {
+                $('#storageDestination').prop('disabled', true);
+                $('#editDestinationBtn').show();
+                $('#saveDestinationBtn, #cancelDestinationBtn').hide();
+                // Reload the value from localStorage
+                let data = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
+                $('#storageDestination').val(data.storageDestination || defaultStorageDestination);
+            });
+
+            // Local Storage Key Handlers
+            $('#editLocalStorageKeyBtn').click(function() {
+                $('#localStorageKey').prop('disabled', false);
+                $('#editLocalStorageKeyBtn').hide();
+                $('#saveLocalStorageKeyBtn, #cancelLocalStorageKeyBtn').show();
+            });
+
+            $('#saveLocalStorageKeyBtn').click(function() {
+                let newKey = $('#localStorageKey').val();
+                if (newKey) {
+                    // Migrate data to new key
+                    let data = getCurrentData();
+                    localStorage.removeItem(localStorageKey);
+                    localStorageKey = newKey;
+                    data.localStorageKey = localStorageKey;
+                    localStorage.setItem(localStorageKey, JSON.stringify(data));
+                    $('#localStorageKey').prop('disabled', true);
+                    $('#editLocalStorageKeyBtn').show();
+                    $('#saveLocalStorageKeyBtn, #cancelLocalStorageKeyBtn').hide();
+                } else {
+                    alert('Local Storage Key cannot be empty.');
+                }
+            });
+
+            $('#cancelLocalStorageKeyBtn').click(function() {
+                $('#localStorageKey').prop('disabled', true);
+                $('#editLocalStorageKeyBtn').show();
+                $('#saveLocalStorageKeyBtn, #cancelLocalStorageKeyBtn').hide();
+                // Reload the value from localStorage
+                $('#localStorageKey').val(localStorageKey);
+            });
+
+            // Maximum Records Shown Handlers
+            $('#editMaxRecordsBtn').click(function() {
+                $('#maxRecordsShown').prop('disabled', false);
+                $('#editMaxRecordsBtn').hide();
+                $('#saveMaxRecordsBtn, #cancelMaxRecordsBtn').show();
+            });
+
+            $('#saveMaxRecordsBtn').click(function() {
+                let newMax = parseInt($('#maxRecordsShown').val());
+                if (!isNaN(newMax) && newMax > 0) {
+                    maxRecordsShown = newMax;
+                    $('#maxRecordsShown').prop('disabled', true);
+                    $('#editMaxRecordsBtn').show();
+                    $('#saveMaxRecordsBtn, #cancelMaxRecordsBtn').hide();
+                    saveData();
+                    // Re-populate records
+                    let data = getCurrentData();
+                    populateRecords(data.records);
+                } else {
+                    alert('Please enter a valid number greater than 0.');
+                }
+            });
+
+            $('#cancelMaxRecordsBtn').click(function() {
+                $('#maxRecordsShown').prop('disabled', true);
+                $('#editMaxRecordsBtn').show();
+                $('#saveMaxRecordsBtn, #cancelMaxRecordsBtn').hide();
+                // Reload the value from localStorage
+                $('#maxRecordsShown').val(maxRecordsShown);
+            });
+
+            // JSON Prefix Handlers
+            $('#editJsonPrefixBtn').click(function() {
+                $('#jsonPrefix').prop('disabled', false);
+                $('#editJsonPrefixBtn').hide();
+                $('#saveJsonPrefixBtn, #cancelJsonPrefixBtn').show();
+            });
+
+            $('#saveJsonPrefixBtn').click(function() {
+                let newPrefix = $('#jsonPrefix').val();
+                if (newPrefix) {
+                    jsonPrefix = newPrefix;
+                    $('#jsonPrefix').prop('disabled', true);
+                    $('#editJsonPrefixBtn').show();
+                    $('#saveJsonPrefixBtn, #cancelJsonPrefixBtn').hide();
+                    saveData();
+                } else {
+                    alert('JSON Prefix cannot be empty.');
+                }
+            });
+
+            $('#cancelJsonPrefixBtn').click(function() {
+                $('#jsonPrefix').prop('disabled', true);
+                $('#editJsonPrefixBtn').show();
+                $('#saveJsonPrefixBtn, #cancelJsonPrefixBtn').hide();
+                // Reload the value from localStorage
+                $('#jsonPrefix').val(jsonPrefix);
+            });
+        });
+    </script>
+</body>
+</html>

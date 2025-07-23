@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Sentence Reconstruction Game</title>
+  <!-- Bootstrap CSS (CDN) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+  />
+  <style>
+    /* Ensure the reconstruction area is of modest size initially but can grow. */
+    #workInProgress {
+      width: 100%;
+      min-height: 150px; /* modest initial height */
+      overflow-wrap: break-word; /* handle long text gracefully */
+    }
+
+    /* Make sure choice buttons + progress appear inline for the current guess */
+    .choice-buttons-inline {
+      margin-left: 8px;
+      display: inline-block;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<!-- Removed class="bg-light" so Bootstrap won't override our Pantone color -->
+<body>
+<div class="container my-5">
+  <h1 class="text-center mb-4">Sentence Reconstruction</h1>
+
+  <!-- Text Area and Control Buttons (Initial View) -->
+  <div id="initialView">
+    <div class="mb-3">
+      <label for="userInput" class="form-label fw-bold">Enter Your Passage:</label>
+      <textarea
+        class="form-control"
+        id="userInput"
+        rows="6"
+        placeholder="Type or paste your paragraphs here..."
+      ></textarea>
+    </div>
+    <button id="startBtn" class="btn btn-primary me-2">Start</button>
+    <button id="clearBtn" class="btn btn-secondary">Clear All</button>
+  </div>
+
+  <!-- Extra Tools (Always Visible) -->
+  <div id="extraTools" class="mb-5">
+    <h5 class="mt-4">Extra Tools for Thorough Learning:</h5>
+    <p class="text-muted">
+      Below are optional features you might find useful while studying or analyzing your text.
+      These tools remain available even if content is pre-loaded (e.g. via <code>?cardId=</code>).
+    </p>
+
+    <!-- Search ChatGPT Button -->
+    <div class="mb-3">
+      <button id="searchChatGPTBtn" class="btn btn-outline-success" onclick="searchChatGPT()">
+        Search ChatGPT
+      </button>
+    </div>
+
+    <!-- Summarize Text -->
+    <button id="summarizeBtn" class="btn btn-info me-2 mb-2" onclick="summarizeText()">
+      Summarize Text
+    </button>
+
+    <!-- Generate Quick Quiz -->
+    <button id="quickQuizBtn" class="btn btn-info me-2 mb-2" onclick="generateQuiz()">
+      Generate Quick Quiz
+    </button>
+
+    <!-- Matthew Henry Commentary on: Button -->
+    <button id="fourChanBtn" class="btn btn-info me-2 mb-2" onclick="fourChanExplain()">
+      Matthew Henry Commentary on:
+    </button>
+	
+    <!-- 4chan: Button -->
+    <button id="realFourChanBtn" class="btn btn-info me-2 mb-2" onclick="realFourChanExplain()">
+      4chan:
+    </button>
+
+    <!-- Read Aloud (TTS) -->
+    <button id="readAloudBtn" class="btn btn-info mb-2" onclick="readAloudText()">
+      Read Aloud (TTS)
+    </button>
+  </div>
+
+  <!-- Game View (Hidden by Default) -->
+  <div id="gameView" class="d-none">
+    <p class="fw-bold" id="progressText">
+      Reconstructing your text ...
+    </p>
+    <div class="mb-3">
+      <!-- This is where the reconstructed text (plus choices inline) will appear -->
+      <div id="workInProgress" class="p-3 border"></div>
+    </div>
+
+    <!-- Informational Feedback -->
+    <div class="alert alert-info d-none" id="completionMsg"></div>
+
+    <!-- Game Control Buttons -->
+    <button id="restartBtn" class="btn btn-warning me-2">Restart</button>
+    <button id="clearBtn2" class="btn btn-secondary">Clear All</button>
+  </div>
+</div>
+
+<!-- Bootstrap Bundle JS (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  /********************************************************************
+   *   URL Param helper
+   ********************************************************************/
+  function getUrlParameter(name) {
+    name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+    const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    const results = regex.exec(window.location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  }
+
+  /********************************************************************
+   *   Determine DB name from ?db=... (defaults to "myCsvDb_default")
+   ********************************************************************/
+  let dbNameFromParam = getUrlParameter('db').trim();
+  if (!dbNameFromParam) {
+    dbNameFromParam = "myCsvDb_default";
+  }
+  const DB_NAME = dbNameFromParam;
+  const DB_VERSION = 1;
+  const STORE_NAME = "records";
+  let db = null;
+
+  /**
+   * Open (or create/upgrade) the shared IndexedDB database.
+   */
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = (event) => {
+        db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, {
+            keyPath: 'id',
+            autoIncrement: true
+          });
+          store.createIndex('textIndex', 'text', { unique: true });
+        }
+      };
+      request.onsuccess = (event) => {
+        db = event.target.result;
+        resolve(db);
+      };
+      request.onerror = (event) => {
+        console.error("IndexedDB error:", event.target.error);
+        reject(event.target.error);
+      };
+    });
+  }
+
+  /**
+   * Insert lines into DB, skipping duplicates (used if the user does a manual "Start").
+   */
+  function addLinesToDb(lines) {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        console.error("IndexedDB is not opened yet!");
+        resolve(0);
+        return;
+      }
+      let addedCount = 0;
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const textIndex = store.index("textIndex");
+
+      let processedCount = 0;
+
+      function processNext(i) {
+        if (i >= lines.length) {
+          resolve(addedCount);
+          return;
+        }
+        const line = lines[i].trim();
+        if (!line) {
+          processedCount++;
+          processNext(i + 1);
+          return;
+        }
+        // Check duplicates
+        const checkReq = textIndex.get(line);
+        checkReq.onsuccess = () => {
+          if (checkReq.result) {
+            // Already in DB
+            processedCount++;
+            processNext(i + 1);
+          } else {
+            const addReq = store.add({ text: line });
+            addReq.onsuccess = () => {
+              addedCount++;
+              processedCount++;
+              processNext(i + 1);
+            };
+            addReq.onerror = () => {
+              processedCount++;
+              processNext(i + 1);
+            };
+          }
+        };
+        checkReq.onerror = () => {
+          processedCount++;
+          processNext(i + 1);
+        };
+      }
+      processNext(0);
+
+      tx.oncomplete = () => { /* done */ };
+      tx.onerror = (err) => {
+        console.error("Transaction error:", err);
+        reject(err);
+      };
+    });
+  }
+
+  /********************************************************************
+   * HELPER: Return a cryptographically secure random number [0..1)
+   ********************************************************************/
+
+  /**
+   * Build all front/back permutations for a single record text
+   * (same logic used in Land Cruiser 300).
+   */
+  function generatePermutationsForRecord(recordId, recordText) {
+    const attributes = recordText.split(",")
+      .map(a => a.trim())
+      .filter(a => a.length > 0);
+
+    const results = [];
+    let pairIndex = 0;
+    for (let i = 0; i < attributes.length; i++) {
+      for (let j = 0; j < attributes.length; j++) {
+        if (i !== j) {
+          const front = attributes[i];
+          const back = attributes[j];
+          const cardUniqueId = (recordId << 16) + pairIndex;
+          results.push({ id: cardUniqueId, front, back });
+          pairIndex++;
+        }
+      }
+    }
+    return results;
+  }
+
+  /**
+   * If we were given ?cardId=...&side=(front|back), fetch that record from the DB,
+   * reconstruct the permutations, and find the matching pair => load the requested side
+   */
+  async function loadCardFromDb(cardId, whichSide) {
+    // recordId = top 16 bits
+    const recordId = cardId >>> 16;
+
+    // get the record from DB
+    const recordData = await getRecordById(recordId);
+    if (!recordData) {
+      console.error(`No record found in DB with id=${recordId}`);
+      return "";
+    }
+
+    // build permutations
+    const perms = generatePermutationsForRecord(recordId, recordData.text);
+    // find the one with cardId
+    const matching = perms.find(p => p.id === cardId);
+    if (!matching) {
+      console.error(`No matching cardId=${cardId} in record #${recordId}`);
+      return "";
+    }
+
+    return (whichSide === "front") ? matching.front : matching.back;
+  }
+
+  /**
+   * Simple helper to get a single record by ID from the DB.
+   */
+  function getRecordById(recordId) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const getReq = store.get(recordId);
+      getReq.onsuccess = e => {
+        resolve(e.target.result); // either undefined or {id, text}
+      };
+      getReq.onerror = err => {
+        reject(err);
+      };
+    });
+  }
+
+  /********************************************************************
+   *   Sentence Reconstruction Logic
+   ********************************************************************/
+  const initialView = document.getElementById("initialView");
+  const gameView = document.getElementById("gameView");
+  const startBtn = document.getElementById("startBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const userInput = document.getElementById("userInput");
+
+  const progressText = document.getElementById("progressText");
+  const workInProgress = document.getElementById("workInProgress");
+  const completionMsg = document.getElementById("completionMsg");
+
+  const restartBtn = document.getElementById("restartBtn");
+  const clearBtn2 = document.getElementById("clearBtn2");
+
+  // The tool buttons
+  const chatGPTBtn = document.getElementById("searchChatGPTBtn");
+  const summarizeBtn = document.getElementById("summarizeBtn");
+  const quickQuizBtn = document.getElementById("quickQuizBtn");
+  const fourChanBtn = document.getElementById("fourChanBtn");
+  const realFourChanBtn = document.getElementById("realFourChanBtn");
+  const readAloudBtn = document.getElementById("readAloudBtn");
+
+  // Enhanced common “filler” words to skip
+  const skipWordsSet = new Set([
+    // Articles, conjunctions, and auxiliary verbs
+    'a','an','the','is','are','was','were','am','be','been','being',
+    'and','or','but','nor','so','yet','for',
+
+    // Prepositions
+    'of','in','to','by','with','from','at','on','into','onto','upon',
+    'about','above','below','under','over','between','among','around','through',
+    'before','after','during','since','until',
+
+    // Pronouns
+    'i','me','my','mine','you','your','yours','he','him','his','she','her','hers',
+    'it','its','we','us','our','ours','they','them','their','theirs',
+    'this','that','these','those',
+
+    // Question words
+    'who','whom','whose','which','what','when','where','how','why',
+
+    // Common verbs and modals (reducing noise from auxiliary/helping verbs)
+    'do','does','did','done','doing',
+    'have','has','had','having',
+    'can','could','shall','should','will','would','may','might','must',
+    'let','lets','make','makes','made','making',
+    'go','goes','went','gone','going','get','gets','got','gotten','getting',
+
+    // Common adverbs and determiners (often non-essential in learning contexts)
+    'just','only','even','also','too','very','much','more','most','some','any',
+    'every','all','no','none','not','never','always','sometimes','often','rarely',
+    'perhaps','maybe','quite','rather','almost','already','soon','yet','still',
+
+    // Redundant filler words and transitions
+    'then','out','up','down','over','again','like','such','same',
+    'whether','though','although','because','since','unless','instead',
+    'either','neither','both','while','meanwhile','otherwise',
+    'further','furthermore','moreover','besides','however','therefore',
+    'thus','hence','indeed','anyway','anyhow'
+  ]);
+
+  let tokenData = [];
+  let guessableTokens = [];
+  let currentGuessIndex = 0;
+  let sanitizedText = '';
+
+  // We'll store Pantone data the first time we fetch
+  let pantoneDataGlobal = null;
+
+  /**
+   * NEW: Function to fetch pantone-colors.json, pick a random color for the background,
+   *      then optionally set a random color for all buttons so they're never identical.
+   */
+  async function updateColorsPantone() {
+    try {
+      // Fetch the Pantone file only once
+      if (!pantoneDataGlobal) {
+        const resp = await fetch("pantone-colors.json");
+        if (!resp.ok) throw new Error("Cannot fetch pantone-colors.json");
+        pantoneDataGlobal = await resp.json();
+      }
+      const { names, values } = pantoneDataGlobal;
+      if (!names || !values || names.length !== values.length) {
+        throw new Error("Invalid pantone-colors.json format");
+      }
+
+      // pick random index for background
+      const bgIndex = Math.floor(getSecureRandomNumber() * names.length);
+      const bgColor = values[bgIndex];
+      document.body.style.backgroundColor = bgColor;
+
+      // If you also want to color the buttons differently, pick a separate random index
+      let btnIndex = Math.floor(getSecureRandomNumber() * names.length);
+      while (btnIndex === bgIndex) {
+        btnIndex = Math.floor(getSecureRandomNumber() * names.length);
+      }
+      const btnColor = values[btnIndex];
+
+      // set all relevant buttons to a different color
+      const allButtons = document.querySelectorAll('button');
+      allButtons.forEach((btn) => {
+        btn.style.backgroundColor = btnColor;
+        btn.style.color = "#000"; // ensure some contrast
+      });
+
+    } catch (err) {
+      console.warn("Pantone color fetch error:", err);
+      // fallback to plain white, normal buttons
+      document.body.style.backgroundColor = "#ffffff";
+      const allButtons = document.querySelectorAll('button');
+      allButtons.forEach((btn) => {
+        btn.style.backgroundColor = "#ccc";
+        btn.style.color = "#000";
+      });
+    }
+  }
+
+  // On page load, open DB, apply random color, etc.
+  window.addEventListener("load", async () => {
+    // 1) open IndexedDB
+    await openDatabase();
+
+    // 2) check ?cardId=..., load a card if needed
+    const rawCardId = getUrlParameter("cardId").trim();
+    const rawSide = getUrlParameter("side").trim().toLowerCase();
+
+    // 3) At initial load, pick a random Pantone color for the background
+    await updateColorsPantone();
+
+    // 4) On every button press, we also refresh the color
+    const allButtons = document.querySelectorAll('button');
+    allButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await updateColorsPantone();
+      });
+    });
+
+    // 5) If ?cardId=... was provided, auto-load that record
+    if (rawCardId && rawSide && (rawSide === "front" || rawSide === "back")) {
+      const cardIdNum = parseInt(rawCardId, 10);
+      if (Number.isNaN(cardIdNum)) {
+        console.warn("Invalid cardId param:", rawCardId);
+        return;
+      }
+      const textFromDb = await loadCardFromDb(cardIdNum, rawSide);
+      if (textFromDb) {
+        // put text in the textarea
+        userInput.value = textFromDb;
+        // start the game automatically
+        startGame(textFromDb);
+      }
+    }
+  });
+
+  /**
+   * If the user manually clicks "Start", store the text and start the game.
+   */
+  startBtn.addEventListener("click", async () => {
+    let rawInputVal = userInput.value.trim();
+    if (!rawInputVal) {
+      alert("Please enter some text first!");
+      return;
+    }
+
+    // Insert lines into DB with date/time prefix, replacing commas with underscores
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const datePrefix = `${yy}${mm}${dd} ${hh}:${min}:${ss}`;
+
+    let inputNoCommas = rawInputVal.replace(/,/g, "_");
+    const fullLine = `${datePrefix}, ${inputNoCommas}`;
+    await addLinesToDb([fullLine]);
+
+    startGame(inputNoCommas);
+  });
+
+  /**
+   * Parse + set up the reconstruction from the input text
+   */
+  function startGame(inputText) {
+    userInput.value = inputText;
+    sanitizedText = sanitizeText(inputText);
+    const rawTokens = sanitizedText.split(/\s+/);
+
+    tokenData = [];
+    guessableTokens = [];
+    currentGuessIndex = 0;
+    completionMsg.classList.add('d-none');
+    completionMsg.textContent = '';
+
+    rawTokens.forEach(tok => {
+      const cleaned = cleanWord(tok);
+      let skip = false;
+      if (!cleaned || skipWordsSet.has(cleaned)) {
+        skip = true;
+      }
+      tokenData.push({
+        original: tok,
+        cleaned: cleaned,
+        skip: skip,
+        guessed: skip // skip-words are effectively "already guessed"
+      });
+    });
+
+    tokenData.forEach((t, idx) => {
+      if (!t.skip) guessableTokens.push(idx);
+    });
+
+    // Switch UI
+    initialView.classList.add('d-none');
+    gameView.classList.remove('d-none');
+
+    updateDisplayedText();
+  }
+
+  // Clear all
+  function clearAllPage() {
+    userInput.value = '';
+    sanitizedText = '';
+    tokenData = [];
+    guessableTokens = [];
+    currentGuessIndex = 0;
+    workInProgress.innerHTML = '';
+    completionMsg.classList.add('d-none');
+    completionMsg.textContent = '';
+
+    initialView.classList.remove('d-none');
+    gameView.classList.add('d-none');
+  }
+  clearBtn.addEventListener('click', clearAllPage);
+  clearBtn2.addEventListener('click', clearAllPage);
+
+  // Restart
+  restartBtn.addEventListener('click', () => {
+    if (!sanitizedText) return;
+    tokenData.forEach(t => {
+      if (!t.skip) t.guessed = false;
+    });
+    currentGuessIndex = 0;
+    completionMsg.classList.add('d-none');
+    completionMsg.textContent = '';
+    updateDisplayedText();
+  });
+
+  /*********************************************
+   * Utility functions
+   *********************************************/
+  function sanitizeText(input) {
+    let text = input;
+    text = text.replace(/"/g, ' __ ');
+    text = text.replace(/\?/g, ' _q ');
+    text = text.replace(/!/g, ' _x ');
+    // Preserve Japanese & all Unicode letters/numbers ← MODIFIED
+    text = text.replace(/[^\p{L}\p{N}\s_]/gu, ' _ ');
+    text = text.toLowerCase();
+    text = text.replace(/\s+/g, ' ').trim();
+    return text;
+  }
+
+  function cleanWord(word) {
+    return word.replace(/^_+|_+$/g, '');
+  }
+
+  function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(getSecureRandomNumber() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function getChoicesForCurrentToken() {
+    if (currentGuessIndex >= guessableTokens.length) {
+      return [];
+    }
+    const correctIndex = guessableTokens[currentGuessIndex];
+    const correctClean = tokenData[correctIndex].cleaned;
+
+    const pool = guessableTokens
+      .filter(i => i !== correctIndex)
+      .map(i => tokenData[i].cleaned);
+
+    const uniquePool = Array.from(new Set(pool));
+    shuffleArray(uniquePool);
+
+    const wrongChoices = uniquePool.slice(0, 3);
+    const allChoices = [correctClean, ...wrongChoices];
+    shuffleArray(allChoices);
+
+    return allChoices;
+  }
+
+  function getProgressColor(percentage) {
+    if (percentage <= 0) {
+      return '#FFFFFF';
+    } else if (percentage < 25) {
+      return '#edf8e1';
+    } else if (percentage < 50) {
+      return '#bae4b3';
+    } else if (percentage < 75) {
+      return '#74c476';
+    } else if (percentage < 100) {
+      return '#31a354';
+    } else {
+      return '#006d2c';
+    }
+  }
+
+  function buildSentenceHTML() {
+    let html = '';
+    const choices = getChoicesForCurrentToken();
+
+    let progressPercent = 0;
+    if (guessableTokens.length > 0) {
+      progressPercent = (currentGuessIndex / guessableTokens.length) * 100;
+    }
+    const progressPercentFixed = progressPercent.toFixed(1);
+    const buttonColor = getProgressColor(progressPercent);
+
+    for (let i = 0; i < tokenData.length; i++) {
+      const t = tokenData[i];
+      if (t.skip || t.guessed) {
+        html += `<span class="me-1">${t.original}</span>`;
+      } else {
+        const thisIsCurrent = (guessableTokens[currentGuessIndex] === i);
+        if (thisIsCurrent) {
+          const underscores = '_'.repeat(t.cleaned.length || 4);
+          let buttonsHTML = '';
+          choices.forEach(choice => {
+            buttonsHTML += `
+              <button
+                class="btn me-2 mb-1"
+                style="display:inline-block; background-color: ${buttonColor}; color: #000;"
+                onclick="handleChoiceClick('${choice}')"
+              >
+                ${choice}
+              </button>
+            `;
+          });
+          buttonsHTML += `
+            <button
+              class="btn mb-1"
+              style="display:inline-block; background-color: ${buttonColor}; color: #000;"
+              disabled
+            >
+              ${progressPercentFixed}%
+            </button>
+          `;
+          html += `
+            <span class="me-1" style="white-space: nowrap;">
+              ${underscores}
+              <span class="choice-buttons-inline">
+                ${buttonsHTML}
+              </span>
+            </span>
+          `;
+        } else {
+          const underscores = '_'.repeat(t.cleaned.length || 4);
+          html += `<span class="me-1">${underscores}</span>`;
+        }
+      }
+    }
+    return html;
+  }
+
+  function updateDisplayedText() {
+    workInProgress.innerHTML = buildSentenceHTML();
+  }
+
+  function handleChoiceClick(chosenWord) {
+    if (currentGuessIndex >= guessableTokens.length) {
+      return;
+    }
+    const correctTokenIndex = guessableTokens[currentGuessIndex];
+    const correctClean = tokenData[correctTokenIndex].cleaned;
+
+    if (chosenWord === correctClean) {
+      tokenData[correctTokenIndex].guessed = true;
+      currentGuessIndex++;
+      if (currentGuessIndex === guessableTokens.length) {
+        completionMsg.textContent = "You have successfully reconstructed the text!";
+        completionMsg.classList.remove('d-none');
+      }
+    }
+    updateDisplayedText();
+  }
+  window.handleChoiceClick = handleChoiceClick;
+
+  /********************************************************************
+   * Extra Tools (Always Visible)
+   ********************************************************************/
+  function searchChatGPT() {
+    const textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text found in the textarea to search!");
+      return;
+    }
+    const encoded = encodeURIComponent(textVal);
+    const url = `https://chat.openai.com/?q=${encoded}`;
+    window.open(url, "_blank");
+  }
+
+  function summarizeText() {
+    const textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text found to summarize!");
+      return;
+    }
+    const prefixed = "Summarize Text: " + textVal;
+    const encoded = encodeURIComponent(prefixed);
+    const url = `https://chat.openai.com/?q=${encoded}`;
+    window.open(url, "_blank");
+  }
+
+  function generateQuiz() {
+    const textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text found to generate a quiz!");
+      return;
+    }
+    const prefixed = "Generate Quick Quiz: " + textVal;
+    const encoded = encodeURIComponent(prefixed);
+    const url = `https://chat.openai.com/?q=${encoded}`;
+    window.open(url, "_blank");
+  }
+
+  function fourChanExplain() {
+    const textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text found for Matthew Henry Commentary on explanation!");
+      return;
+    }
+    const prefixed = "Matthew Henry Commentary on:: explain this, full tokens " + textVal;
+    const encoded = encodeURIComponent(prefixed);
+    const url = `https://chat.openai.com/?q=${encoded}`;
+    window.open(url, "_blank");
+  }
+  
+  function realFourChanExplain() {
+    const textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text found for 4chan explanation!");
+      return;
+    }
+    const prefixed = "4chan:: explain this, full tokens " + textVal;
+    const encoded = encodeURIComponent(prefixed);
+    const url = `https://chat.openai.com/?q=${encoded}`;
+    window.open(url, "_blank");
+  }
+
+  function readAloudText() {
+    let textVal = userInput.value.trim();
+    if (!textVal) {
+      alert("No text to read aloud!");
+      return;
+    }
+    let sanitizedForTTS = textVal.replace(/_/g, '');
+    const utter = new SpeechSynthesisUtterance(sanitizedForTTS);
+    speechSynthesis.speak(utter);
+  }
+</script>
+</body>
+</html>

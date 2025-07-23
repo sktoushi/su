@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Display</title>
+</head>
+<body>
+    <h1>Google Sheets Data</h1>
+
+    <h2>Config (Ranges) Sheet</h2>
+    <pre id="configData">Loading...</pre>
+
+    <h2>Frequency Mods Sheet</h2>
+    <pre id="frequencyModsData">Loading...</pre>
+
+    <button onclick="useConfigAndMods()">Use Config and Frequency Mods</button>
+
+    <script>
+        // Global variables for reusability
+        let config = [];
+        let frequencyMods = {};
+
+        function loadData() {
+            google.script.run.withSuccessHandler(function(response) {
+                // Assign response to global config variable and display it
+                config = response;
+                console.log("Loaded Config:", config);
+                document.getElementById('configData').textContent = JSON.stringify(config, null, 2);
+            }).getRangesData();
+
+            google.script.run.withSuccessHandler(function(response) {
+                // Assign response to global frequencyMods variable and display it
+                frequencyMods = response;
+                console.log("Loaded Frequency Mods:", frequencyMods);
+                document.getElementById('frequencyModsData').textContent = JSON.stringify(frequencyMods, null, 2);
+            }).getFrequencyModsData();
+        }
+
+        function useConfigAndMods() {
+            // Example function to demonstrate reusability
+            console.log("Using Config:", config);
+            console.log("Using Frequency Mods:", frequencyMods);
+
+            alert("Config and Frequency Mods are ready to use in the script!");
+
+            let totalWeight = 0;
+            const ranges = [];
+
+            // Step 1: Process each repo and identify special cases and normal ranges
+            config.forEach(item => {
+                const { username, repo, startIdx, endIdx } = item;
+                console.log(`Processing item: ${username}/${repo}, startIdx: ${startIdx}, endIdx: ${endIdx}`);
+                const mod = frequencyMods[`${username}-${repo}`] || {};
+                console.log(`Loaded Mods for ${username}/${repo}:`, mod);
+                let previousEndIdx = startIdx - 1;
+
+                for (const modIdx in mod) {
+                    const modIndex = parseInt(modIdx);
+                    console.log(`Processing modIndex: ${modIndex}, previousEndIdx: ${previousEndIdx}`);
+                    if (modIndex > previousEndIdx + 1) {
+                        // Add the normal range before the special case
+                        ranges.push({
+                            username,
+                            repo,
+                            startIdx: previousEndIdx + 1,
+                            endIdx: modIndex - 1,
+                            weight: modIndex - previousEndIdx - 1
+                        });
+                        totalWeight += modIndex - previousEndIdx - 1;
+                        console.log(`Added normal range: ${previousEndIdx + 1}-${modIndex - 1}, weight: ${modIndex - previousEndIdx - 1}`);
+                    }
+                    // Add the special case
+                    ranges.push({
+                        username,
+                        repo,
+                        startIdx: modIndex,
+                        endIdx: modIndex,
+                        weight: mod[modIdx]
+                    });
+                    totalWeight += mod[modIdx];
+                    console.log(`Added special case: ${modIndex}, weight: ${mod[modIdx]}`);
+                    previousEndIdx = modIndex;
+                }
+
+                if (previousEndIdx < endIdx) {
+                    // Add the remaining normal range after the last special case
+                    ranges.push({
+                        username: item.username,
+                        repo: item.repo,
+                        startIdx: previousEndIdx + 1,
+                        endIdx: endIdx,
+                        weight: endIdx - previousEndIdx
+                    });
+                    totalWeight += endIdx - previousEndIdx;
+                    console.log(`Added remaining normal range: ${previousEndIdx + 1}-${endIdx}, weight: ${endIdx - previousEndIdx}`);
+                }
+            });
+
+            console.log("Total Weight:", totalWeight);
+            console.log("Ranges:", ranges);
+
+            // Step 2: Pick a random number within the total weighted range
+            let randomWeight = Math.floor(getSecureRandomNumber() * totalWeight);
+            let cumulativeWeight = 0;
+
+            // Step 3: Determine which range and index the random weight falls into
+            for (let range of ranges) {
+                console.log("Processing range:", range);
+                cumulativeWeight += range.weight;
+                console.log("Updated cumulativeWeight:", cumulativeWeight);
+
+                if (randomWeight < cumulativeWeight) {
+                    console.log("Random weight (" + randomWeight + ") is within cumulativeWeight.");
+
+                    // Calculate the selected index within the current range
+                    const rangeSize = range.endIdx - range.startIdx + 1;
+                    console.log("Range size:", rangeSize);
+
+                    const withinRangeWeight = randomWeight - (cumulativeWeight - range.weight);
+                    console.log("Within range weight:", withinRangeWeight);
+
+                    const selectedIndex = range.startIdx + (withinRangeWeight % rangeSize);
+                    console.log("Selected index:", selectedIndex);
+
+                    const issueURL = "https://github.com/" + range.username + "/" + range.repo + "/issues/" + selectedIndex;
+                    console.log("Issue URL:", issueURL);
+                    alert("Issue URL: " + issueURL);  // Show the constructed URL in an alert
+                    return;
+                }
+            }
+
+
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>

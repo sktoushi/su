@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Random URL Picker with Customizable Settings</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 30px;
+        }
+        .progress-container {
+            margin-bottom: 20px;
+        }
+        .btn-draw {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .slider-container, .input-container {
+            margin-bottom: 20px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn-export {
+            margin-top: 10px;
+        }
+        .input-group-text {
+            width: 100px;
+        }
+    </style>
+    <script>
+        let b1 = {}; // Bucket 1 (reviews)
+        let b2 = {}; // Bucket 2 (new elements)
+        let initB2Total = 0; // Initial total frequency of Bucket 2
+        let b1Prob = 0.66; // Default probability for Bucket 1
+        let b2Prob = 0.34; // Default probability for Bucket 2
+        let defaultFrequency = 1; // Default frequency
+        let urlPrefix = ''; // URL Prefix
+        let urlSuffix = ''; // URL Suffix
+
+
+        // Simplified list of URL bodies and frequencies
+        // let initialFiles = [
+        //     // ["urlBody", frequency]
+        //     [1, "https://sktoushi.github.io/ref2410/viewer.html?&fileName=Change-Request-1-5.pdf", 5],
+        //     [58, "https://sktoushi.github.io/ref2410/viewer.html?&fileName=sw-dev-pres-12-depl-v2-1-26.pdf", 26]
+        // ];
+
+        // Constants for repetitive parts of the URLs
+        const BASE_URL = "https://github.com/mdr19ganseki95cf/greene-mix/blob/main/48-laws-of-power-";
+        const SUFFIX = ".jpg";
+        
+	// Initialize an empty array
+	let initialFiles = [];
+
+	// Loop from 25 to 454
+	for (let i = 25; i <= 454; i++) {
+		// Push a sub-array with [number, string, 1] into initialFiles
+		if (i >= 100) {
+			initialFiles.push([i, BASE_URL + i.toString() + SUFFIX , 1]);
+		} else {
+			initialFiles.push([i, BASE_URL + "0" + i.toString() + SUFFIX , 1]);
+		}
+	}
+        
+        // Function to expand the array based on frequency
+        function expandArray(original) {
+            const expanded = [];
+            let globalIndex = 1; // To keep track of the sequential id across all elements
+        
+            original.forEach(item => {
+                const [id, fileName, frequency] = item;
+                for (let nthIndex = 1; nthIndex <= frequency; nthIndex++) {
+                    expanded.push([
+                        globalIndex,
+                        `${BASE_URL}${fileName}&startIdx=${nthIndex}&endIdx=${nthIndex}`,
+                        1
+                    ]);
+                    globalIndex++;
+                }
+            });
+        
+            return expanded;
+        }
+
+        // Generate the expanded array
+        // const initialFiles = expandArray(originalArray);
+        
+        function initBuckets() {
+            b1 = {};
+            b2 = {};
+            initB2Total = 0;
+
+            initialFiles.forEach(file => {
+                const id = file[0];
+                const freq = file[2] !== null ? file[2] : defaultFrequency;
+                b2[id] = freq;
+                initB2Total += freq;
+            });
+        }
+
+        function saveState() {
+            const state = {
+                b1: b1,
+                b2: b2,
+                b1Prob: b1Prob,
+                b2Prob: b2Prob,
+                defaultFrequency: defaultFrequency,
+                urlPrefix: urlPrefix,
+                urlSuffix: urlSuffix,
+                initialFiles: initialFiles
+            };
+            localStorage.setItem('randomUrlPickerState48', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const state = JSON.parse(localStorage.getItem('randomUrlPickerState48'));
+            if (state) {
+                b1 = state.b1 || {};
+                b2 = state.b2 || {};
+                b1Prob = state.b1Prob || 0.66;
+                b2Prob = state.b2Prob || 0.34;
+                defaultFrequency = state.defaultFrequency || 1;
+                urlPrefix = state.urlPrefix || '';
+                urlSuffix = state.urlSuffix || '';
+                initialFiles = state.initialFiles || initialFiles;
+                initB2Total = getTotalFreq(b2);
+            } else {
+                initBuckets();
+            }
+        }
+
+        function resetState() {
+            localStorage.removeItem('randomUrlPickerState48');
+            defaultFrequency = 1;
+            urlPrefix = '';
+            urlSuffix = '';
+            document.getElementById('defaultFrequency').value = defaultFrequency;
+            document.getElementById('urlPrefix').value = urlPrefix;
+            document.getElementById('urlSuffix').value = urlSuffix;
+            document.getElementById('defaultFrequency').disabled = true;
+            b1Prob = 0.66;
+            b2Prob = 0.34;
+            initBuckets();
+            updateDisplay();
+            initializeSlider();
+            alert('State has been reset.');
+        }
+
+        function exportState() {
+            const state = {
+                b1: b1,
+                b2: b2,
+                b1Prob: b1Prob,
+                b2Prob: b2Prob,
+                defaultFrequency: defaultFrequency,
+                urlPrefix: urlPrefix,
+                urlSuffix: urlSuffix,
+                initialFiles: initialFiles
+            };
+            const stateStr = btoa(JSON.stringify(state));
+
+            // Get current date and time for filename
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.]/g, '-');
+            const filename = `state_${timestamp}.txt`;
+
+            const blob = new Blob([stateStr], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+
+        function importState() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.txt';
+            fileInput.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        try {
+                            const stateStr = event.target.result;
+                            const state = JSON.parse(atob(stateStr));
+                            b1 = state.b1 || {};
+                            b2 = state.b2 || {};
+                            b1Prob = state.b1Prob || 0.66;
+                            b2Prob = state.b2Prob || 0.34;
+                            defaultFrequency = state.defaultFrequency || 1;
+                            urlPrefix = state.urlPrefix || '';
+                            urlSuffix = state.urlSuffix || '';
+                            initialFiles = state.initialFiles || initialFiles;
+                            initB2Total = getTotalFreq(b2);
+                            document.getElementById('defaultFrequency').value = defaultFrequency;
+                            document.getElementById('urlPrefix').value = urlPrefix;
+                            document.getElementById('urlSuffix').value = urlSuffix;
+                            document.getElementById('defaultFrequency').disabled = true;
+                            saveState();
+                            updateDisplay();
+                            initializeSlider();
+                            alert('State has been imported successfully.');
+                        } catch (e) {
+                            alert('Invalid state data.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            fileInput.click();
+        }
+
+        function getTotalFreq(bucket) {
+            return Object.values(bucket).reduce((sum, freq) => sum + freq, 0);
+        }
+
+        function updateProbabilities() {
+            const sliderValue = parseInt(document.getElementById('probSlider').value);
+            b1Prob = sliderValue / 100;
+            b2Prob = 1 - b1Prob;
+            document.getElementById('probBucket1').innerText = (b1Prob * 100).toFixed(0) + '%';
+            document.getElementById('probBucket2').innerText = (b2Prob * 100).toFixed(0) + '%';
+            saveState();
+        }
+
+        function pickRandom() {
+            updateProbabilities(); // Ensure probabilities are up to date
+
+            const rand = getSecureRandomNumber();
+            let selectedBucket = rand < b1Prob ? 'b1' : 'b2';
+            let bucket = selectedBucket === 'b1' ? b1 : b2;
+
+            if (getTotalFreq(bucket) === 0) {
+                bucket = selectedBucket === 'b1' ? b2 : b1;
+            }
+
+            if (getTotalFreq(bucket) === 0) {
+                alert('Both buckets are empty!');
+                return;
+            }
+
+            const cumulativeFreqs = [];
+            let cumulative = 0;
+            for (const id in bucket) {
+                cumulative += bucket[id];
+                cumulativeFreqs.push([parseInt(id), cumulative]);
+            }
+
+            const totalFreq = cumulative;
+            const randomPick = Math.floor(getSecureRandomNumber() * totalFreq);
+            let selectedId;
+            for (const [id, cumFreq] of cumulativeFreqs) {
+                if (randomPick < cumFreq) {
+                    selectedId = id;
+                    break;
+                }
+            }
+
+            if (selectedId in b1) {
+                b1[selectedId] += 1;
+            } else {
+                b1[selectedId] = 1;
+            }
+
+            if (selectedId in b2) {
+                b2[selectedId] = Math.max(1, b2[selectedId] - 1);
+            }
+
+            saveState();
+
+            const fileDetails = initialFiles.find(file => file[0] === selectedId);
+            const urlBody = fileDetails[1];
+
+            // Updated URL construction
+            let url = urlBody;
+            if (urlPrefix) {
+                url = urlPrefix + url;
+            }
+            if (urlSuffix) {
+                url = url + urlSuffix;
+            }
+
+            updateDisplay();
+            window.open(url, '_blank');
+        }
+
+        function updateDisplay() {
+            const b1Total = getTotalFreq(b1);
+            const b2Total = getTotalFreq(b2);
+            let progress = (b1Total / (b1Total + b2Total)) * 100;
+            if (progress > 100) progress = 100;
+
+            document.getElementById('gauge').value = progress;
+            document.getElementById('gaugeText').innerText = progress.toFixed(2) + '%';
+            document.getElementById('bucket1Freq').innerText = b1Total;
+            document.getElementById('bucket2Freq').innerText = b2Total;
+        }
+
+        function initializeSlider() {
+            const initialSliderValue = (b1Prob * 100).toFixed(0);
+            document.getElementById('probSlider').value = initialSliderValue;
+            document.getElementById('probBucket1').innerText = initialSliderValue + '%';
+            document.getElementById('probBucket2').innerText = (100 - initialSliderValue) + '%';
+        }
+
+        function toggleDefaultFrequency() {
+            const dfInput = document.getElementById('defaultFrequency');
+            if (dfInput.disabled) {
+                dfInput.disabled = false;
+            } else {
+                dfInput.disabled = true;
+                dfInput.value = defaultFrequency;
+            }
+        }
+
+        function saveDefaultFrequency() {
+            const dfInput = document.getElementById('defaultFrequency');
+            const dfValue = dfInput.value.trim();
+            if (dfValue !== '') {
+                const df = parseInt(dfValue);
+                if (!isNaN(df) && df > 0) {
+                    defaultFrequency = df;
+                    // Apply default frequency to elements with null frequency
+                    initialFiles.forEach(file => {
+                        if (file[2] === null || file[2] === defaultFrequency) {
+                            const id = file[0];
+                            const oldFreq = b2[id] || 0;
+                            const freqDifference = defaultFrequency - oldFreq;
+                            b2[id] = defaultFrequency;
+                            initB2Total += freqDifference;
+                        }
+                    });
+                    dfInput.disabled = true;
+                    saveState();
+                    updateDisplay();
+                    alert('Default frequency saved and applied.');
+                } else {
+                    alert('Please enter a valid positive integer for default frequency.');
+                }
+            } else {
+                alert('Default frequency cannot be empty.');
+            }
+        }
+
+        function saveUrlPrefixSuffix() {
+            urlPrefix = document.getElementById('urlPrefix').value.trim();
+            urlSuffix = document.getElementById('urlSuffix').value.trim();
+            saveState();
+            alert('URL prefix and suffix saved.');
+        }
+
+        function main() {
+            loadState();
+            updateDisplay();
+            initializeSlider();
+            // Set initial values for inputs
+            document.getElementById('defaultFrequency').value = defaultFrequency;
+            document.getElementById('urlPrefix').value = urlPrefix;
+            document.getElementById('urlSuffix').value = urlSuffix;
+            document.getElementById('defaultFrequency').disabled = true;
+        }
+
+        window.onload = main;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Random URL Picker</h1>
+
+        <div class="input-container">
+            <label class="form-label">URL Prefix:</label>
+            <input type="text" class="form-control" id="urlPrefix" placeholder="Enter URL Prefix">
+            <label class="form-label">URL Suffix:</label>
+            <input type="text" class="form-control" id="urlSuffix" placeholder="Enter URL Suffix">
+            <button class="btn btn-secondary mt-2" onclick="saveUrlPrefixSuffix()">Save URL Prefix/Suffix</button>
+        </div>
+
+        <div class="input-container">
+            <label class="form-label">Default Frequency:</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="defaultFrequency" value="1" min="1" disabled>
+                <button class="btn btn-secondary" onclick="toggleDefaultFrequency()">Edit</button>
+                <button class="btn btn-primary" onclick="saveDefaultFrequency()">Save</button>
+            </div>
+        </div>
+
+        <div class="slider-container">
+            <label for="probSlider" class="form-label">Adjust Probabilities:</label>
+            <input type="range" class="form-range" id="probSlider" min="0" max="100" value="66" oninput="updateProbabilities()">
+            <div class="slider-label">
+                <span>Bucket 1: <span id="probBucket1">66%</span></span>
+                <span>Bucket 2: <span id="probBucket2">34%</span></span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-draw" onclick="pickRandom()">Draw and Open URL</button>
+
+        <div class="progress-container">
+            <label for="gauge" class="form-label">Progress (Bucket 1 vs. Total):</label>
+            <progress id="gauge" class="form-range w-100" value="0" max="100"></progress>
+            <div class="text-center">
+                <span id="gaugeText">0%</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col text-center">
+                <h5>Bucket 1 Total Frequency</h5>
+                <span id="bucket1Freq">0</span>
+            </div>
+            <div class="col text-center">
+                <h5>Bucket 2 Total Frequency</h5>
+                <span id="bucket2Freq">0</span>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button class="btn btn-secondary btn-export" onclick="exportState()">Export State</button>
+            <button class="btn btn-secondary btn-export" onclick="importState()">Import State</button>
+            <button class="btn btn-danger btn-export" onclick="resetState()">Reset State</button>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-wpsYrgENSMwvWDnK+0hqyc+8zhu+uZdzsOCS8KQmS1b2y2lZjY0Chvh6e+GD44G" crossorigin="anonymous"></script>
+</body>
+</html>

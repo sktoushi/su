@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>Land Cruiser 300</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome for Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .container {
+      /* Widen the max width for the cards */
+      max-width: 1200px;
+      margin-top: 30px;
+      margin-bottom: 100px;
+    }
+    /* Larger button sizing for thumb presses */
+    .btn {
+      padding-top: 1rem;
+      padding-bottom: 1rem;
+      font-size: 1rem;
+    }
+    .btn-draw, .btn-reveal {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .slider-container {
+      margin-bottom: 20px;
+    }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+    }
+    .btn-export {
+      margin-top: 10px;
+    }
+    .gauge-container {
+      margin-bottom: 20px;
+    }
+    .bucket-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .history-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    /* Change flashcard background and text color */
+    .flashcard {
+      border: 2px dashed #aaa;
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      background-color: #424242;
+      color: #ffffff;
+      width: 100%;
+    }
+    .reveal-section {
+      display: none; /* Hidden until "Reveal Answer" is clicked */
+    }
+    #frontTextContainer {
+      margin-bottom: 40px;
+    }
+    .toast-container {
+      z-index: 9999;
+    }
+    .info-box {
+      background-color: #e9ecef;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    /* Progress bar container for CSV/Text uploads (CSV only) */
+    .upload-progress-container {
+      display: none; /* hidden by default until CSV upload triggers it */
+      margin-bottom: 10px;
+    }
+    /* Hide the "New Attribute" area unless a card has been drawn */
+    #attributeSection {
+      display: none;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Display random Pantone color in top-right corner (optional) -->
+  <div id="pantoneColorDisplay"
+       style="position: absolute; top: 10px; right: 10px; background-color: #ffffffcc; padding: 5px; border-radius: 5px; font-weight: bold;"></div>
+
+  <div class="container">
+    <h1 class="text-center" id="pageTitle">Land Cruiser 300</h1>
+
+    <!-- Help (no dark mode) -->
+    <div class="text-end mb-3">
+      <button class="btn btn-info btn-lg" data-bs-toggle="modal" data-bs-target="#helpModal" title="Help">
+        <i class="fas fa-question-circle"></i> Help
+      </button>
+    </div>
+	
+    <!-- (4) Review Gauges, Buckets, History, Export/Import/Reset -->
+    <div class="gauge-container">
+      <label for="review1Gauge" class="form-label">Review1 (Unique Bucket1 Items / Total Cards):</label>
+      <progress id="review1Gauge" class="form-range w-100" value="0" max="100" aria-label="Review1 Gauge"></progress>
+      <div class="text-center">
+        <span id="review1Text">0%</span>
+      </div>
+    </div>
+
+    <div class="gauge-container">
+      <label for="review2Gauge" class="form-label">Remaining (100% - Review1):</label>
+      <progress id="review2Gauge" class="form-range w-100" value="100" max="100" aria-label="Review2 Gauge"></progress>
+      <div class="text-center">
+        <span id="review2Text">100%</span>
+      </div>
+    </div>
+
+    <!-- (1) Text Input Area at the Top -->
+    <div class="mb-4">
+      <label class="form-label">Add Text Post:</label>
+      <textarea id="textPostInput" class="form-control" rows="3" placeholder="Type your text, like a GitHub Issue..."></textarea>
+      <div class="form-text">
+        We'll replace all commas with underscores and store as: "YYMMDD hh:mm:ss, text" (then added to Bucket2).
+      </div>
+      <button class="btn btn-success btn-lg mt-2" onclick="addTextPost()">Add Text to DB</button>
+      <button class="btn btn-secondary btn-lg mt-2 ms-2" onclick="clearTextPost()">Clear Text</button>
+    </div>
+
+    <!-- (2) Probability Slider & Flashcard Region -->
+    <div class="slider-container">
+      <label for="probSlider" class="form-label">Adjust Probabilities (Bucket1 vs Bucket2):</label>
+      <input type="range" class="form-range" id="probSlider" min="0" max="100" value="33"
+             oninput="updateProbabilities()" title="Probability of drawing from Bucket 1">
+      <div class="slider-label">
+        <span>Bucket 1: <span id="probBucket1">33%</span></span>
+        <span>Bucket 2: <span id="probBucket2">67%</span></span>
+      </div>
+    </div>
+
+    <!-- Draw, Reveal, Undo Buttons -->
+    <button class="btn btn-primary btn-lg btn-draw" onclick="drawCard()" title="Draw a card to review">
+      <i class="fas fa-random"></i> Draw Card
+    </button>
+    <button class="btn btn-secondary btn-lg btn-reveal" onclick="revealAnswer()" title="Reveal the back of the card">
+      <i class="fas fa-eye"></i> Reveal Answer
+    </button>
+    <button class="btn btn-warning btn-lg btn-draw" onclick="undoLastDraw()" title="Undo the last drawn card">
+      <i class="fas fa-undo"></i> Undo Last Draw
+    </button>
+
+    <!-- (2b) New Attribute Section -->
+    <div id="attributeSection">
+      <label class="form-label">New Attribute Textarea:</label>
+      <textarea id="newAttributeTextarea" class="form-control" rows="2" placeholder="Add a new attribute for this card..."></textarea>
+      <button class="btn btn-info btn-lg mt-2" onclick="addAttributeToCard()">Add Attribute</button>
+      <!-- NEW DELETE RECORD BUTTON -->
+      <button class="btn btn-danger btn-lg mt-2" onclick="deleteCurrentRecord()">Delete Record</button>
+      <!-- CLEAR ATTRIBUTE TEXTAREA BUTTON -->
+      <button class="btn btn-secondary btn-lg mt-2 ms-2" onclick="clearNewAttributeTextarea()">Clear Attribute Textarea</button>
+    </div>
+
+    <!-- Flashcard Display -->
+    <div class="flashcard" id="flashcard">
+      <!-- FRONT TEXT container -->
+      <div id="frontTextContainer">
+        <span id="frontText"></span>
+      </div>
+      <!-- BACK TEXT container (hidden by default until reveal) -->
+      <div id="backTextContainer" class="reveal-section">
+        <span id="backText"></span>
+      </div>
+    </div>
+
+    <!-- Action Buttons for the Flashcard (Copy & Open as Link) -->
+    <div id="additionalFlashcardButtons" style="text-align:center; margin-bottom:20px;">
+      <button class="btn btn-success btn-lg" onclick="copyFrontText()">Copy Front</button>
+      <button class="btn btn-success btn-lg" onclick="copyBackText()">Copy Back</button>
+      <button class="btn btn-info btn-lg" onclick="openFrontAsLink()">Open Front as Link</button>
+      <button class="btn btn-info btn-lg" onclick="openBackAsLink()">Open Back as Link</button>
+
+      <!-- NEW BUTTONS for MaxMemorizer -->
+      <button class="btn btn-primary btn-lg" onclick="frontCardMaxMemorizer()">
+        FrontCard-MaxMemorizer
+      </button>
+      <button class="btn btn-primary btn-lg" onclick="backCardMaxMemorizer()">
+        BackCard-MaxMemorizer
+      </button>
+    </div>
+
+    <!-- Search Buttons (Google & ChatGPT); hidden until reveal -->
+    <div id="googleSearchButtons" style="display: none; text-align:center; margin-bottom:20px;">
+      <button class="btn btn-outline-primary btn-lg" onclick="googleSearchFront()">Search Google (Front)</button>
+      <button class="btn btn-outline-primary btn-lg" onclick="googleSearchBack()">Search Google (Back)</button>
+      <button class="btn btn-outline-success btn-lg" onclick="chatGPTSearchFront()">Search ChatGPT (Front)</button>
+      <button class="btn btn-outline-success btn-lg" onclick="chatGPTSearchBack()">Search ChatGPT (Back)</button>
+      <button class="btn btn-outline-info btn-lg" onclick="jishoSearchFront()">Search Jisho (Front)</button>
+      <button class="btn btn-outline-info btn-lg" onclick="jishoSearchBack()">Search Jisho (Back)</button>
+    </div>
+
+    <hr />
+
+    <!-- (3) Upload CSVs, DB Info, Download, Clear DB -->
+    <div class="row mb-4">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Upload CSV(s):</label>
+        <input type="file" id="csvFileInput" multiple accept=".csv" class="form-control" />
+        <div class="form-text">
+          Each CSV line is assumed "front,back" (or more attributes). Duplicates are removed.
+          Newly inserted records go into Bucket2 automatically.
+        </div>
+        <button class="btn btn-primary btn-lg mt-2" onclick="handleFiles()">Import to IndexedDB</button>
+
+        <!-- Progress bar for CSV uploading -->
+        <div id="csvUploadProgressContainer" class="upload-progress-container">
+          <div class="progress">
+            <div id="csvUploadProgressBar" class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+          </div>
+        </div>
+
+        <!-- NEW GITHUB FIELDS BELOW "Import to IndexedDB" BUTTON -->
+        <div class="mt-3">
+          <label>Username:</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="githubUsername" disabled>
+            <button class="btn btn-secondary" onclick="editField('githubUsername')">Edit</button>
+            <button class="btn btn-secondary" onclick="saveField('githubUsername')">Save</button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label>Repository:</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="githubRepository" disabled>
+            <button class="btn btn-secondary" onclick="editField('githubRepository')">Edit</button>
+            <button class="btn btn-secondary" onclick="saveField('githubRepository')">Save</button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label>Issue Range Start:</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="issueRangeStart" disabled>
+            <button class="btn btn-secondary" onclick="editField('issueRangeStart')">Edit</button>
+            <button class="btn btn-secondary" onclick="saveField('issueRangeStart')">Save</button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label>Issue Range End:</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="issueRangeEnd" disabled>
+            <button class="btn btn-secondary" onclick="editField('issueRangeEnd')">Edit</button>
+            <button class="btn btn-secondary" onclick="saveField('issueRangeEnd')">Save</button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <button class="btn btn-primary btn-lg" onclick="importGitHubIssueLinks()">Import GitHub Issue Links</button>
+          <button class="btn btn-warning btn-lg ms-2" onclick="resetFields()">Reset Fields</button>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <button class="btn btn-dark btn-lg mt-4" onclick="downloadAllRecords()">Download All as CSV</button>
+        <button class="btn btn-danger btn-lg mt-4 ms-2" onclick="clearDatabase()">Clear IndexedDB</button>
+        <div class="info-box mt-3">
+          <strong>DB Size:</strong>
+          <span id="dbSizeSpan">0 kB</span>
+        </div>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- Bucket Lists -->
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Bucket 1 Total Frequency: <span id="bucket1Freq">0</span></h5>
+        <ul class="list-group bucket-list" id="bucket1List" aria-label="Bucket 1 Items"></ul>
+      </div>
+      <div class="col-md-6">
+        <h5>Bucket 2 Total Frequency: <span id="bucket2Freq">0</span></h5>
+        <ul class="list-group bucket-list" id="bucket2List" aria-label="Bucket 2 Items"></ul>
+      </div>
+    </div>
+
+    <!-- Draw History -->
+    <div class="mt-4">
+      <h5>Draw History (Last 5):</h5>
+      <ul class="list-group history-list" id="historyList" aria-label="Draw History"></ul>
+    </div>
+
+    <!-- Action Buttons (Export/Import/Reset) -->
+    <div class="text-center mt-4">
+      <button class="btn btn-secondary btn-lg btn-export" onclick="exportState()" title="Export current review state as JSON">
+        <i class="fas fa-file-export"></i> Export Buckets
+      </button>
+      <button class="btn btn-secondary btn-lg btn-export" onclick="importState()" title="Import an existing state from a JSON file">
+        <i class="fas fa-file-import"></i> Import Buckets
+      </button>
+      <button class="btn btn-danger btn-lg btn-export" onclick="resetBuckets()" title="Reset just the Bucket1/Bucket2 arrangement">
+        <i class="fas fa-trash-alt"></i> Reset Buckets
+      </button>
+    </div>
+
+    <!-- Toast Container -->
+    <div aria-live="polite" aria-atomic="true" class="position-relative toast-container">
+      <div id="toastContainer" class="position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+        <!-- Toasts appended here -->
+      </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="helpModalLabel">Help & Instructions</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <h6>Overview</h6>
+            <p>
+              This page can optionally read a <code>?target=someFile.csv</code> param to pick a specific CSV from your GitHub Pages folder.
+              If found, it will store everything in a separate DB for that file so it doesn’t mix with others.
+              If that DB is empty, we’ll automatically fetch the CSV.
+            </p>
+            <p>
+              Each record in the DB can contain multiple attributes (e.g. "front,back,attr3,..."). We treat every pair of distinct attributes as a possible flashcard direction.
+            </p>
+            <h6>Usage Steps</h6>
+            <ol>
+              <li>If you provide <code>?target=someFile.csv</code>, the script tries to open or create a <em>separate</em> IndexedDB named for that file.
+                  Then if that DB is empty, it automatically fetches <code>someFile.csv</code> from the server and loads it.</li>
+              <li><strong>Upload CSV(s)</strong> or <strong>Add Text Post</strong> to add more data. All new lines go into Bucket2, so they can be drawn as flashcards.</li>
+              <li><strong>Download All as CSV</strong>: merges everything in the DB into one CSV, removing duplicates.</li>
+              <li><strong>Clear IndexedDB</strong> or <strong>Reset Buckets</strong> as needed.</li>
+              <li>Flashcards: Draw, Reveal, Undo. You can also Copy or Open front/back as a link, or search via Google/ChatGPT/Jisho after revealing.</li>
+              <li>After drawing a card, you can add more attributes to that underlying record. New attribute permutations will appear in Bucket2.</li>
+            </ol>
+            <h6>Notes</h6>
+            <ul>
+              <li>DB size is displayed in kB (approximate, based on sum of text lengths / 1024).</li>
+              <li>If your CSV line has fewer than 2 attributes, we still generate permutations for whatever is there. E.g. a single attribute has no pairs, so it won't appear as a flashcard.</li>
+              <li>The random Pantone background colors come from an optional <code>pantone-colors.json</code> file.
+                  If missing, background defaults to white.</li>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /container -->
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-wpsYrgENSMwvWDnK+0hqyc+8zhu+uZdzsOCS8KQmS1b2y2lZjY0Chvh6e+GD44G"
+          crossorigin="anonymous"></script>
+
+  <script>
+    /****************************************************
+     *   URL Param helper
+     ****************************************************/
+    function getUrlParameter(name) {
+      name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      const results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    /****************************************************
+     *  Determine DB name from "target" param
+     ****************************************************/
+    let rawTargetParam = getUrlParameter('target').trim();
+    let DB_NAME = '';
+    // If user provided ?target=someFile.csv, then use "myCsvDb_someFile_csv" as DB name.
+    // Otherwise, default to "myCsvDb_default".
+    if (rawTargetParam) {
+      // sanitize file name to avoid special chars
+      let sanitized = rawTargetParam.replace(/[^a-zA-Z0-9_\-]/g, '_');
+      DB_NAME = 'myCsvDb_' + sanitized;
+    } else {
+      DB_NAME = 'myCsvDb_default';
+    }
+
+    const DB_VERSION = 1;
+    const STORE_NAME = 'records';
+
+    // localBucketsKey should also be unique for each target
+    let localBucketsKey = rawTargetParam
+      ? 'flashcardBuckets_' + rawTargetParam.replace(/[^a-zA-Z0-9_\-]/g, '_')
+      : 'flashcardBuckets_default';
+
+    let db = null;
+
+    // In-memory array of all DB records -> {id, text}
+    let allRecords = [];
+
+    // Flashcard bucket state
+    let state = {
+      b1: {}, // { cardId: frequency }
+      b2: {}, // { cardId: frequency }
+      uniqueBucket1Count: 0,
+      b1Prob: 0.33,
+      b2Prob: 0.67,
+      drawHistory: []
+    };
+    const historyLimit = 5;
+    let lastDrawnId = null; // store the card ID we last drew
+    let currentlyDrawnRecordId = null;
+
+    // Prevent consecutive or infinite date-based auto-draws:
+    let autoDrawExecuted = false;
+
+    // Default values for GitHub fields
+    const DEFAULT_USERNAME = "sktoushi";
+    const DEFAULT_REPOSITORY = "stash2";
+    const DEFAULT_ISSUE_RANGE_START = "";
+    const DEFAULT_ISSUE_RANGE_END = "";
+
+    window.addEventListener('load', async () => {
+      await openDatabase();
+
+      // load records to see if DB is empty
+      await loadAllRecordsToMemory();
+      updateDbSizeDisplay();
+
+      // If we have a "target" param AND the DB is empty, attempt fetching that CSV
+      if (rawTargetParam && allRecords.length === 0) {
+        console.log(`DB is empty. Attempting to fetch CSV: ${rawTargetParam}`);
+        let success = await autoFetchTargetCsv(rawTargetParam);
+        if (success > 0) {
+          console.log(`Fetched and inserted ${success} lines from ${rawTargetParam}`);
+          await loadAllRecordsToMemory();
+          updateDbSizeDisplay();
+        } else {
+          console.log(`No lines inserted or fetch failed for target: ${rawTargetParam}`);
+        }
+      }
+
+      // Load bucket arrangement from localStorage
+      loadBucketState();
+
+      // Auto-populate Bucket2 if DB has data but buckets are empty
+      autoPopulateBucketIfEmpty();
+
+      // Now do normal UI updates
+      updateProbabilities();
+      populateBucketLists();
+      populateHistoryList();
+      updateDisplay();
+      getRandomColor();
+
+      // Make all buttons also trigger a new random color
+      const allButtons = document.querySelectorAll('button');
+      allButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          getRandomColor();
+        });
+      });
+
+      // Initialize GitHub fields from localStorage or defaults
+      initializeGitHubFields();
+    });
+
+    /****************************************************
+     *  openDatabase
+     ****************************************************/
+    async function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, {
+              keyPath: 'id',
+              autoIncrement: true
+            });
+            store.createIndex('textIndex', 'text', { unique: true });
+          }
+        };
+        request.onsuccess = (event) => {
+          db = event.target.result;
+          resolve(db);
+        };
+        request.onerror = (event) => {
+          console.error('IndexedDB error:', event.target.error);
+          reject(event.target.error);
+        };
+      });
+    }
+
+    /****************************************************
+     *  autoFetchTargetCsv
+     ****************************************************/
+    async function autoFetchTargetCsv(fileName) {
+      try {
+        const response = await fetch(fileName);
+        if (!response.ok) throw new Error(`Cannot fetch ${fileName}`);
+        const text = await response.text();
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return 0;
+        const insertedCount = await addLinesToDb(lines, false, lines.length);
+        return insertedCount;
+      } catch (err) {
+        console.error(`autoFetchTargetCsv error for ${fileName}:`, err);
+        return 0;
+      }
+    }
+
+    /****************************************************
+     *  loadAllRecordsToMemory
+     ****************************************************/
+    async function loadAllRecordsToMemory() {
+      allRecords = [];
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.openCursor();
+        request.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            allRecords.push({ id: cursor.value.id, text: cursor.value.text });
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        request.onerror = (err) => reject(err);
+      });
+    }
+
+    function updateDbSizeDisplay() {
+      let totalChars = 0;
+      for (const rec of allRecords) {
+        totalChars += rec.text.length;
+      }
+      const kB = (totalChars / 1024).toFixed(2);
+      document.getElementById("dbSizeSpan").textContent = `${kB} kB`;
+    }
+
+    /****************************************************
+     * autoPopulateBucketIfEmpty
+     ****************************************************/
+    function autoPopulateBucketIfEmpty() {
+      const totalBucketFreq = getTotalFreq(state.b1) + getTotalFreq(state.b2);
+      if (allRecords.length > 0 && totalBucketFreq === 0) {
+        console.log("No existing bucket data; auto-populating Bucket2 with existing DB lines.");
+        populateAllInBucket2();
+        saveBucketState();
+      }
+    }
+
+    function populateAllInBucket2() {
+      const cards = buildAllCards();
+      for (const c of cards) {
+        if (state.b1[c.id] == null && state.b2[c.id] == null) {
+          state.b2[c.id] = 1;
+        }
+      }
+      console.log(`Auto-populated ${cards.length} card IDs into bucket2 (where none existed).`);
+    }
+
+    /****************************************************
+     * handleFiles (CSV upload)
+     ****************************************************/
+    async function handleFiles() {
+      const fileInput = document.getElementById('csvFileInput');
+      const files = fileInput.files;
+      if (!files || files.length === 0) {
+        alert("No CSV file selected.");
+        return;
+      }
+      showCsvUploadProgress(true);
+      let totalInserted = 0;
+      let totalLines = 0;
+
+      for (const file of files) {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        totalLines += lines.length;
+        const inserted = await addLinesToDb(lines, true, lines.length);
+        totalInserted += inserted;
+      }
+
+      fileInput.value = "";
+      showCsvUploadProgress(false);
+
+      showToast(`Imported ${totalInserted} new line(s) out of ${totalLines} total lines read.`);
+      await refreshData();
+    }
+
+    /****************************************************
+     * addLinesToDb
+     ****************************************************/
+    async function addLinesToDb(lines, useProgressBar=false, totalCount=0) {
+      return new Promise((resolve, reject) => {
+        let addedCount = 0;
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const textIndex = store.index('textIndex');
+
+        let processedCount = 0;
+
+        function processNextLine(i) {
+          if (i >= lines.length) {
+            resolve(addedCount);
+            return;
+          }
+          const line = lines[i];
+          if (!line.trim()) {
+            processedCount++;
+            if (useProgressBar) updateCsvUploadProgress(processedCount, totalCount);
+            processNextLine(i + 1);
+            return;
+          }
+          const checkReq = textIndex.get(line);
+          checkReq.onsuccess = () => {
+            if (checkReq.result) {
+              processedCount++;
+              if (useProgressBar) updateCsvUploadProgress(processedCount, totalCount);
+              processNextLine(i + 1);
+            } else {
+              const addReq = store.add({ text: line });
+              addReq.onsuccess = (evt) => {
+                addedCount++;
+                processedCount++;
+                if (useProgressBar) updateCsvUploadProgress(processedCount, totalCount);
+
+                const newId = evt.target.result;
+                addRecordPermutationsToBucket2(newId, line);
+
+                processNextLine(i + 1);
+              };
+              addReq.onerror = (err) => {
+                console.error(err);
+                processedCount++;
+                if (useProgressBar) updateCsvUploadProgress(processedCount, totalCount);
+                processNextLine(i + 1);
+              };
+            }
+          };
+          checkReq.onerror = (err) => {
+            console.error(err);
+            processedCount++;
+            if (useProgressBar) updateCsvUploadProgress(processedCount, totalCount);
+            processNextLine(i + 1);
+          };
+        }
+
+        tx.oncomplete = () => {
+          saveBucketState();
+        };
+        tx.onerror = (err) => {
+          console.error('Transaction error:', err);
+          reject(err);
+        };
+
+        processNextLine(0);
+      });
+    }
+
+    function addRecordPermutationsToBucket2(recordId, recordText) {
+      const perms = generatePermutationsForRecord(recordId, recordText);
+      for (let p of perms) {
+        if (!state.b1[p.id] && !state.b2[p.id]) {
+          state.b2[p.id] = 1;
+        }
+      }
+    }
+
+    async function refreshData() {
+      await loadAllRecordsToMemory();
+      updateDbSizeDisplay();
+      autoPopulateBucketIfEmpty();
+    }
+
+    function showCsvUploadProgress(show) {
+      const container = document.getElementById("csvUploadProgressContainer");
+      if (show) {
+        container.style.display = "block";
+        updateCsvUploadProgress(0, 1);
+      } else {
+        container.style.display = "none";
+      }
+    }
+
+    function updateCsvUploadProgress(current, total) {
+      const bar = document.getElementById("csvUploadProgressBar");
+      if (total === 0) {
+        bar.style.width = "0%";
+        bar.textContent = "0%";
+        return;
+      }
+      const pct = Math.floor((current / total) * 100);
+      bar.style.width = pct + "%";
+      bar.textContent = pct + "%";
+    }
+
+    /****************************************************
+     * Add Text Post
+     ****************************************************/
+    async function addTextPost() {
+      const textArea = document.getElementById('textPostInput');
+      let rawText = textArea.value.trim();
+      if (!rawText) {
+        alert("No text entered.");
+        return;
+      }
+
+      rawText = rawText.replace(/,/g, "_");
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const datePrefix = `${yy}${mm}${dd} ${hh}:${min}:${ss}`;
+      const fullLine = `${datePrefix}, ${rawText}`;
+
+      const inserted = await addLinesToDb([fullLine], false, 1);
+      if (inserted > 0) {
+        showToast("Text post added to DB!");
+      } else {
+        showToast("That exact line already exists in DB; skipping.");
+      }
+      await refreshData();
+
+      textArea.value = "";
+    }
+
+    function clearTextPost() {
+      const textArea = document.getElementById("textPostInput");
+      textArea.value = "";
+    }
+
+    /****************************************************
+     * Download / Clear DB
+     ****************************************************/
+    async function downloadAllRecords() {
+      if (allRecords.length === 0) {
+        alert("No records in DB to download.");
+        return;
+      }
+      const sorted = [...allRecords].sort((a, b) => a.id - b.id);
+      const minId = sorted[0].id;
+      const maxId = sorted[sorted.length - 1].id;
+
+      let csvOutput = "";
+      for (const rec of sorted) {
+        csvOutput += rec.text + "\n";
+      }
+
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mi = String(now.getMinutes()).padStart(2, '0');
+
+      const fileName = `indexedDb-${yy}${mo}${dd}_${hh}${mi}-${minId}-${maxId}.csv`;
+      const blob = new Blob([csvOutput], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+    }
+
+    async function clearDatabase() {
+      if (!confirm("Are you sure you want to clear ALL data in IndexedDB? This is irreversible.")) {
+        return;
+      }
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const clearReq = store.clear();
+      clearReq.onsuccess = async () => {
+        showToast("Database cleared!");
+        await refreshData();
+        resetBuckets(true);
+      };
+      clearReq.onerror = (err) => {
+        console.error(err);
+      };
+    }
+
+    /****************************************************
+     * FLASHCARD LOGIC
+     ****************************************************/
+    function generatePermutationsForRecord(recordId, recordText) {
+      let attributes = recordText.split(",").map(a => a.trim()).filter(a => a.length > 0);
+      const results = [];
+      let pairIndex = 0;
+      for (let i = 0; i < attributes.length; i++) {
+        for (let j = 0; j < attributes.length; j++) {
+          if (i !== j) {
+            const front = attributes[i];
+            const back = attributes[j];
+            // build a unique card ID
+            const cardUniqueId = (recordId << 16) + pairIndex;
+            results.push({ id: cardUniqueId, front, back });
+            pairIndex++;
+          }
+        }
+      }
+      return results;
+    }
+
+    function buildAllCards() {
+      const allCardsOut = [];
+      for (const r of allRecords) {
+        const perms = generatePermutationsForRecord(r.id, r.text);
+        allCardsOut.push(...perms);
+      }
+      return allCardsOut;
+    }
+
+    function getRecordIdFromCardId(cardId) {
+      return (cardId >>> 16);
+    }
+
+    function isValidURL(str) {
+      try {
+        new URL(str);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function isDateTimeFormat(str) {
+      const regex = /^\d{6} \d{2}:\d{2}:\d{2}$/;
+      return regex.test(str);
+    }
+
+    function autoOpenUrlIfDateOnOtherSide(front, back) {
+      const frontIsDate = isDateTimeFormat(front);
+      const backIsDate  = isDateTimeFormat(back);
+      const frontIsUrl  = isValidURL(front);
+      const backIsUrl   = isValidURL(back);
+
+      if (frontIsDate && backIsUrl) {
+        openBackAsLink();
+      } else if (backIsDate && frontIsUrl) {
+        openFrontAsLink();
+      }
+    }
+
+    let allCards = [];
+    let currentFront = "";
+    let currentBack = "";
+
+    function drawCard() {
+      if (allRecords.length === 0) {
+        alert("No data in DB to draw from. Upload CSV or add text first.");
+        return;
+      }
+      allCards = buildAllCards();
+
+      document.getElementById("backTextContainer").style.display = "none";
+      document.getElementById("googleSearchButtons").style.display = "none";
+
+      const revealBtn = document.querySelector('.btn-reveal');
+      revealBtn.disabled = false;
+      autoDrawExecuted = false;
+
+      const rand = cryptoRand();
+      let chosenBucket = (rand < state.b1Prob) ? "b1" : "b2";
+      if (getTotalFreq(state[chosenBucket]) === 0) {
+        chosenBucket = (chosenBucket === "b1") ? "b2" : "b1";
+      }
+      if (getTotalFreq(state[chosenBucket]) === 0) {
+        alert("No cards to draw from either bucket.");
+        return;
+      }
+
+      const selectedId = weightedPick(state[chosenBucket]);
+      lastDrawnId = selectedId; // store the card ID
+      currentlyDrawnRecordId = getRecordIdFromCardId(selectedId);
+
+      // Move from bucket2 => bucket1, or increment bucket1 freq
+      if (!(selectedId in state.b1)) {
+        state.b1[selectedId] = 1;
+        state.uniqueBucket1Count++;
+      } else {
+        state.b1[selectedId]++;
+      }
+      if (selectedId in state.b2) {
+        state.b2[selectedId] = Math.max(0, state.b2[selectedId] - 1);
+        if (state.b2[selectedId] === 0) {
+          delete state.b2[selectedId];
+        }
+      }
+
+      saveBucketState();
+      updateDisplay();
+      populateBucketLists();
+
+      const card = allCards.find(c => c.id === selectedId);
+      if (!card) {
+        alert("Something went wrong: card not found.");
+        return;
+      }
+      currentFront = card.front;
+      currentBack = card.back;
+
+      const frontEl = document.getElementById("frontText");
+      const backEl = document.getElementById("backText");
+      frontEl.innerText = currentFront;
+      backEl.innerText = currentBack;
+      adjustFontSize(frontEl, currentFront);
+      adjustFontSize(backEl, currentBack);
+
+      addToHistory(selectedId);
+      populateHistoryList();
+
+      // Show the attribute section
+      document.getElementById("attributeSection").style.display = "block";
+
+      // Auto-open if front is URL
+      if (isValidURL(currentFront)) {
+        openFrontAsLink();
+      }
+
+      // If exactly one side is date and the other is URL, open
+      autoOpenUrlIfDateOnOtherSide(currentFront, currentBack);
+
+      // If back side is URL, open it and disable reveal
+      if (isValidURL(currentBack)) {
+        openBackAsLink();
+        revealBtn.disabled = true;
+      }
+    }
+
+    function revealAnswer() {
+      document.getElementById("backTextContainer").style.display = "block";
+      document.getElementById("googleSearchButtons").style.display = "block";
+
+      autoOpenUrlIfDateOnOtherSide(currentFront, currentBack);
+
+      if (isDateTimeFormat(currentBack) && !autoDrawExecuted) {
+        autoDrawExecuted = true;
+        drawCard();
+      }
+    }
+
+    function undoLastDraw() {
+      if (lastDrawnId == null) {
+        alert("No recent draw to undo!");
+        return;
+      }
+      if (!(lastDrawnId in state.b1)) {
+        alert("Cannot undo: card not found in Bucket 1.");
+        return;
+      }
+      state.b1[lastDrawnId]--;
+      if (state.b1[lastDrawnId] <= 0) {
+        delete state.b1[lastDrawnId];
+        state.uniqueBucket1Count--;
+      }
+      if (lastDrawnId in state.b2) {
+        state.b2[lastDrawnId]++;
+      } else {
+        state.b2[lastDrawnId] = 1;
+      }
+      state.drawHistory.shift();
+
+      lastDrawnId = null;
+      currentlyDrawnRecordId = null;
+      document.getElementById("attributeSection").style.display = "none";
+
+      saveBucketState();
+      updateDisplay();
+      populateBucketLists();
+      populateHistoryList();
+      showToast("Last draw undone.");
+    }
+
+    /****************************************************
+     * Add Attribute
+     ****************************************************/
+    async function addAttributeToCard() {
+      if (lastDrawnId == null || currentlyDrawnRecordId == null) {
+        alert("No card is currently drawn!");
+        return;
+      }
+      const textArea = document.getElementById("newAttributeTextarea");
+      let rawText = textArea.value.trim();
+      if (!rawText) {
+        alert("No attribute text entered.");
+        return;
+      }
+      rawText = rawText.replace(/,/g, "_").replace(/'/g, "_").replace(/"/g, "_");
+
+      const rec = allRecords.find(r => r.id === currentlyDrawnRecordId);
+      if (!rec) {
+        alert("Failed to find the underlying record for this card!");
+        return;
+      }
+
+      let updatedText = rec.text.trim();
+      if (updatedText.endsWith(",")) {
+        updatedText += rawText;
+      } else {
+        updatedText += "," + rawText;
+      }
+
+      await updateRecordInDb(rec.id, updatedText);
+      await refreshData();
+      rebuildBucketsForRecord(rec.id, updatedText);
+
+      saveBucketState();
+      updateDisplay();
+      populateBucketLists();
+      populateHistoryList();
+
+      showToast("New attribute added successfully!");
+      textArea.value = "";
+    }
+
+    function clearNewAttributeTextarea() {
+      document.getElementById("newAttributeTextarea").value = "";
+    }
+
+    function updateRecordInDb(recordId, newText) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const getReq = store.get(recordId);
+        getReq.onsuccess = (e) => {
+          const data = e.target.result;
+          if (!data) {
+            reject("Record not found in DB");
+            return;
+          }
+          data.text = newText;
+          const putReq = store.put(data);
+          putReq.onsuccess = () => {
+            resolve(true);
+          };
+          putReq.onerror = (err) => reject(err);
+        };
+        getReq.onerror = (err) => reject(err);
+      });
+    }
+
+    function rebuildBucketsForRecord(recordId, newText) {
+      const oldCardIds = [];
+      for (const cid of Object.keys(state.b1)) {
+        const cNum = parseInt(cid, 10);
+        const rId = getRecordIdFromCardId(cNum);
+        if (rId === recordId) {
+          oldCardIds.push(cNum);
+        }
+      }
+      for (const cid of Object.keys(state.b2)) {
+        const cNum = parseInt(cid, 10);
+        const rId = getRecordIdFromCardId(cNum);
+        if (rId === recordId) {
+          oldCardIds.push(cNum);
+        }
+      }
+      const uniqueOldCardIds = [...new Set(oldCardIds)];
+
+      for (const ocid of uniqueOldCardIds) {
+        if (ocid in state.b1) {
+          if (state.b1[ocid] > 0) {
+            state.uniqueBucket1Count--;
+          }
+          delete state.b1[ocid];
+        }
+        if (ocid in state.b2) {
+          delete state.b2[ocid];
+        }
+      }
+      addRecordPermutationsToBucket2(recordId, newText);
+    }
+
+    /****************************************************
+     * DELETE CURRENT RECORD
+     ****************************************************/
+    async function deleteCurrentRecord() {
+      if (!currentlyDrawnRecordId) {
+        alert("No card is currently drawn!");
+        return;
+      }
+      if (!confirm("Are you sure you want to delete this record from the DB? This is irreversible.")) {
+        return;
+      }
+
+      const recordId = currentlyDrawnRecordId;
+      await removeRecordFromDb(recordId);
+      removePermutationsForRecord(recordId);
+
+      await refreshData();
+      document.getElementById("attributeSection").style.display = "none";
+
+      lastDrawnId = null;
+      currentlyDrawnRecordId = null;
+      document.getElementById("frontText").innerText = "";
+      document.getElementById("backText").innerText = "";
+      document.getElementById("backTextContainer").style.display = "none";
+      document.getElementById("googleSearchButtons").style.display = "none";
+
+      saveBucketState();
+      updateDisplay();
+      populateBucketLists();
+      populateHistoryList();
+
+      showToast("Record deleted successfully.");
+    }
+
+    function removeRecordFromDb(recordId) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const deleteReq = store.delete(recordId);
+        deleteReq.onsuccess = () => {
+          resolve(true);
+        };
+        deleteReq.onerror = (err) => {
+          reject(err);
+        };
+      });
+    }
+
+    function removePermutationsForRecord(recordId) {
+      const oldCardIds = [];
+      for (const cid of Object.keys(state.b1)) {
+        const cNum = parseInt(cid, 10);
+        const rId = getRecordIdFromCardId(cNum);
+        if (rId === recordId) {
+          oldCardIds.push(cNum);
+        }
+      }
+      for (const cid of Object.keys(state.b2)) {
+        const cNum = parseInt(cid, 10);
+        const rId = getRecordIdFromCardId(cNum);
+        if (rId === recordId) {
+          oldCardIds.push(cNum);
+        }
+      }
+      const uniqueOldCardIds = [...new Set(oldCardIds)];
+
+      for (const ocid of uniqueOldCardIds) {
+        if (ocid in state.b1) {
+          if (state.b1[ocid] > 0) {
+            state.uniqueBucket1Count--;
+          }
+          delete state.b1[ocid];
+        }
+        if (ocid in state.b2) {
+          delete state.b2[ocid];
+        }
+      }
+    }
+
+    /****************************************************
+     * Probability
+     ****************************************************/
+    function getTotalFreq(bucket) {
+      return Object.values(bucket).reduce((acc, val) => acc + val, 0);
+    }
+
+    function weightedPick(bucketObj) {
+      const entries = Object.entries(bucketObj);
+      const total = entries.reduce((acc, [_, freq]) => acc + freq, 0);
+      const randVal = Math.floor(cryptoRand() * total);
+      let sum = 0;
+      for (let [key, freq] of entries) {
+        sum += freq;
+        if (randVal < sum) {
+          return Number(key);
+        }
+      }
+      return Number(entries[entries.length - 1][0]);
+    }
+
+    function cryptoRand() {
+      const arr = new Uint32Array(1);
+      window.crypto.getRandomValues(arr);
+      return arr[0] / (0xffffffff + 1);
+    }
+
+    function updateProbabilities() {
+      const sliderVal = parseInt(document.getElementById("probSlider").value);
+      state.b1Prob = sliderVal / 100;
+      state.b2Prob = 1 - state.b1Prob;
+      document.getElementById("probBucket1").innerText = (state.b1Prob * 100).toFixed(0) + "%";
+      document.getElementById("probBucket2").innerText = (state.b2Prob * 100).toFixed(0) + "%";
+      saveBucketState();
+    }
+
+    /****************************************************
+     * Export/Import/Reset
+     ****************************************************/
+    function exportState() {
+      const str = JSON.stringify(state, null, 2);
+      const blob = new Blob([str], { type: "application/json" });
+      const now = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `flashcard-buckets-${now}.json`;
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+
+      showToast("Bucket state exported successfully.");
+    }
+
+    function importState() {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".json,application/json";
+      fileInput.onchange = e => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = event => {
+            try {
+              const imported = JSON.parse(event.target.result);
+              state = { ...state, ...imported };
+              saveBucketState();
+              updateDisplay();
+              populateBucketLists();
+              populateHistoryList();
+              showToast("Bucket state imported successfully.");
+            } catch (err) {
+              alert("Invalid JSON file.");
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+      fileInput.click();
+    }
+
+    function resetBuckets(fully = false) {
+      if (!fully && !confirm("Reset bucket arrangement? (This will not delete your IndexedDB data, only the 'review progress')")) return;
+      state = {
+        b1: {},
+        b2: {},
+        uniqueBucket1Count: 0,
+        b1Prob: state.b1Prob,
+        b2Prob: state.b2Prob,
+        drawHistory: []
+      };
+      allCards = buildAllCards();
+      for (let card of allCards) {
+        state.b2[card.id] = 1;
+      }
+      saveBucketState();
+      updateDisplay();
+      populateBucketLists();
+      populateHistoryList();
+
+      document.getElementById("attributeSection").style.display = "none";
+
+      if (!fully) {
+        showToast("Buckets reset. All items are back in Bucket2.");
+      }
+    }
+
+    function saveBucketState() {
+      localStorage.setItem(localBucketsKey, JSON.stringify(state));
+    }
+
+    function loadBucketState() {
+      const raw = localStorage.getItem(localBucketsKey);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          state = { ...state, ...parsed };
+        } catch(e) {
+          console.warn("Failed to parse saved bucket state, ignoring.");
+        }
+      }
+    }
+
+    /****************************************************
+     * Copy / Open
+     ****************************************************/
+    function copyFrontText() {
+      if (!currentFront) return;
+      navigator.clipboard.writeText(currentFront)
+        .then(() => showToast("Front card copied!"))
+        .catch(() => alert("Unable to copy front text."));
+    }
+
+    function copyBackText() {
+      if (!currentBack) return;
+      navigator.clipboard.writeText(currentBack)
+        .then(() => showToast("Back card copied!"))
+        .catch(() => alert("Unable to copy back text."));
+    }
+
+    function openFrontAsLink() {
+      if (!currentFront) return;
+      window.open(currentFront, "_blank");
+    }
+
+    function openBackAsLink() {
+      if (!currentBack) return;
+      window.open(currentBack, "_blank");
+    }
+
+    /****************************************************
+     * NEW: Redirect to maxmemorizer with the DB name, plus cardId & side
+     ****************************************************/
+    function frontCardMaxMemorizer() {
+      if (!lastDrawnId) return; // ensure we have a drawn card
+      const url = `maxmemorizer.html?db=${DB_NAME}&cardId=${lastDrawnId}&side=front`;
+      window.open(url, "_blank");
+    }
+
+    function backCardMaxMemorizer() {
+      if (!lastDrawnId) return; // ensure we have a drawn card
+      const url = `maxmemorizer.html?db=${DB_NAME}&cardId=${lastDrawnId}&side=back`;
+      window.open(url, "_blank");
+    }
+
+    /****************************************************
+     * Searching
+     ****************************************************/
+    function googleSearchFront() {
+      if (!currentFront) return;
+      window.open("https://www.google.com/search?q=" + encodeURIComponent(currentFront), "_blank");
+    }
+
+    function googleSearchBack() {
+      if (!currentBack) return;
+      window.open("https://www.google.com/search?q=" + encodeURIComponent(currentBack), "_blank");
+    }
+
+    function chatGPTSearchFront() {
+      if (!currentFront) return;
+      window.open("https://chat.openai.com/?q=" + encodeURIComponent(currentFront), "_blank");
+    }
+
+    function chatGPTSearchBack() {
+      if (!currentBack) return;
+      window.open("https://chat.openai.com/?q=" + encodeURIComponent(currentBack), "_blank");
+    }
+
+    function jishoSearchFront() {
+      if (!currentFront) return;
+      window.open("https://jisho.org/search/" + encodeURIComponent(currentFront), "_blank");
+    }
+
+    function jishoSearchBack() {
+      if (!currentBack) return;
+      window.open("https://jisho.org/search/" + encodeURIComponent(currentBack), "_blank");
+    }
+
+    /****************************************************
+     * Font size logic
+     ****************************************************/
+    function adjustFontSize(element, text) {
+      const length = text.length;
+      if (length <= 3) {
+        element.style.fontSize = "3rem";
+      } else if (length <= 10) {
+        element.style.fontSize = "2.5rem";
+      } else if (length <= 30) {
+        element.style.fontSize = "2rem";
+      } else {
+        element.style.fontSize = "1.25rem";
+      }
+    }
+
+    /****************************************************
+     * History
+     ****************************************************/
+    function addToHistory(cardId) {
+      const ts = new Date().toLocaleString();
+      const card = allCards.find(c => c.id === cardId);
+      if (!card) return;
+      const entry = {
+        id: cardId,
+        front: card.front,
+        back: card.back,
+        timestamp: ts
+      };
+      state.drawHistory.unshift(entry);
+      while (state.drawHistory.length > 5) {
+        state.drawHistory.pop();
+      }
+    }
+
+    function populateHistoryList() {
+      const historyList = document.getElementById("historyList");
+      historyList.innerHTML = "";
+      for (let h of state.drawHistory) {
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.innerHTML = `<strong>${h.timestamp}:</strong> ${h.front} → ${h.back}`;
+        historyList.appendChild(li);
+      }
+    }
+
+    /****************************************************
+     * Bucket Lists
+     ****************************************************/
+    function populateBucketLists() {
+      allCards = buildAllCards();
+      const b1List = document.getElementById("bucket1List");
+      const b2List = document.getElementById("bucket2List");
+      b1List.innerHTML = "";
+      b2List.innerHTML = "";
+
+      const cardMap = {};
+      for (let c of allCards) {
+        cardMap[c.id] = c;
+      }
+
+      for (let cardId in state.b1) {
+        const freq = state.b1[cardId];
+        const cInfo = cardMap[cardId];
+        if (!cInfo) continue;
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.textContent = `${cInfo.front} → ${cInfo.back} (Freq: ${freq})`;
+        b1List.appendChild(li);
+      }
+
+      for (let cardId in state.b2) {
+        const freq = state.b2[cardId];
+        const cInfo = cardMap[cardId];
+        if (!cInfo) continue;
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.textContent = `${cInfo.front} → ${cInfo.back} (Freq: ${freq})`;
+        b2List.appendChild(li);
+      }
+
+      document.getElementById("bucket1Freq").innerText = getTotalFreq(state.b1);
+      document.getElementById("bucket2Freq").innerText = getTotalFreq(state.b2);
+    }
+
+    /****************************************************
+     * Gauges & display
+     ****************************************************/
+    function updateDisplay() {
+      allCards = buildAllCards();
+      const totalCards = allCards.length;
+      if (totalCards === 0) {
+        document.getElementById("review1Gauge").value = 0;
+        document.getElementById("review1Text").innerText = "0%";
+        document.getElementById("review2Gauge").value = 100;
+        document.getElementById("review2Text").innerText = "100%";
+        return;
+      }
+      const fraction = (state.uniqueBucket1Count / totalCards) * 100;
+      const fraction2 = 100 - fraction;
+
+      const r1Gauge = document.getElementById("review1Gauge");
+      const r1Text = document.getElementById("review1Text");
+      const r2Gauge = document.getElementById("review2Gauge");
+      const r2Text = document.getElementById("review2Text");
+
+      r1Gauge.value = fraction.toFixed(2);
+      r1Text.innerText = fraction.toFixed(2) + "%";
+      r2Gauge.value = fraction2.toFixed(2);
+      r2Text.innerText = fraction2.toFixed(2) + "%";
+    }
+
+    /****************************************************
+     *   MISC / UI HELPERS
+     ****************************************************/
+    function showToast(msg) {
+      const toastContainer = document.getElementById("toastContainer");
+      const toastEl = document.createElement("div");
+      toastEl.className = "toast align-items-center text-bg-primary border-0";
+      toastEl.setAttribute("role", "alert");
+      toastEl.setAttribute("aria-live", "assertive");
+      toastEl.setAttribute("aria-atomic", "true");
+      toastEl.style.minWidth = "200px";
+
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${msg}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                  data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      `;
+      toastContainer.appendChild(toastEl);
+      const bsToast = new bootstrap.Toast(toastEl);
+      bsToast.show();
+      toastEl.addEventListener("hidden.bs.toast", () => {
+        toastContainer.removeChild(toastEl);
+      });
+    }
+
+    async function getRandomColor() {
+      try {
+        const response = await fetch("pantone-colors.json");
+        if (!response.ok) throw new Error("No pantone-colors.json found");
+        const pantoneData = await response.json();
+        const { names, values } = pantoneData;
+        if (!names || !values || names.length !== values.length) {
+          throw new Error("Invalid pantone-colors.json format");
+        }
+        const arr = new Uint32Array(1);
+        window.crypto.getRandomValues(arr);
+        const rand = arr[0] / (0xFFFFFFFF + 1);
+        const randomIndex = Math.floor(rand * names.length);
+        document.body.style.backgroundColor = values[randomIndex];
+        const colorDisplay = document.getElementById("pantoneColorDisplay");
+        if (colorDisplay) {
+          colorDisplay.textContent = `${names[randomIndex]} (${values[randomIndex]})`;
+        }
+      } catch (error) {
+        document.body.style.backgroundColor = "#ffffff";
+      }
+    }
+
+    /****************************************************
+     *  GitHub Fields: Edit/Save/Reset, plus Import Logic
+     ****************************************************/
+    function initializeGitHubFields() {
+      // If localStorage has saved fields, load them; otherwise set defaults
+      const savedUsername = localStorage.getItem("githubUsername");
+      const savedRepository = localStorage.getItem("githubRepository");
+      const savedIssueRangeStart = localStorage.getItem("issueRangeStart");
+      const savedIssueRangeEnd = localStorage.getItem("issueRangeEnd");
+
+      document.getElementById("githubUsername").value =
+        savedUsername !== null ? savedUsername : DEFAULT_USERNAME;
+      document.getElementById("githubRepository").value =
+        savedRepository !== null ? savedRepository : DEFAULT_REPOSITORY;
+      document.getElementById("issueRangeStart").value =
+        savedIssueRangeStart !== null ? savedIssueRangeStart : DEFAULT_ISSUE_RANGE_START;
+      document.getElementById("issueRangeEnd").value =
+        savedIssueRangeEnd !== null ? savedIssueRangeEnd : DEFAULT_ISSUE_RANGE_END;
+    }
+
+    function editField(fieldId) {
+      const field = document.getElementById(fieldId);
+      field.disabled = false;
+      field.focus();
+    }
+
+    function saveField(fieldId) {
+      const field = document.getElementById(fieldId);
+      field.disabled = true;
+      localStorage.setItem(fieldId, field.value.trim());
+      showToast(`${fieldId} saved!`);
+    }
+
+    function resetFields() {
+      if (!confirm("Reset GitHub fields to their default values?")) return;
+
+      document.getElementById("githubUsername").value = DEFAULT_USERNAME;
+      document.getElementById("githubRepository").value = DEFAULT_REPOSITORY;
+      document.getElementById("issueRangeStart").value = DEFAULT_ISSUE_RANGE_START;
+      document.getElementById("issueRangeEnd").value = DEFAULT_ISSUE_RANGE_END;
+
+      localStorage.setItem("githubUsername", DEFAULT_USERNAME);
+      localStorage.setItem("githubRepository", DEFAULT_REPOSITORY);
+      localStorage.setItem("issueRangeStart", DEFAULT_ISSUE_RANGE_START);
+      localStorage.setItem("issueRangeEnd", DEFAULT_ISSUE_RANGE_END);
+
+      // Disable them again
+      document.getElementById("githubUsername").disabled = true;
+      document.getElementById("githubRepository").disabled = true;
+      document.getElementById("issueRangeStart").disabled = true;
+      document.getElementById("issueRangeEnd").disabled = true;
+
+      showToast("Fields reset to default!");
+    }
+
+    async function importGitHubIssueLinks() {
+      const username = document.getElementById("githubUsername").value.trim();
+      const repository = document.getElementById("githubRepository").value.trim();
+      const rangeStartVal = document.getElementById("issueRangeStart").value.trim();
+      const rangeEndVal = document.getElementById("issueRangeEnd").value.trim();
+
+      if (!username || !repository) {
+        alert("Username or Repository is empty!");
+        return;
+      }
+
+      // For date prefix
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const datePrefix = `${yy}${mm}${dd} ${hh}:${min}:${ss}`;
+
+      // If rangeEnd is empty, but rangeStart is not, do one link
+      if (!rangeEndVal && rangeStartVal) {
+        // single link
+        const url = `https://github.com/${username}/${repository}/issues/${rangeStartVal}`;
+        const line = `${url}, ${datePrefix}`;
+        const inserted = await addLinesToDb([line], false, 1);
+        if (inserted > 0) {
+          showToast("Imported 1 GitHub link!");
+        } else {
+          showToast("That exact link already exists in DB; skipping.");
+        }
+        await refreshData();
+        return;
+      }
+
+      // If rangeStart and rangeEnd are valid, do multiple
+      if (rangeStartVal && rangeEndVal) {
+        const startNum = parseInt(rangeStartVal, 10);
+        const endNum = parseInt(rangeEndVal, 10);
+        if (isNaN(startNum) || isNaN(endNum) || startNum <= 0 || endNum < startNum) {
+          alert("Invalid range numbers.");
+          return;
+        }
+
+        const lines = [];
+        for (let i = startNum; i <= endNum; i++) {
+          lines.push(`https://github.com/${username}/${repository}/issues/${i}, ${datePrefix}`);
+        }
+        const inserted = await addLinesToDb(lines, false, lines.length);
+        showToast(`Imported ${inserted} link(s) out of ${lines.length} attempted.`);
+        await refreshData();
+      }
+    }
+  </script>
+</body>
+</html>
