@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="../common/history-utils.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>View PDF</title>
+<style>
+/* === Layout === */
+html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Open Sans","Helvetica Neue",sans-serif;}
+#pdfEmbed{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+/* === GitHub-Issues-Dark Portal === */
+#portal{display:none;box-sizing:border-box;padding:1rem;max-width:640px;margin:0 auto;height:100%;overflow-y:auto;background:#0d1117;color:#c9d1d9;}
+#portal h3{margin-top:0;color:#58a6ff;font-size:1.25rem;font-weight:600;}
+#portal p{margin:.4rem 0;font-size:.875rem;}
+#portal button{display:inline-block;margin:.25rem .25rem .5rem 0;padding:.45rem .85rem;font-size:.75rem;font-weight:600;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;}
+#portal button:hover{background:#30363d;cursor:pointer;}
+#textareaImport{width:100%;box-sizing:border-box;background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem;font-size:.75rem;}
+@media(max-width:480px){#portal{padding:.75rem;}}
+</style>
+<script>
+/* ========= Helpers ========= */
+const rand = ()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]/(0xffffffff+1);};
+/* --- Path helper --------------------------------------------------------- */
+const makeAbs = f => /^(?:https?:|\/)/.test(f) ? f : new URL(f,location.href).href;
+/* ------------------------------------------------------------------------- */
+const getParams = ()=>{const p=new URLSearchParams(window.location.search.replace(/\+$/,''));return{fileName:p.get('fileName')||null,randIdx:p.get('randIdx'),portal:p.has('portal'),sandbox:p.get('indexedDB')||null};};
+const hasPlusMode   = ()=>window.location.search.endsWith('+');
+const hashRandMode  = ()=>window.location.href.endsWith('#');
+const parseRange    = n=>{const m=n? n.match(/-(\d+)-(\d+)\.pdf$/):null;return m?{start:+m[1],end:+m[2]}:{start:1,end:1};};
+/* === Compact timestamp === */
+const encodeTs=ts=>ts.toString(36),decodeTs=s=>typeof s==='number'?s:parseInt(s,36),nowEnc=()=>encodeTs(Date.now());
+/* ========= IndexedDB constants ========= */
+const DB_NAME='viewerRangeDB',DB_VERSION=4,B1='bucket1';  /* bucket2 now virtual */
+/* ========= Sandbox / Live toggle ========= */
+let SANDBOX=false;
+const sandboxData={bucket1:[]};
+/* === IndexedDB open (live only) === */
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);
+ r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(B1)){const s=db.createObjectStore(B1,{keyPath:'id'});s.createIndex('file','file',{unique:false});}};
+ r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});}
+/* === getAll wrapper (sandbox aware) === */
+async function getAll(store,fileFilter){
+ if(SANDBOX){let arr=[...sandboxData[store]];return fileFilter?arr.filter(x=>x.file===fileFilter):arr;}
+ const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(store,'readonly');const st=tx.objectStore(store);
+ const req=fileFilter?st.index('file').getAll(fileFilter):st.getAll();
+ req.onsuccess=e=>res(e.target.result||[]);req.onerror=e=>rej(e.target.error);});}
+/* === updateCard (bucket1 only) === */
+async function updateCard(pageObj,ovr={}){
+ const {file,page,start,end}=pageObj;
+ const added   = ovr.added   ? encodeTs(typeof ovr.added==='string'?decodeTs(ovr.added):ovr.added) : nowEnc();
+ const lastSeen= ovr.lastSeen? encodeTs(typeof ovr.lastSeen==='string'?decodeTs(ovr.lastSeen):ovr.lastSeen) : nowEnc();
+ const freqInc = ovr.freqInc||1;
+ if(SANDBOX){
+   const arr=sandboxData[B1];const id=file+'|'+page;let card=arr.find(c=>c.id===id);
+   if(card){card.lastSeen=lastSeen;card.frequency=(card.frequency||0)+freqInc;card.added=decodeTs(card.added)<decodeTs(added)?card.added:added;}
+   else arr.push({id,file,page,start,end,added,lastSeen,frequency:freqInc});
+   return;
+ }
+ const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(B1,'readwrite');const st=tx.objectStore(B1);const id=file+'|'+page;const req=st.get(id);
+ req.onsuccess=()=>{let c=req.result;
+   if(c){c.lastSeen=lastSeen;c.frequency=(c.frequency||0)+freqInc;c.added=decodeTs(c.added)<decodeTs(added)?c.added:added;}
+   else{c={id,file,page,start,end,added,lastSeen,frequency:freqInc};}
+   st.put(c);
+ };
+ tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error);});}
+/* === neighbor synthesis (virtual bucket2) === */
+function synthNeighbors(b1Arr,fileFilter=null){
+ const idSet=new Set(b1Arr.map(c=>c.id)),out=[];
+ for(const c of b1Arr){
+   if(fileFilter&&c.file!==fileFilter)continue;
+   const neigh=[c.page-1,c.page+1];
+   for(const p of neigh){
+     if(p<c.start||p>c.end)continue;
+     const id=c.file+'|'+p;
+     if(idSet.has(id))continue;
+     idSet.add(id);
+     out.push({id,file:c.file,page:p,start:c.start,end:c.end,added:c.added,lastSeen:c.lastSeen,frequency:c.frequency});
+   }
+ }
+ return out;
+}
+/* === visit logic === */
+async function addVisit(file,page,start,end){
+ await updateCard({file,page,start,end});
+}
+/* === pick algorithms === */
+const srsPick=cards=>{if(!cards.length)return null;const now=Date.now();let best=null,bestScore=-1e9;
+ for(const c of cards){const added=decodeTs(c.added),last=decodeTs(c.lastSeen);const score=(now-(last||added))/((c.frequency)||1);if(score>bestScore){bestScore=score;best=c;}}
+ return best;
+};
+async function randomPick(fileFilter){
+ const b1=await getAll(B1,fileFilter);
+ const b2=synthNeighbors(b1,fileFilter);
+ const arr=(rand()<0.67&&b2.length)?b2:(b1.length?b1:b2);
+ return arr.length?arr[Math.floor(rand()*arr.length)]:null;
+}
+async function algoPick(fileFilter){
+ if(rand()<0.5){const c=srsPick(await getAll(B1,fileFilter));if(c)return c;}
+ return randomPick(fileFilter);
+}
+/* === PDF cache === */
+function openPdfCache(){return new Promise((res,rej)=>{const r=indexedDB.open('pdfCache',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('files');r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});}
+async function getPdf(file){const db=await openPdfCache();return new Promise((res,rej)=>{const tx=db.transaction('files','readonly');const req=tx.objectStore('files').get(file);req.onsuccess=e=>res(e.target.result||null);req.onerror=e=>rej(e.target.error);});}
+async function putPdf(file,blob){const db=await openPdfCache();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.objectStore('files').put(blob,file);tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error);});}
+async function pdfUrl(file){let b=await getPdf(file);if(!b){b=await (await fetch(file)).blob();await putPdf(file,b);}return URL.createObjectURL(b);}
+/* === Portal === */
+async function showPortal(){
+ const b1=await getAll(B1),b2=synthNeighbors(b1);
+ const all=b1.concat(b2);
+ const size=new Blob([JSON.stringify({b1})]).size; /* export now only bucket1 */
+ const earliest=all.length?new Date(Math.min(...all.map(c=>decodeTs(c.added)))).toLocaleString():'N/A';
+ const latest  =all.length?new Date(Math.max(...all.map(c=>decodeTs(c.lastSeen)))).toLocaleString():'N/A';
+ const div=document.getElementById('portal');div.style.display='block';
+ div.innerHTML=`<h3>Portal</h3><p>Total JSON size: ${size} bytes</p><p>Bucket1: ${b1.length} cards</p><p>Virtual Bucket2: ${b2.length} cards (derived)</p><p>First added: ${earliest}</p><p>Last seen: ${latest}</p><button onclick="exportData()">Export JSON</button><button onclick="importPrompt()">Import JSON</button><button onclick="resetData()">Reset State</button><br/><textarea id="textareaImport" style="display:none" placeholder="Paste JSON here"></textarea>`;
+}
+/* === Export / Import === */
+async function exportData(){
+  const b1=await getAll(B1);
+  const fileArr=[...new Set(b1.map(c=>makeAbs(c.file)))];
+  const idMap=Object.fromEntries(fileArr.map((f,i)=>[f,i]));
+  const slim=a=>a.map(c=>({b:1,f:idMap[c.file],p:c.page,a:c.added,l:c.lastSeen,q:c.frequency,s:c.start,e:c.end}));
+  const json={files:fileArr,cards:[...slim(b1)]};  /* only bucket1 exported */
+  const blob=new Blob([JSON.stringify(json)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='viewerRangeData.json';a.click();URL.revokeObjectURL(url);
+}
+function importPrompt(){
+ const area=document.getElementById('textareaImport');area.style.display='block';area.value='';
+ const btn=document.createElement('button');btn.textContent='Import';area.after(btn);
+ btn.onclick=async()=>{await importData(area.value);location.reload();};
+}
+async function importData(txt){
+ txt=txt.trim();if(!txt)return;let j;try{j=JSON.parse(txt);}catch(e){alert('Invalid JSON');return;}
+ const {files,cards}=j;if(!Array.isArray(files)||!Array.isArray(cards)){alert('Malformed JSON');return;}
+ const ops=[];
+ for(const c of cards){
+   if(c.b!==1)continue;  /* ignore any legacy bucket2 data */
+   const f=makeAbs(files[c.f]);if(!f)continue;
+   ops.push(updateCard({file:f,page:c.p,start:c.s,end:c.e},{added:c.a,lastSeen:c.l,freqInc:c.q}));
+ }
+ await Promise.all(ops);
+}
+const resetData=()=>{if(SANDBOX){sandboxData[B1].length=0;location.reload();return;}const r=indexedDB.deleteDatabase(DB_NAME);r.onsuccess=()=>location.reload();};
+/* === Sandbox Loader === */
+async function loadSandbox(file){SANDBOX=true;const txt=await (await fetch(file)).text();try{await importData(txt);}catch(e){console.error('Sandbox load failed',e);} }
+/* === Main === */
+async function displayPdf(){
+ const params=getParams();
+ if(params.sandbox){await loadSandbox(params.sandbox);}
+ if(params.portal){document.getElementById('pdfEmbed').style.display='none';return showPortal();}
+ const plus=hasPlusMode(),hashMode=hashRandMode();
+ let file=params.fileName,page;
+ if(hashMode&&file){const {start,end}=parseRange(file);page=Math.floor(rand()*(end-start+1))+start;}
+ else if(plus||!file){
+   const card=await algoPick(plus?file:null);
+   if(card){file=card.file;page=card.page;}
+   else if(file){page=parseRange(file).start;}
+   else{return document.getElementById('pdfEmbed').remove();}
+ }else if(params.randIdx){page=parseInt(params.randIdx,10);}
+ else{const {start,end}=parseRange(file);page=Math.floor(rand()*(end-start+1))+start;}
+ const {start,end}=parseRange(file);
+ if(!hashMode)await addVisit(file,page,start,end);
+ const src=await pdfUrl(file);document.getElementById('pdfEmbed').src=`${src}#page=${page}`;
+ const newUrl=new URL(window.location.href.replace(/\+$/,''));newUrl.searchParams.set('fileName',file);newUrl.searchParams.set('randIdx',page);history.replaceState(null,'',newUrl);
+}
+</script>
+</head>
+<body onload="displayPdf()">
+<embed id="pdfEmbed" src="" type="application/pdf"/>
+<div id="portal"></div>
+</body>
+</html>

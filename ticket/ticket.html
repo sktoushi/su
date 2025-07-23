@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="../common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Ticket Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap CSS and jQuery -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <a class="navbar-brand" href="#">Ticket Management</a>
+  <div class="ml-auto">
+    <span id="dateTimeDisplay" class="navbar-text mr-3"></span>
+    <button class="btn btn-outline-secondary mr-2" id="importStateBtn">Import State</button>
+    <button class="btn btn-outline-secondary mr-2" id="exportStateBtn">Export State</button>
+    <button class="btn btn-outline-danger" id="resetStateBtn">Reset State</button>
+    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+  </div>
+</nav>
+
+<div class="container mt-4">
+    <!-- Weekly Calendar View -->
+    <h2>Weekly Calendar View</h2>
+    <div id="calendarContainer">
+        <!-- Calendar will be populated here -->
+    </div>
+    <button class="btn btn-secondary mt-3" id="prevWeekBtn">Previous Week</button>
+	<button class="btn btn-secondary mt-3" id="currentDateBtn">Loading...</button>
+    <button class="btn btn-secondary mt-3" id="nextWeekBtn">Next Week</button>
+
+    <!-- Goals Section -->
+    <h2 class="mt-5">Goals</h2>
+    <button class="btn btn-info mb-3" data-toggle="modal" data-target="#goalModal">Add Goal</button>
+    <table class="table table-bordered" id="goalTable">
+        <thead>
+            <tr>
+                <th>Goal</th>
+                <th>Progress</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Goals will be populated here -->
+        </tbody>
+    </table>
+
+    <!-- Tickets Section -->
+    <h2 class="mt-5">Tickets</h2>
+    <button class="btn btn-info mb-3" id="viewTicketsBtn">View Valid and Allocated Tickets</button>
+    <button class="btn btn-warning mb-3" id="viewStashedTicketsBtn">View Stashed Tickets</button>
+
+    <!-- Cash Account Section -->
+    <h2 class="mt-5">Cash Account</h2>
+    <div class="mb-3">
+        <button class="btn btn-success" data-toggle="modal" data-target="#cashModal">Add Cash</button>
+    </div>
+    <div class="progress mb-3">
+      <div class="progress-bar bg-info" id="allocatedProgress" role="progressbar" style="width: 0%"></div>
+      <div class="progress-bar bg-secondary" id="unallocatedProgress" role="progressbar" style="width: 100%"></div>
+    </div>
+    <table class="table table-bordered" id="cashTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Allocated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Cash records will be populated here -->
+        </tbody>
+    </table>
+
+    <!-- Configuration Section -->
+    <h2 class="mt-5">Configuration</h2>
+    <form id="configForm">
+        <div class="form-group">
+            <label for="ticketUnit">Ticket Unit</label>
+            <input type="number" class="form-control" id="ticketUnit" min="1" required>
+            <small class="form-text text-muted">Must be greater than zero. Default is 500.</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+    </form>
+</div>
+
+<!-- Modals -->
+<!-- Cash Modal -->
+<div class="modal fade" id="cashModal" tabindex="-1" role="dialog" aria-labelledby="cashModalLabel" aria-hidden="true">
+  <!-- Modal content will be here -->
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="cashForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="cashModalLabel">Add Cash</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" id="closeCashModal">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+              <label for="cashAmount">Amount</label>
+              <input type="number" class="form-control" id="cashAmount" min="1" required>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Add Cash</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" id="closeCashModalFooter">Close</button>
+        </div>
+        
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal fade" id="goalModal" tabindex="-1" role="dialog" aria-labelledby="goalModalLabel" aria-hidden="true">
+  <!-- Modal content will be here -->
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="goalForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="goalModalLabel">Add Goal</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" id="closeGoalModal">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+              <label for="goalName">Goal Name</label>
+              <input type="text" class="form-control" id="goalName" required>
+          </div>
+          <div class="form-group">
+              <label for="goalAmount">Goal Amount</label>
+              <input type="number" class="form-control" id="goalAmount" min="1" required>
+          </div>
+          <div class="form-group">
+              <label for="goalImageUrl">Goal Image URL</label>
+              <input type="url" class="form-control" id="goalImageUrl" placeholder="Enter image URL (optional)">
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-info">Add Goal</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" id="closeGoalModalFooter">Close</button>
+        </div>
+        
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Ticket Modal -->
+<div class="modal fade" id="ticketModal" tabindex="-1" role="dialog" aria-labelledby="ticketModalLabel" aria-hidden="true">
+  <!-- Modal content will be populated dynamically -->
+</div>
+
+<!-- Bootstrap JS and dependencies -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<!-- Custom JavaScript Files -->
+<script src="config.js"></script>
+<script src="cashAccount.js"></script>
+<script src="tickets.js"></script>
+<script src="goals.js"></script>
+<script src="calendar.js"></script>
+<script src="main.js"></script>
+
+<script>
+    // Function to format date as YYYY/MM/DD
+    function getCurrentFormattedDate() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}/${mm}/${dd}`;
+    }
+
+    // Set the button label and add click event
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentDateBtn = document.getElementById('currentDateBtn');
+        if (currentDateBtn) {
+            // Set the button label to the current date
+            currentDateBtn.textContent = getCurrentFormattedDate();
+            
+            // Add click event listener to redirect
+            currentDateBtn.addEventListener('click', function() {
+                window.location.href = "https://sktoushi.github.io/stash-utils/ticket/log.html";
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

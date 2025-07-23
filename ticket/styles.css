@@ -1,0 +1,135 @@
+/* Custom Styles */
+.card {
+    background-color: #f8f9fa;
+}
+
+.progress {
+    height: 25px;
+}
+
+.progress-bar {
+    font-size: 14px;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.bg-success {
+    background-color: #28a745 !important;
+}
+
+.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+.goal-image {
+    max-width: 150px;
+    max-height: 150px;
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.goal-details {
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.goal-details p {
+    margin: 0;
+}
+
+/* Adjusted button styles in the goals section */
+.btn-group .btn {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+/* Ensure the buttons wrap properly on smaller screens */
+@media (max-width: 576px) {
+    .btn-group {
+        flex-wrap: wrap;
+    }
+    .btn-group .btn {
+        flex: 1 1 100%;
+        margin-bottom: 5px;
+    }
+}
+
+.suica-card {
+    /* Removed the background property to allow individual ticket backgrounds */
+    color: #fff;
+    border: none;
+    border-radius: 15px;
+    position: relative;
+}
+
+.suica-card .card-header {
+    background: rgba(0, 0, 0, 0.1);
+    border-bottom: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.suica-card .card-body {
+    padding: 2rem;
+}
+
+.suica-card .card-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.suica-card .card-text {
+    font-size: 1.2rem;
+}
+
+.suica-card .progress {
+    height: 20px;
+    margin-top: 1rem;
+}
+
+.suica-card .progress-bar {
+    font-size: 1rem;
+}
+
+.suica-card .hex-code {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Ensure the table takes full width */
+.week-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Set equal width and height for each day cell */
+.day-cell {
+    width: 14.28%; /* 100% divided by 7 days */
+    height: 150px; /* Adjust the height as needed */
+    vertical-align: top;
+    position: relative;
+}
+
+/* Center the content within the cell */
+.cell-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+/* Make serial numbers small */
+.day-cell small {
+    font-size: 0.8em;
+}

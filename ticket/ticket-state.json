@@ -1,0 +1,48 @@
+{
+  "config": {
+    "ticketUnit": 500
+  },
+  "cashRecords": [
+    {
+      "date": "9/29/2024, 5:33:59 PM",
+      "amount": 1500,
+      "allocated": true,
+      "tickets": [
+        {
+          "date": "2024-09-30",
+          "amount": 500,
+          "consumed": 0,
+          "valid": true,
+          "stashed": false,
+          "serial": "SN24-JCWFADOL5"
+        },
+        {
+          "date": "2024-10-01",
+          "amount": 500,
+          "consumed": 0,
+          "valid": true,
+          "stashed": false,
+          "serial": "SN24-3FTNXRWD7"
+        },
+        {
+          "date": "2024-10-02",
+          "amount": 500,
+          "consumed": 0,
+          "valid": true,
+          "stashed": false,
+          "serial": "SN24-Q5IJCOZLT"
+        }
+      ]
+    }
+  ],
+  "goals": [
+    {
+      "name": "Land Cruiser",
+      "goalAmount": 6000000,
+      "currentAmount": 0,
+      "purchased": false,
+      "imageUrl": "",
+      "allocatedTickets": []
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="../common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Issue Navigator</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            background-color: #ffffff;
+        }
+        .btn-custom {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .btn-custom:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card text-center">
+        <h3 class="mb-4">GitHub Issue Navigator</h3>
+        <p id="issue-info" class="mb-4">Calculating your issue...</p>
+        <button id="navigate-btn" class="btn btn-primary btn-custom">Navigate</button>
+        <button id="create-btn" class="btn btn-success btn-custom">Create</button>
+    </div>
+
+    <!-- Bootstrap JS and dependencies (Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to calculate the issue number based on the date
+        function calculateIssueNumber(currentDate) {
+            const baseDate = new Date('2024-09-29');
+            const timeDiff = currentDate - baseDate;
+            const dayInMs = 24 * 60 * 60 * 1000;
+            const diffDays = Math.floor(timeDiff / dayInMs) + 1; // Issue 1 starts on baseDate
+            return diffDays;
+        }
+
+        // Function to get the formatted string for the "Create" button
+        function getFormattedString(currentDate) {
+            const yearFull = currentDate.getFullYear();
+            const yearShort = yearFull.toString().slice(-2);
+            const weekNumber = getWeekNumber(currentDate);
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            const dayOfWeek = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
+
+            return `${yearShort}W${weekNumber}: ${yearFull}-${month}-${day} ${dayOfWeek}`;
+        }
+
+        // Function to get the ISO week number
+        function getWeekNumber(d) {
+            // Copy date so don't modify original
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            // Set to nearest Thursday: current date + 4 - current day number
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            // Get first day of year
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            // Calculate full weeks to nearest Thursday
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            return weekNo;
+        }
+
+        // Initialize variables
+        const currentDate = new Date();
+        const issueNumber = calculateIssueNumber(currentDate);
+        const issueUrl = `https://github.com/cjcaf1995/log/issues/${issueNumber}`;
+        const createIssueUrl = `https://github.com/cjcaf1995/log/issues/new`;
+        const formattedString = getFormattedString(currentDate);
+
+        // Update the issue info text
+        document.getElementById('issue-info').innerText = `Today's Issue: #${issueNumber} (${currentDate.toDateString()})`;
+
+        // Handle Navigate button click
+        document.getElementById('navigate-btn').addEventListener('click', () => {
+            window.location.href = issueUrl;
+        });
+
+        // Handle Create button click
+        document.getElementById('create-btn').addEventListener('click', () => {
+            // Copy formatted string to clipboard
+            navigator.clipboard.writeText(formattedString).then(() => {
+                // Optionally, show a success message
+                // alert('Formatted string copied to clipboard!');
+                // Redirect to create new issue
+                window.location.href = createIssueUrl;
+            }).catch(err => {
+                // console.error('Failed to copy text: ', err);
+                // alert('Failed to copy text to clipboard.');
+            });
+        });
+    </script>
+</body>
+</html>
