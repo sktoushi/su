@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="config.js"></script>
+</head>
+<body style="background-color:#4e6856">
+
+<script>
+
+
+function randomIntFromInterval(min, max) { 
+    return Math.floor(getSecureRandomNumber() * (Number(max) - Number(min) + 1)) + Number(min);
+}
+
+function openStuff() {
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const repository = urlParams.get('repository');
+    const blob = urlParams.get('blob');
+    const startIndex = Number(urlParams.get('startIndex'));
+    const endIndex = Number(urlParams.get('endIndex'));
+    const username = urlParams.get('username') || 'mdr19ganseki95cf';
+
+    let randomInteger = randomIntFromInterval(startIndex, endIndex);
+    window.open("https://github.com/" + username + "/" + repository + "/blob/main/" + blob + randomInteger + ".pdf");
+}
+
+window.onload = function() {
+    document.getElementById('randomButton').click();
+}
+
+</script>
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<div style="text-align:center">
+   <button id="randomButton" onclick="openStuff();" >RDR</button>
+</div>
+
+</body>
+</html>

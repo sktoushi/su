@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Time-Locked Vault</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- CryptoJS library -->
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js"></script>
+</head>
+<body>
+
+<div class="container mt-5">
+    <h1 class="text-center">Time-Locked Vault</h1>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h3>Lock a New Secret</h3>
+            <form id="vaultForm">
+                <div class="form-group">
+                    <label for="vaultText">Enter your secret text:</label>
+                    <textarea class="form-control" id="vaultText" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="unlockDate">Select unlock date:</label>
+                    <input type="datetime-local" class="form-control" id="unlockDate" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Lock Vault</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-5">
+        <h3 class="text-center">Your Encrypted Secrets</h3>
+        <table class="table table-bordered mt-3" id="vaultTable">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">Encrypted Text</th>
+                    <th scope="col">Unlock Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Vault entries will be dynamically inserted here -->
+            </tbody>
+        </table>
+        <div class="text-center">
+            <button class="btn btn-success" onclick="downloadVault()">Download All Encrypted Texts</button>
+        </div>
+    </div>
+</div>
+
+<!-- Include jQuery and Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+// Encrypt the text
+function encryptText(text, passphrase) {
+    return CryptoJS.AES.encrypt(text, passphrase).toString();
+}
+
+// Decrypt the text
+function decryptText(encryptedText, passphrase) {
+    const bytes = CryptoJS.AES.decrypt(encryptedText, passphrase);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
+
+// Load vault data from localStorage
+function loadVaultData() {
+    const vaultData = JSON.parse(localStorage.getItem("vault")) || [];
+    return vaultData;
+}
+
+// Save vault data to localStorage
+function saveVaultData(vaultData) {
+    localStorage.setItem("vault", JSON.stringify(vaultData));
+}
+
+// Update the vault table to display encrypted text
+function updateVaultTable() {
+    const vaultData = loadVaultData();
+    const tbody = document.querySelector("#vaultTable tbody");
+    tbody.innerHTML = ""; // Clear the table before appending new entries
+
+    vaultData.forEach((entry, index) => {
+        const unlockDate = new Date(entry.unlockDate).toLocaleString();
+        const row = document.createElement("tr");
+
+        const encryptedTextCell = document.createElement("td");
+        encryptedTextCell.textContent = entry.encryptedText;
+
+        const unlockDateCell = document.createElement("td");
+        unlockDateCell.textContent = unlockDate;
+
+        const statusCell = document.createElement("td");
+        statusCell.textContent = entry.decrypted ? "Unlocked" : "Locked";
+
+        const actionCell = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "btn btn-primary btn-sm";
+        button.textContent = "Unlock";
+        button.disabled = entry.decrypted;
+        button.onclick = () => unlockVault(index);
+        actionCell.appendChild(button);
+
+        row.appendChild(encryptedTextCell);
+        row.appendChild(unlockDateCell);
+        row.appendChild(statusCell);
+        row.appendChild(actionCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+// Lock the vault
+async function lockVault(event) {
+    event.preventDefault();
+    const text = document.getElementById("vaultText").value;
+    const unlockDateInput = document.getElementById("unlockDate").value;
+    const unlockDate = new Date(unlockDateInput);
+    const now = new Date();
+
+    if (unlockDate <= now) {
+        alert("Unlock date must be in the future!");
+        return;
+    }
+
+    // Estimate the Bitcoin block height at the unlock time using BlockCypher API
+    const estimatedBlockHeight = await estimateBitcoinBlockHeight(unlockDate);
+    if (!estimatedBlockHeight) {
+        alert("Failed to estimate Bitcoin block height.");
+        return;
+    }
+
+    // Use the estimated block height as a placeholder for the passphrase
+    const passphrasePlaceholder = 'bitcoin_block_' + estimatedBlockHeight;
+
+    const encryptedText = encryptText(text, passphrasePlaceholder);
+
+    const vaultData = loadVaultData();
+    vaultData.push({
+        unlockDate: unlockDate.getTime(),
+        encryptedText: encryptedText,
+        blockHeight: estimatedBlockHeight,
+        decrypted: false,
+        decryptedText: null
+    });
+
+    saveVaultData(vaultData);
+
+    alert("Vault locked! You can't open it until the set time.");
+
+    document.getElementById("vaultForm").reset();
+    updateVaultTable();
+}
+
+// Unlock the vault
+async function unlockVault(index) {
+    const vaultData = loadVaultData();
+    const entry = vaultData[index];
+
+    const externalTime = await fetchExternalTime();
+    if (!externalTime) {
+        alert("Failed to get external time.");
+        return;
+    }
+
+    const currentTime = new Date(externalTime).getTime();
+    const unlockDate = entry.unlockDate;
+
+    if (currentTime < unlockDate) {
+        alert("Vault is still locked! Try again later.");
+        return;
+    }
+
+    // Fetch the Bitcoin block hash at the recorded block height
+    const blockHash = await getBitcoinBlockHash(entry.blockHeight);
+    if (!blockHash) {
+        alert("Failed to get Bitcoin block hash.");
+        return;
+    }
+
+    // Use the block hash as the passphrase
+    const passphrase = blockHash;
+
+    const decryptedText = decryptText(entry.encryptedText, passphrase);
+
+    if (!decryptedText) {
+        alert("Failed to decrypt vault data.");
+        return;
+    }
+
+    entry.decrypted = true;
+    entry.decryptedText = decryptedText;
+
+    saveVaultData(vaultData);
+
+    // Display the decrypted text in a modal
+    showDecryptedText(decryptedText);
+
+    updateVaultTable();
+}
+
+// Show decrypted text in a modal
+function showDecryptedText(text) {
+    const modalHtml = `
+        <div class="modal fade" id="decryptedTextModal" tabindex="-1" role="dialog" aria-labelledby="decryptedTextModalLabel" aria-hidden="true">
+          <div class="modal-dialog" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="decryptedTextModalLabel">Decrypted Text</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeModal()">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <p>${text}</p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeModal()">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+    `;
+
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer);
+    $('#decryptedTextModal').modal('show');
+}
+
+// Close the modal and remove it from the DOM
+function closeModal() {
+    $('#decryptedTextModal').modal('hide');
+    $('#decryptedTextModal').on('hidden.bs.modal', function () {
+        document.getElementById('decryptedTextModal').remove();
+    });
+}
+
+// Fetch external time from a reliable time source
+async function fetchExternalTime() {
+    try {
+        const response = await fetch("https://worldtimeapi.org/api/timezone/Asia/Manila");
+        const data = await response.json();
+        return data.datetime; // ISO 8601 format
+    } catch (error) {
+        console.error("Error fetching time:", error);
+        return null;
+    }
+}
+
+// Estimate Bitcoin block height at the unlock time using BlockCypher API
+async function estimateBitcoinBlockHeight(unlockDate) {
+    try {
+        // BlockCypher endpoint for the current block height
+        const response = await fetch("https://api.blockcypher.com/v1/btc/main");
+        const data = await response.json();
+        const currentBlockHeight = data.height;
+        const currentBlockTime = new Date(data.time).getTime();
+
+        // Average time between blocks is approximately 10 minutes
+        const averageBlockTime = 10 * 60 * 1000; // 10 minutes in milliseconds
+
+        // Calculate the number of blocks between now and unlock date
+        const now = new Date().getTime();
+        const timeDifference = unlockDate.getTime() - now;
+        const blocksDifference = Math.ceil(timeDifference / averageBlockTime);
+
+        // Estimate the block height at unlock time
+        const estimatedBlockHeight = currentBlockHeight + blocksDifference;
+
+        return estimatedBlockHeight;
+    } catch (error) {
+        console.error("Error estimating block height:", error);
+        return null;
+    }
+}
+
+// Get Bitcoin block hash at a specific block height using BlockCypher API
+async function getBitcoinBlockHash(blockHeight) {
+    try {
+        const response = await fetch(`https://api.blockcypher.com/v1/btc/main/blocks/${blockHeight}`);
+        const data = await response.json();
+
+        // Check if the block has been mined
+        if (data.error) {
+            console.error("Block not found:", data.error);
+            return null;
+        }
+
+        return data.hash;
+    } catch (error) {
+        console.error("Error fetching block hash:", error);
+        return null;
+    }
+}
+
+// Download all encrypted texts and unlock dates
+function downloadVault() {
+    const vaultData = loadVaultData();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(vaultData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "vault_data.json");
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+// Initialize the page
+document.getElementById("vaultForm").addEventListener("submit", lockVault);
+updateVaultTable();
+</script>
+
+</body>
+</html>

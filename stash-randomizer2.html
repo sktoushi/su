@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Redirect</title>
+    <script>
+
+        // Weighted random pick with simple recency bias
+        function weightedRandomPickWithRecency(items, weights) {
+            const now = Date.now();
+            const hour = 60 * 60 * 1000;
+
+            const adjusted = items.map((item, idx) => {
+                const base = (typeof weights[idx] === 'number' && weights[idx] > 0) ? weights[idx] : 1;
+                const key = `stash-r2-${item}-last`;
+                const last = parseInt(localStorage.getItem(key) || '0', 10);
+                const elapsed = (now - last) / hour;
+                const factor = Math.min(5, 1 + elapsed);
+                return { item, weight: base * factor, key };
+            });
+
+            let total = 0;
+            adjusted.forEach(a => total += a.weight);
+
+            let rand = getSecureRandomNumber() * total;
+            for (const a of adjusted) {
+                if (rand < a.weight) {
+                    if (!a.item.startsWith('http')) {
+                        localStorage.setItem(a.key, String(now));
+                    }
+                    return a.item;
+                }
+                rand -= a.weight;
+            }
+            const fallback = adjusted[adjusted.length - 1];
+            if (!fallback.item.startsWith('http')) {
+                localStorage.setItem(fallback.key, String(now));
+            }
+            return fallback.item;
+        }
+
+        (async function() {
+            const injectionItems = [];
+            const injectionWeights = [];
+            try {
+                const resp = await fetch('config/injections.csv');
+                const txt = await resp.text();
+                txt.trim().split(/\r?\n/).forEach(line => {
+                    const [w,u] = line.split(',');
+                    if (w && u) {
+                        injectionItems.push(u.trim());
+                        injectionWeights.push(Number(w));
+                    }
+                });
+            } catch (e) { /* ignore */ }
+
+            // Grab the full query string (e.g. ?modes=...&usernameRepoList=...&allocation=...)
+            const paramsString = window.location.search;
+
+            // Parse it using URLSearchParams
+            const searchParams = new URLSearchParams(paramsString);
+
+            // Extract the 'modes' parameter and split into array
+            const modesParam = searchParams.get('modes') || '';
+            const modesArray = modesParam.split(',').filter(item => item);
+
+            // Extract the 'usernameRepoList' parameter and split into array
+            const userRepoParam = searchParams.get('usernameRepoList') || '';
+            let userRepoArray = userRepoParam.split(',').filter(item => item);
+
+            // Extract the 'allocation' parameter and convert to array of numbers
+            // Each weight corresponds to the same index in userRepoArray
+            const allocationParam = searchParams.get('allocation') || '';
+            let allocationArray = allocationParam
+                .split(',')
+                .map(str => Number(str))
+                .filter(num => !isNaN(num));
+
+            // Determine the size of each repo range so injections can be
+            // distributed relative to the total picking pool
+            const repoSizes = userRepoArray.map(item => {
+                const parts = item.split('_');
+                const s = Number(parts[2]);
+                const e = Number(parts[3]);
+                return Math.max(1, (isNaN(e) || isNaN(s)) ? 1 : (e - s + 1));
+            });
+
+            const validAlloc = allocationArray.length === userRepoArray.length &&
+                               allocationArray.length > 0 &&
+                               allocationArray.every(w => w >= 0);
+
+            const baseWeights = repoSizes.map((sz, i) =>
+                sz * (validAlloc ? allocationArray[i] : 1)
+            );
+
+            // Injection weights represent actual record counts; no scaling
+            const scaledInj = injectionWeights.slice();
+
+            // Append injection items and weights
+            const combinedItems = userRepoArray.concat(injectionItems);
+            const combinedWeights = baseWeights.concat(scaledInj);
+
+            // Randomly pick a mode (unweighted, as before)
+            const randomMode = modesArray[Math.floor(getSecureRandomNumber() * modesArray.length)];
+
+            // Randomly pick one item from the combined pool
+            const randomUserRepo = weightedRandomPickWithRecency(combinedItems, combinedWeights);
+
+            if (randomUserRepo.startsWith('http')) {
+                window.location.href = randomUserRepo;
+                return;
+            }
+
+            // Split the selected user/repo record by underscore
+            const userRepoParts = randomUserRepo.split('_');
+            // userRepoParts[0] -> element1 (username)
+            // userRepoParts[1] -> element2 (repository)
+            // userRepoParts[2] -> element3 (startIndex)
+            // userRepoParts[3] -> element4 (endIndex)
+
+            // Build the final redirect URL
+            const redirectUrl = [
+                'https://sktoushi.github.io/stash-utils/redirect0915-',
+                encodeURIComponent(randomMode),
+                '.html?username=',
+                encodeURIComponent(userRepoParts[0] || ''),
+                '&repository=',
+                encodeURIComponent(userRepoParts[1] || ''),
+                '&startIndex=',
+                encodeURIComponent(userRepoParts[2] || ''),
+                '&endIndex=',
+                encodeURIComponent(userRepoParts[3] || '')
+            ].join('');
+
+            // Finally, redirect the user
+            window.location.href = redirectUrl;
+        })();
+    </script>
+</head>
+<body>
+    <!-- Bare-bones HTML: no content necessary -->
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Redirect</title>
+
+  <script>
+    // List of possible destinations (duplicates kept as-is to preserve their weight)
+    const urls = [
+      "https://instagram.com/reels",
+      "https://m.youtube.com/shorts",
+      "https://tiktok.com", 
+      "https://sktoushi.github.io/stash-utils/skyway-scheduler.html",
+      "https://sktoushi.github.io/stash-utils/skyway-scheduler.html",
+      "https://sktoushi.github.io/stash-utils/skyway-scheduler.html",
+      "https://sktoushi.github.io/stash-utils/skyway-scheduler.html", 
+      "https://sktoushi.github.io/stash-utils/skyway-scheduler.html",
+      "https://sktoushi.github.io/stash-utils/bucket.html?targets=bucket-the-intelligent-investor,bucket-the-intelligent-investor-chapter8,bucket-the-intelligent-investor-chapter20"
+    ];
+
+    // Secure random selection
+    const randArray = new Uint32Array(1);
+    crypto.getRandomValues(randArray);               // cryptographically-secure RNG
+    const chosen = urls[randArray[0] % urls.length]; // uniform pick
+
+    // Instant redirect
+    window.location.replace(chosen);
+  </script>
+
+  <!-- Fallback for users with JavaScript disabled -->
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://instagram.com/reels" />
+    <style>body { font-family: sans-serif; }</style>
+    <p>If you’re seeing this, JavaScript is disabled. You’ll be sent to Instagram Reels in a moment.</p>
+  </noscript>
+</head>
+<body></body>
+</html>

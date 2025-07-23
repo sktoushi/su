@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Counter</title>
+    <script>
+    function updateCounter() {
+        fetch('https://script.google.com/macros/s/AKfycbzLf1sEPBLVT7sH4yewZOIDf27nhiM-tJuybwa9TYFgiwySps1i898xW20tuD8Vx8c/exec', { mode: 'no-cors' })
+            .then(response => {
+                // Since we can't read the response due to no-cors, you can handle it here if necessary
+                console.log('Request completed');
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    window.onload = updateCounter;
+    </script>
+</head>
+<body>
+    <h1>Welcome to the Visitor Counter Page</h1>
+    <p id="counter">Visitor Count: Loading...</p>
+</body>
+</html>

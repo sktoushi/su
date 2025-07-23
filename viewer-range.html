@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View PDF</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        #pdfEmbed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+    <script>
+        /* ========= Utility ========= */
+        function getSecureRandomNumber () {
+            const a = new Uint32Array(1);
+            crypto.getRandomValues(a);
+            return a[0] / (0xFFFFFFFF + 1);
+        }
+
+        function getUrlParams () {
+            const p = new URLSearchParams(window.location.search);
+            return {
+                fileName: p.get('fileName') || 'default.pdf',
+                randIdx : p.get('randIdx')               // optional explicit page override
+            };
+        }
+
+        function parseRangeFromFileName (name) {
+            /* expects "...-START-END.pdf", e.g. my-book-13-509.pdf */
+            const m = name.match(/-(\d+)-(\d+)\.pdf$/);
+            if (m) {
+                return { start: parseInt(m[1], 10), end: parseInt(m[2], 10) };
+            }
+            /* fallback – single-page range */
+            return { start: 1, end: 1 };
+        }
+
+        /* ========= Bucket storage ========= */
+        function loadBuckets (file, start, end) {
+            const key = 'pdfBuckets_' + file;
+            let obj   = localStorage.getItem(key);
+
+            if (obj) {
+                try { obj = JSON.parse(obj); } catch { obj = null; }
+            }
+
+            if (!obj || obj.start !== start || obj.end !== end) {
+                obj = { start, end, new: [], review: [] };
+                for (let i = start; i <= end; i++) obj.new.push(i);
+            }
+            return obj;
+        }
+
+        function saveBuckets (file, obj) {
+            localStorage.setItem('pdfBuckets_' + file, JSON.stringify(obj));
+        }
+
+        function addHistory (file, page) {
+            const key = 'pdfHistory_' + file;
+            let arr   = localStorage.getItem(key);
+
+            if (arr) {
+                try { arr = JSON.parse(arr); } catch { arr = []; }
+            } else {
+                arr = [];
+            }
+            arr.push({ page, ts: Date.now() });
+            localStorage.setItem(key, JSON.stringify(arr));
+        }
+
+        /* ========= Pick a page (with auto-refresh) ========= */
+        function pickPage (buckets) {
+            let n = buckets.new,
+                r = buckets.review;
+
+            /* ---------- 1. AUTO-REFRESH ---------- */
+            if (!n.length) {
+                /* move everything back to NEW and clear REVIEW */
+                n.push(...r);
+                r.length = 0;
+            }
+
+            /* ---------- 2. NORMAL SELECTION ---------- */
+            const useReview = r.length && (getSecureRandomNumber() < 0.33);
+            let page;
+
+            if (useReview) {
+                page = r[Math.floor(getSecureRandomNumber() * r.length)];
+            } else {
+                const idx = Math.floor(getSecureRandomNumber() * n.length);
+                page = n.splice(idx, 1)[0];
+                r.push(page);
+            }
+            return page;
+        }
+
+        /* ========= IndexedDB caching ========= */
+        function openPdfCache () {
+            return new Promise((res, rej) => {
+                const req = indexedDB.open('pdfCache', 1);
+                req.onupgradeneeded = e => e.target.result.createObjectStore('files');
+                req.onsuccess       = e => res(e.target.result);
+                req.onerror         = e => rej(e.target.error);
+            });
+        }
+
+        async function getCachedPdf (file) {
+            const db = await openPdfCache();
+            return new Promise((res, rej) => {
+                const tx  = db.transaction('files', 'readonly');
+                const req = tx.objectStore('files').get(file);
+                req.onsuccess = e => res(e.target.result || null);
+                req.onerror   = e => rej(e.target.error);
+            });
+        }
+
+        async function storeCachedPdf (file, blob) {
+            const db = await openPdfCache();
+            return new Promise((res, rej) => {
+                const tx = db.transaction('files', 'readwrite');
+                tx.objectStore('files').put(blob, file);
+                tx.oncomplete = () => res();
+                tx.onerror    = e => rej(e.target.error);
+            });
+        }
+
+        async function getPdfUrl (file) {
+            let blob = await getCachedPdf(file);
+            if (!blob) {
+                const res = await fetch(file);
+                blob      = await res.blob();
+                await storeCachedPdf(file, blob);
+            }
+            return URL.createObjectURL(blob);
+        }
+
+        /* ========= Main ========= */
+        async function displayPdf () {
+            const params = getUrlParams();
+            const file   = params.fileName;
+
+            /* derive start / end directly from filename */
+            const { start, end } = parseRangeFromFileName(file);
+
+            const buckets = loadBuckets(file, start, end);
+
+            let page;
+            if (params.randIdx) {
+                page = parseInt(params.randIdx, 10);
+            } else {
+                page = pickPage(buckets);
+                addHistory(file, page);
+                saveBuckets(file, buckets);
+
+                /* persist chosen page for reproducibility */
+                const url = new URL(window.location.href);
+                url.searchParams.set('randIdx', page);
+                history.replaceState(null, '', url);
+            }
+
+            const pdfUrl = await getPdfUrl(file);
+            document.getElementById('pdfEmbed').src = `${pdfUrl}#page=${page}`;
+        }
+    </script>
+</head>
+<body onload="displayPdf()">
+    <embed id="pdfEmbed" src="" type="application/pdf" />
+</body>
+</html>

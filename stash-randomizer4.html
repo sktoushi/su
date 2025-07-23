@@ -1,0 +1,198 @@
+<!--  stash-utils redirect with IndexedDB-powered SRS ★ 2025-06-07  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+<meta charset="UTF-8">
+<title>Redirect (IndexedDB SRS)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script type="module">
+/*─────────────────────────────────────────────────────*
+ |  CONSTANTS & HELPERS                                |
+ *─────────────────────────────────────────────────────*/
+const DB_NAME   = 'stashSRS';
+const STORE     = 'items';
+const VERSION   = 1;
+
+const DEFAULT_EASE = 2.5;
+const MIN_INT_H    = 1;          // 1 hour after first view
+const MAX_INT_H    = 24 * 120;   // cap at 120 days
+
+const RAND = () => {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] / 0x100000000;     // [0,1)
+};
+
+/*─────────────────────────────────────────────────────*
+ |  IndexedDB thin-wrapper                             |
+ *─────────────────────────────────────────────────────*/
+function openDB() {
+  return new Promise((res, rej) => {
+    if (!('indexedDB' in window)) return rej('IDB unavailable');
+    const req = indexedDB.open(DB_NAME, VERSION);
+    req.onupgradeneeded = evt => {
+      const db = evt.target.result;
+      if (!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE, { keyPath: 'id' });
+    };
+    req.onerror = ()  => rej(req.error);
+    req.onsuccess = () => res(req.result);
+  });
+}
+
+function txStore(db, mode) {
+  return db.transaction(STORE, mode).objectStore(STORE);
+}
+
+const idbGet = (db, id) => new Promise((res, rej) => {
+  const req = txStore(db, 'readonly').get(id);
+  req.onsuccess = () => res(req.result || null);
+  req.onerror   = () => rej(req.error);
+});
+const idbPut = (db, obj) => new Promise((res, rej) => {
+  const req = txStore(db, 'readwrite').put(obj);
+  req.onsuccess = () => res();
+  req.onerror   = () => rej(req.error);
+});
+
+/*─────────────────────────────────────────────────────*
+ |  SRS CALCULATIONS                                   |
+ *─────────────────────────────────────────────────────*/
+function weightFor(rec, base) {
+  if (!rec) return base * 4;               // unseen bonus
+
+  const now     = Date.now();
+  const elapsed = (now - rec.last) / 3.6e6;   // → hours
+  const dueFrac = elapsed / rec.intH;         // 1 = due
+
+  if (dueFrac >= 1) {
+    return base * Math.min(10, 1 + dueFrac);  // overdue ↑
+  }
+  return base * 0.05 * dueFrac;              // not yet due
+}
+
+function nextInterval(rec) {
+  if (rec.reps === 0) return MIN_INT_H;
+  if (rec.reps === 1) return 6;              // ~½ day
+  const raw = rec.intH * rec.ease;
+  return Math.min(MAX_INT_H, Math.round(raw));
+}
+
+async function updateAfterPick(db, id, oldRec) {
+  const now = Date.now();
+  const rec = oldRec ?? { id, reps: 0, ease: DEFAULT_EASE, intH: MIN_INT_H, last: now };
+
+  rec.reps += 1;
+  rec.ease  = Math.max(1.3, rec.ease - 0.05 + 0.1 * RAND()); // small stochastic drift
+  rec.intH  = nextInterval(rec);
+  rec.last  = now;
+
+  await idbPut(db, rec);
+}
+
+/*─────────────────────────────────────────────────────*
+ |  MAIN FLOW                                          |
+ *─────────────────────────────────────────────────────*/
+(async () => {
+  const injectionItems = [];
+  const injectionWeights = [];
+  try {
+    const resp = await fetch('config/injections.csv');
+    const txt = await resp.text();
+    txt.trim().split(/\r?\n/).forEach(line => {
+      const [w,u] = line.split(',');
+      if (w && u) {
+        injectionItems.push(u.trim());
+        injectionWeights.push(Number(w));
+      }
+    });
+  } catch {}
+  /*—— parse query string ——*/
+  const qs     = new URLSearchParams(location.search);
+  const modes  = (qs.get('modes')            || '').split(',').filter(Boolean);
+  let pairs  = (qs.get('usernameRepoList') || '').split(',').filter(Boolean);
+  let alloc  = (qs.get('allocation')       || '').split(',').map(Number);
+
+  const repoSizes = pairs.map(p => {
+    const [,,,s,e] = p.split('_');
+    const start = Number(s);
+    const end   = Number(e);
+    return Math.max(1, (isNaN(start) || isNaN(end)) ? 1 : (end - start + 1));
+  });
+
+  const validAlloc = alloc.length === pairs.length && alloc.length > 0 && alloc.every(n => n >= 0);
+
+  const baseW = repoSizes.map((sz, i) => sz * (validAlloc ? alloc[i] : 1));
+
+  const scaledInj = injectionWeights.slice();
+
+  const combinedItems = pairs.concat(injectionItems);
+  const combinedWeights = baseW.concat(scaledInj);
+
+  /*—— open db (fallback to localStorage if IDB fails) ——*/
+  let db = null;
+  try { db = await openDB(); } catch { /* stay null, use LS later */ }
+
+  const now   = Date.now();
+  const scores = [];
+
+  for (let i = 0; i < combinedItems.length; i++) {
+    const id   = combinedItems[i];
+    const base = combinedWeights[i] ?? 1;
+    let rec    = null;
+
+    if (db)  rec = await idbGet(db, id);
+    else {   // fallback
+      try { rec = JSON.parse(localStorage.getItem('ls-' + id)); }
+      catch { rec = null; }
+    }
+    scores.push({ id, w: weightFor(rec, base), rec });
+  }
+
+  /*—— weighted pick ——*/
+  const total = scores.reduce((s, o) => s + o.w, 0);
+  let r = RAND() * total;
+  let pick = scores[0];
+  for (const o of scores) { if ((r -= o.w) <= 0) { pick = o; break; } }
+
+  /*—— save SRS update ——*/
+  if (!pick.id.startsWith('http')) {
+    if (db) {
+      await updateAfterPick(db, pick.id, pick.rec);
+    } else {
+      // localStorage mini-SRS fallback
+      const rec = pick.rec ?? { reps: 0, ease: DEFAULT_EASE, intH: MIN_INT_H, last: now };
+      rec.reps += 1;
+      rec.ease  = Math.max(1.3, rec.ease - 0.05 + 0.1 * RAND());
+      rec.intH  = nextInterval(rec);
+      rec.last  = now;
+      localStorage.setItem('ls-' + pick.id, JSON.stringify(rec));
+    }
+  }
+
+  /*—— choose mode (uniform) ——*/
+  const mode = modes.length ? modes[Math.floor(RAND() * modes.length)] : 'default';
+
+  /*—— build & go ——*/
+  if (pick.id.startsWith('http')) {
+    location.href = pick.id;
+    return;
+  }
+
+  const [user, repo, start, end] = pick.id.split('_');
+  const url = [
+    'https://sktoushi.github.io/stash-utils/redirect0915-',
+    encodeURIComponent(mode), '.html?username=',
+    encodeURIComponent(user || ''),
+    '&repository=', encodeURIComponent(repo || ''),
+    '&startIndex=', encodeURIComponent(start || ''),
+    '&endIndex=', encodeURIComponent(end || '')
+  ].join('');
+
+  location.href = url;
+})();
+</script>
+</head>
+<body></body>
+</html>

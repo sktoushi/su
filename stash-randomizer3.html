@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+<meta charset="UTF-8">
+<title>Redirect (SRS-powered)</title>
+<script>
+/* ---------- CRYPTO-SAFE RNG ---------- */
+function secureRand() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] / 0x100000000;            // [0,1)
+}
+
+/* ---------- SRS CONSTANTS ---------- */
+const SRS_PREFIX = 'stash-srs-';
+const DEFAULT_EASE = 2.5;               // SM-2 default
+const MIN_INTERVAL_H = 1;               // after first hit → 1 h
+const MAX_INTERVAL_H = 24 * 90;         // cap at 90 days
+
+/* ---------- SRS HELPERS ---------- */
+function loadSRS(item) {
+  try {
+    const raw = localStorage.getItem(SRS_PREFIX + item);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveSRS(item, data) {
+  try {
+    localStorage.setItem(SRS_PREFIX + item, JSON.stringify(data));
+  } catch { /* quota errors ignored */ }
+}
+
+/**
+ * Calculate a selection weight using an SM-2-style due-ness score.
+ *   - items never seen → high weight
+ *   - items seen but not yet “due” → low weight
+ *   - items overdue → grows with lateness (spaced repetition)
+ */
+function srsWeight(item, baseWeight = 1) {
+  const now = Date.now();
+  const rec = loadSRS(item);
+
+  if (!rec) return baseWeight * 3; // brand-new item bonus
+
+  const { last, intervalH } = rec;
+  const elapsedH = (now - last) / 3.6e6;               // ms → h
+  const dueRatio = elapsedH / intervalH;
+
+  if (dueRatio >= 1) {
+    // overdue – inflate weight by how late we are (soft-cap ×5)
+    return baseWeight * Math.min(5, 1 + dueRatio);
+  }
+  // not yet due – deflate weight so other items surface
+  return baseWeight * 0.3 * dueRatio; // rises gently toward “due”
+}
+
+/* ---------- PICK ONE ITEM ---------- */
+function pickItem(items, baseWeights) {
+  const scored = items.map((it, i) => ({
+    item: it,
+    w: srsWeight(it, baseWeights[i] ?? 1)
+  }));
+
+  const total = scored.reduce((sum, o) => sum + o.w, 0);
+  let r = secureRand() * total;
+  for (const o of scored) {
+    if ((r -= o.w) <= 0) return o.item;
+  }
+  return scored[scored.length - 1].item; // fallback
+}
+
+/* ---------- UPDATE SRS AFTER PICK ---------- */
+function updateSRS(item) {
+  const now = Date.now();
+  const rec = loadSRS(item) || {
+    repetitions: 0,
+    ease: DEFAULT_EASE,
+    intervalH: MIN_INTERVAL_H,
+    last: now
+  };
+
+  // Very lightweight: every hit counts as a “good” recall.
+  rec.repetitions += 1;
+  rec.intervalH = Math.min(
+    MAX_INTERVAL_H,
+    rec.repetitions === 1 
+      ? MIN_INTERVAL_H
+      : Math.round(rec.intervalH * rec.ease)
+  );
+  rec.last = now;
+  saveSRS(item, rec);
+}
+
+/* ---------- MAIN IIFE ---------- */
+(async function () {
+  const injectionItems = [];
+  const injectionWeights = [];
+  try {
+    const resp = await fetch('config/injections.csv');
+    const txt = await resp.text();
+    txt.trim().split(/\r?\n/).forEach(line => {
+      const [w,u] = line.split(',');
+      if (w && u) {
+        injectionItems.push(u.trim());
+        injectionWeights.push(Number(w));
+      }
+    });
+  } catch {}
+
+  const qs = new URLSearchParams(location.search);
+
+  /* -------- parameter parsing (unchanged) -------- */
+  const modes = (qs.get('modes') || '')
+      .split(',').filter(Boolean);
+  let pairs = (qs.get('usernameRepoList') || '')
+      .split(',').filter(Boolean);
+  let alloc = (qs.get('allocation') || '')
+      .split(',').map(Number).filter(n => !isNaN(n));
+
+  const repoSizes = pairs.map(it => {
+    const [,,,s,e] = it.split('_');
+    const start = Number(s);
+    const end   = Number(e);
+    return Math.max(1, (isNaN(start) || isNaN(end)) ? 1 : (end - start + 1));
+  });
+
+  const validAlloc = alloc.length === pairs.length && alloc.length > 0 && alloc.every(n => n >= 0);
+
+  const baseW = repoSizes.map((sz, i) => sz * (validAlloc ? alloc[i] : 1));
+
+  const scaledInj = injectionWeights.slice();
+
+  const combinedItems = pairs.concat(injectionItems);
+  const combinedWeights = baseW.concat(scaledInj);
+
+  /* -------- SRS-powered pick -------- */
+  const pickedPair = pickItem(combinedItems, combinedWeights);
+  if (!pickedPair.startsWith('http')) {
+    updateSRS(pickedPair);
+  }
+
+  /* -------- random mode (uniform) -------- */
+  const mode = modes[Math.floor(secureRand() * modes.length)] || 'default';
+
+  if (pickedPair.startsWith('http')) {
+    location.href = pickedPair;
+    return;
+  }
+
+  /* -------- build redirect URL -------- */
+  const [user, repo, start, end] = pickedPair.split('_');
+  const redirect = [
+    'https://sktoushi.github.io/stash-utils/redirect0915-',
+    encodeURIComponent(mode), '.html?username=',
+    encodeURIComponent(user || ''),
+    '&repository=', encodeURIComponent(repo || ''),
+    '&startIndex=', encodeURIComponent(start || ''),
+    '&endIndex=', encodeURIComponent(end || '')
+  ].join('');
+
+  location.href = redirect;
+})();
+</script>
+</head>
+<body></body>
+</html>

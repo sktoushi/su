@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Skyway Stash3 Recent 20% Randomizer</title>
+  <script src="common/random-utils.js"></script>
+</head>
+<body>
+<script>
+let configValues = {};
+async function loadConfig(){
+  if(Object.keys(configValues).length) return configValues;
+  try{
+    const resp = await fetch('config/values.json');
+    if(resp.ok){
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if(Array.isArray(raw.patches) && raw.patches.length){
+        const weights = raw.patches.map(p=>Number(p.distributionWeight)||1);
+        const tot = weights.reduce((a,b)=>a+b,0);
+        let rnd = getSecureRandomNumber()*tot;
+        for(let i=0;i<raw.patches.length;i++){
+          if(rnd < weights[i]){ patch = {...raw.patches[i]}; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+    }
+  }catch(e){ console.error('Config load failed:',e); }
+  return configValues;
+}
+function tryEvalExpr(str){
+  if(!/^[0-9+\-*/ ().]+$/.test(str)) return str;
+  try{ const v=Function('"use strict";return ('+str+')')();
+       return Number.isFinite(v)?String(v):str; }
+  catch{ return str; }
+}
+function applyConfig(str){
+  return str.replace(/\{([^}]+)}/g,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m);
+}
+function pickWeighted(items){
+  const tot=items.reduce((s,x)=>s+x.w,0);
+  let rnd=getSecureRandomNumber()*tot;
+  for(const x of items){ if(rnd<x.w) return x.u; rnd-=x.w; }
+  return items[items.length-1].u;
+}
+(async()=>{
+  await loadConfig();
+  const records=[
+    ['{currentFormula-random}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=random&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-yearly}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=yearly&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-scaled}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=scaled&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-random-centerHigh-1-2-3-4-5-6-7-8-7-6-5-4-3-2-1}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=random-1-2-3-4-5-6-7-8-7-6-5-4-3-2-1&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-random-centerLow-8-7-6-5-4-3-2-1-2-3-4-5-6-7-8}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=random-8-7-6-5-4-3-2-1-2-3-4-5-6-7-8&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-random-rightLeaning-6-10-12-15-22-35}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=random-6-10-12-15-22-35&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1'],
+    ['{currentFormula-random-leftLeaning-35-22-15-12-10-6}','https://sktoushi.github.io/stash-utils/stash-randomizer1.html?modes=35-22-15-12-10-6&usernameRepoList=mdr19ganseki95cf_stash3_{stash3EightyPercent}_{stash3Ending}&allocation=1']
+  ];
+  const processed = records.map(([w,u])=>({
+    w: Number(tryEvalExpr(applyConfig(w)))||1,
+    u: applyConfig(u)
+  }));
+  const url=pickWeighted(processed);
+  location.href=url;
+})();
+</script>
+</body>
+</html>

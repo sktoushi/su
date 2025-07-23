@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="common/random-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Redirect</title>
+    <!-- Minimal styling for clarity; no Bootstrap needed -->
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            font-family: sans-serif;
+        }
+        .container h2 {
+            margin-bottom: 20px;
+        }
+        #csvOutput {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 200px;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+        button {
+            margin-top: 20px;
+        }
+    </style>
+
+    <script>
+        /************************************************************
+         * PART 1: SHARED HELPER FUNCTIONS (CRYPTO RNG, Weighted picks, etc.)
+         ************************************************************/
+
+        // Weighted picking for an array of items, using parallel array of numeric weights.
+        function weightedRandomPick(items, weights) {
+            const totalWeight = weights.reduce((acc, val) => acc + val, 0);
+            let randomVal = getSecureRandomNumber() * totalWeight;
+            for (let i = 0; i < items.length; i++) {
+                if (randomVal < weights[i]) {
+                    return items[i];
+                }
+                randomVal -= weights[i];
+            }
+            // fallback
+            return items[items.length - 1];
+        }
+
+        /************************************************************
+         * PART 2: "random" MODE LOGIC
+         ************************************************************/
+        function randomIntFromInterval(min, max) {
+            return Math.floor(getSecureRandomNumber() * (max - min + 1)) + min;
+        }
+
+        // Weighted pick from distribution array
+        function getRandomIndexByFrequency(frequencyArray) {
+            const sum = frequencyArray.reduce((a, b) => a + b, 0);
+            let randomNum = Math.floor(getSecureRandomNumber() * sum);
+            let cumulativeSum = 0;
+            for (let i = 0; i < frequencyArray.length; i++) {
+                cumulativeSum += frequencyArray[i];
+                if (randomNum < cumulativeSum) return i;
+            }
+            // fallback
+            return 0;
+        }
+
+        /**
+         * Return a GitHub-issue URL using the "random" snippet logic
+         * with an optional distributionParam (comma-separated weights).
+         */
+        function getRandomStuffUrl(username, repository, startIndex, endIndex, distributionParam) {
+            const sIdx = Number(startIndex);
+            const eIdx = Number(endIndex);
+
+            // Default: pick any issue from sIdx..eIdx
+            let randomIssue = randomIntFromInterval(sIdx, eIdx);
+
+            // If there's a distribution param, break the range into weighted subranges
+            if (distributionParam) {
+                const distributionArray = distributionParam
+                    .split(',')
+                    .map(Number)
+                    .filter(num => !isNaN(num));
+
+                if (distributionArray.length > 0) {
+                    let totalRange = eIdx - sIdx + 1;
+                    let regionCount = distributionArray.length;
+                    let baseSize = Math.floor(totalRange / regionCount);
+                    let remainder = totalRange % regionCount;
+                    let currentStart = sIdx;
+                    let regionBoundaries = [];
+                    for (let i = 0; i < regionCount; i++) {
+                        let size = baseSize + (i < remainder ? 1 : 0);
+                        regionBoundaries.push([currentStart, currentStart + size - 1]);
+                        currentStart += size;
+                    }
+                    let chosenRegionIndex = getRandomIndexByFrequency(distributionArray);
+                    let chosenRegion = regionBoundaries[chosenRegionIndex];
+                    randomIssue = randomIntFromInterval(chosenRegion[0], chosenRegion[1]);
+                }
+            }
+
+            return `https://github.com/${username}/${repository}/issues/${randomIssue}`;
+        }
+
+        /************************************************************
+         * PART 3: "yearly" MODE LOGIC
+         ************************************************************/
+        function isLeapYear(year) {
+            return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
+        }
+        function getDayOfYear(date) {
+            const start = new Date(date.getFullYear(), 0, 1);
+            const diff = date - start;
+            return Math.floor(diff / (24 * 60 * 60 * 1000)) + 1;
+        }
+
+        // Exponential weighting within [startIndex..endIndex].
+        function pickExponentiallyFromRange(startIndex, endIndex, alpha = 0.9) {
+            if (endIndex < startIndex) return startIndex; // fallback
+            // 33% chance we flip weighting so older items are favored
+            let reversed = (getSecureRandomNumber() <= 0.33);
+
+            let weights = [];
+            for (let i = startIndex; i <= endIndex; i++) {
+                let exponent = reversed
+                    ? (i - startIndex)   // near start => exponent=0 => highest weight
+                    : (endIndex - i);    // near end => exponent=0 => highest weight
+                weights.push(Math.pow(alpha, exponent));
+            }
+
+            let chosenOffset = getRandomIndexByFrequency(weights);
+            return startIndex + chosenOffset;
+        }
+
+        function pickBasedOnFractionOrOutside(startIndex, endIndex, triggerDateStr) {
+            let date = triggerDateStr ? new Date(triggerDateStr) : new Date();
+            let year = date.getFullYear();
+            let totalDays = isLeapYear(year) ? 366 : 365;
+            let dayOfYear = getDayOfYear(date);
+
+            let fraction = dayOfYear / totalDays;
+            let totalRange = endIndex - startIndex + 1;
+            let cutoff = Math.floor(totalRange * fraction);
+
+            if (cutoff < 1) cutoff = 1;
+            if (cutoff > totalRange) cutoff = totalRange;
+
+            let sub1Start = startIndex;
+            let sub1End   = startIndex + cutoff - 1;
+            let sub2Start = sub1End + 1;
+            let sub2End   = endIndex;
+
+            let useSubrange1 = (getSecureRandomNumber() <= 0.33);
+            if (useSubrange1) {
+                if (sub1End >= sub1Start) {
+                    return pickExponentiallyFromRange(sub1Start, sub1End, 0.9);
+                } else {
+                    return pickExponentiallyFromRange(sub2Start, sub2End, 0.9);
+                }
+            } else {
+                if (sub2End >= sub2Start) {
+                    return pickExponentiallyFromRange(sub2Start, sub2End, 0.9);
+                } else {
+                    return pickExponentiallyFromRange(sub1Start, sub1End, 0.9);
+                }
+            }
+        }
+
+        function getYearlyStuffUrl(username, repository, startIndex, endIndex, triggerDateStr) {
+            const sIdx = Number(startIndex);
+            const eIdx = Number(endIndex);
+            let randomIssue = pickBasedOnFractionOrOutside(sIdx, eIdx, triggerDateStr);
+            return `https://github.com/${username}/${repository}/issues/${randomIssue}`;
+        }
+
+        /************************************************************
+         * PART 4: "scaled" MODE LOGIC
+         ************************************************************/
+        function randomIntFromInterval2(min, max) {
+            return Math.floor(getSecureRandomNumber() * (max - min + 1)) + min;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                let j = Math.floor(getSecureRandomNumber() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function scalerFunction(startIndex, endIndex) {
+            let partitions = [];
+            let totalCount = (endIndex - startIndex + 1);
+            let step = Math.floor(totalCount / 21);
+            let remainder = totalCount % 21;
+
+            for (let i = 0; i < 21; i++) {
+                let start = startIndex + i * step + Math.min(i, remainder);
+                let end = startIndex + (i + 1) * step + Math.min(i + 1, remainder) - 1;
+                partitions.push([start, end]);
+            }
+
+            let frequencyArray1 = [
+                0.67, 0.67, 1.34, 2.01, 3.35, 5.36,
+                8.71, 14.07, 22.78, 36.85,
+                59.63, 96.48, 154.61, 250.86, 407.95,
+                663.61, 1071.54, 1735.15, 2806.69, 4534.23, 10000
+            ];
+
+            // Possibly shuffle or tweak them
+            let rand1 = getSecureRandomNumber();
+            let rand2 = getSecureRandomNumber();
+            if (rand1 < rand2) {
+                shuffleArray(frequencyArray1);
+            }
+
+            let frequencyArray = [];
+            for (let i = 0; i < frequencyArray1.length; i++) {
+                if (getSecureRandomNumber() <= 0.50) {
+                    frequencyArray[i] = frequencyArray1[i] * getSecureRandomNumber();
+                } else {
+                    frequencyArray[i] = frequencyArray1[i] * (getSecureRandomNumber() + 1);
+                }
+            }
+
+            function pickRandomPartition() {
+                let total = frequencyArray.reduce((a, b) => a + b, 0);
+                let rnd = getSecureRandomNumber() * total;
+                let cumulative = 0;
+                for (let i = 0; i < frequencyArray.length; i++) {
+                    cumulative += frequencyArray[i];
+                    if (rnd < cumulative) {
+                        return partitions[i];
+                    }
+                }
+                return partitions[partitions.length - 1]; // fallback
+            }
+
+            return {
+                partitions: partitions,
+                selectedPartition: pickRandomPartition()
+            };
+        }
+
+        function getScaledStuffUrl(username, repository, startIndex, endIndex) {
+            const result = scalerFunction(Number(startIndex), Number(endIndex));
+            const selectedPartition = result.selectedPartition;
+            let randomIssue = randomIntFromInterval2(selectedPartition[0], selectedPartition[1]);
+            return `https://github.com/${username}/${repository}/issues/${randomIssue}`;
+        }
+
+        /************************************************************
+         * PART 5: MAIN generateCsv() 
+         * randomMode can be:
+         *   "random" 
+         *   /^random-\d+(?:-\d+)*$/ (suffix-based distribution)
+         *   "yearly"
+         *   "scaled"
+         *   or fallback => redirect0915-{mode}.html
+         ************************************************************/
+        function generateCsv() {
+            const paramsString = window.location.search;
+            const searchParams = new URLSearchParams(paramsString);
+
+            // "modes" => e.g. "random,yearly,scaled,random-1-2-3"
+            const modesParam    = searchParams.get('modes') || '';
+            const modesArray    = modesParam.split(',').filter(item => item);
+
+            // "usernameRepoList" => array of 'username_repo_start_end'
+            const userRepoParam = searchParams.get('usernameRepoList') || '';
+            const userRepoArray = userRepoParam.split(',').filter(item => item);
+
+            // "allocation" => parallel weights
+            const allocationParam = searchParams.get('allocation') || '';
+            const allocationArray = allocationParam
+                .split(',')
+                .map(str => Number(str))
+                .filter(num => !isNaN(num));
+
+            // Check if weights are valid
+            let validWeights = false;
+            if (allocationArray.length === userRepoArray.length && allocationArray.length > 0) {
+                validWeights = allocationArray.every(weight => weight >= 0);
+            }
+
+            // "csvRowCount"
+            let csvRowCountParam = parseInt(searchParams.get('csvRowCount') || '1', 10);
+            if (isNaN(csvRowCountParam) || csvRowCountParam < 1) {
+                csvRowCountParam = 1;
+            }
+
+            // Prepare array for final URLs
+            const generatedUrls = [];
+
+            // Simple YYMMDD date format
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${yy}${mm}${dd}`;
+
+            for (let i = 0; i < csvRowCountParam; i++) {
+                // Pick a mode (unweighted from modesArray)
+                const randomMode = modesArray[Math.floor(getSecureRandomNumber() * modesArray.length)];
+
+                // Weighted or uniform pick for the userRepo
+                let randomUserRepo;
+                if (validWeights) {
+                    randomUserRepo = weightedRandomPick(userRepoArray, allocationArray);
+                } else {
+                    randomUserRepo = userRepoArray[Math.floor(getSecureRandomNumber() * userRepoArray.length)];
+                }
+
+                const userRepoParts = randomUserRepo.split('_'); 
+                // [0]=username, [1]=repo, [2]=startIndex, [3]=endIndex
+
+                let finalUrl = '';
+                
+                // Check each "special" mode
+                if (randomMode === 'random') {
+                    // #1: "random" => use ?distribution= from query
+                    const distributionParam = searchParams.get('distribution') || '';
+                    finalUrl = getRandomStuffUrl(
+                        userRepoParts[0] || '',
+                        userRepoParts[1] || '',
+                        userRepoParts[2] || '1',
+                        userRepoParts[3] || '100',
+                        distributionParam
+                    );
+                }
+                else if (/^random-\d+(?:-\d+)*$/.test(randomMode)) {
+                    // #2: "random-{suffixOfDashSeparatedInts}" => parse suffix => distribution
+                    const suffix = randomMode.replace('random-', '');   // e.g. "1-2-3"
+                    const distributionParam = suffix.replace(/-/g, ','); // e.g. "1,2,3"
+                    finalUrl = getRandomStuffUrl(
+                        userRepoParts[0] || '',
+                        userRepoParts[1] || '',
+                        userRepoParts[2] || '1',
+                        userRepoParts[3] || '100',
+                        distributionParam
+                    );
+                }
+                else if (randomMode === 'yearly') {
+                    // #3: "yearly"
+                    const triggerDateStr = searchParams.get('triggerDate') || '';
+                    finalUrl = getYearlyStuffUrl(
+                        userRepoParts[0] || '',
+                        userRepoParts[1] || '',
+                        userRepoParts[2] || '1',
+                        userRepoParts[3] || '100',
+                        triggerDateStr
+                    );
+                }
+                else if (randomMode === 'scaled') {
+                    // #4: "scaled"
+                    finalUrl = getScaledStuffUrl(
+                        userRepoParts[0] || '',
+                        userRepoParts[1] || '',
+                        userRepoParts[2] || '1',
+                        userRepoParts[3] || '100'
+                    );
+                }
+                else {
+                    // #5: Fallback => original approach => redirect0915-{mode}.html
+                    finalUrl = [
+                        'https://sktoushi.github.io/stash-utils/redirect0915-',
+                        encodeURIComponent(randomMode),
+                        '.html?username=',
+                        encodeURIComponent(userRepoParts[0] || ''),
+                        '&repository=',
+                        encodeURIComponent(userRepoParts[1] || ''),
+                        '&startIndex=',
+                        encodeURIComponent(userRepoParts[2] || ''),
+                        '&endIndex=',
+                        encodeURIComponent(userRepoParts[3] || '')
+                    ].join('');
+                }
+
+                // ----------------------------------
+                // ONLY CHANGE: wrap the URL in <a> so it's clickable in Ankidroid
+                // ----------------------------------
+                // let linkCell = `<a href="${finalUrl}">${finalUrl}</a>`;
+                let linkCell = "<a href=\"" + finalUrl + "\">" + finalUrl + "</a>";
+                generatedUrls.push([linkCell, dateStr]);
+            }
+
+            // Build CSV lines => "\"<a href=...>...</a>\",YYMMDD"
+            const csvContent = generatedUrls
+                .map(([linkCell, ds]) => `${linkCell},${ds}`)
+                .join('\n');
+
+            return csvContent;
+        }
+
+        /************************************************************
+         * PART 6: On DOM load => generate & display CSV
+         ************************************************************/
+        let generatedCsvContent = '';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            generatedCsvContent = generateCsv();
+            document.getElementById('csvOutput').textContent = generatedCsvContent;
+        });
+
+        function downloadCsv() {
+            if (!generatedCsvContent) return;
+            const blob = new Blob([generatedCsvContent], { type: 'text/csv' });
+            const csvBlobUrl = URL.createObjectURL(blob);
+            const tempLink = document.createElement('a');
+            tempLink.href = csvBlobUrl;
+            tempLink.download = 'output.csv';
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
+            URL.revokeObjectURL(csvBlobUrl);
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>CSV Generator</h2>
+        <div id="csvOutput"></div>
+        <button onclick="downloadCsv()">Download CSV</button>
+    </div>
+</body>
+</html>

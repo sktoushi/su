@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+    <script src="common/skyway-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>Skyway Recent 5% Randomizer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-3">
+<div id="msg" class="alert alert-danger d-none" role="alert"></div>
+<script>
+let configValues = {};
+async function loadConfig(){
+  if(Object.keys(configValues).length) return configValues;
+  try{
+    const resp = await fetch('config/values.json');
+    if(resp.ok){
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if(Array.isArray(raw.patches) && raw.patches.length){
+        const weights = raw.patches.map(p=>Number(p.distributionWeight)||1);
+        const tot = weights.reduce((a,b)=>a+b,0);
+        let rnd = getSecureRandomNumber()*tot;
+        for(let i=0;i<raw.patches.length;i++){
+          if(rnd < weights[i]){ patch = {...raw.patches[i]}; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+    }
+  }catch(e){ console.error('Config load failed:',e); }
+  return configValues;
+}
+function cleanCell(c){ return c.trim().replace(/^["']+|["']+$/g,''); }
+function parseCsvLine(l){ const out=[]; let cell='',inQ=false; for(let i=0;i<l.length;i++){ const ch=l[i]; if(ch==='"'){ if(inQ && l[i+1]==='"'){ cell+='"'; i++; } else inQ=!inQ; } else if(ch===',' && !inQ){ out.push(cell); cell=''; } else cell+=ch; } out.push(cell); return out; }
+function tryEvalExpr(str){ if(!/^[0-9+\-*/ ().]+$/.test(str)) return str; try{ const v=Function('"use strict";return ('+str+')')(); return Number.isFinite(v)?String(v):str; }catch{ return str; }}
+function applyConfig(rows){ const re=/\{([^}]+)}/g; return rows.map(r=>r.map(c=>{ const sub=c.replace(re,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m); return tryEvalExpr(sub); })); }
+async function fetchCSV(name){
+  await loadConfig();
+  try{
+    const res=await fetch(name);
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const raw=(await res.text()).split('\n').map(l=>l.trim()).filter(Boolean);
+    let rows=raw.map(l=>parseCsvLine(l).map(cleanCell));
+    rows=applyConfig(rows);
+    const inj=[],normal=[];
+    for(const r of rows){
+      if(r[0].trim().toLowerCase()==='injection'){
+        const c=Math.max(1,parseInt(r[1],10)||1);
+        for(let i=0;i<c;i++) inj.push(['injection','1',r[2]]);
+      }else normal.push(r);
+    }
+    rows=normal;
+    if(inj.length){
+      const total=rows.length+inj.length;
+      const step=total/inj.length;
+      let next=step/2,idx=0; const out=[];
+      for(let i=0;i<total;i++){
+        if(idx<inj.length && i>=Math.round(next)){
+          out.push(inj[idx++]);
+          next+=step;
+        }else if(rows.length) out.push(rows.shift());
+        else out.push(inj[idx++]);
+      }
+      rows=out;
+    }
+    return rows;
+  }catch(e){ throw new Error('Error fetching "'+name+'": '+e.message); }
+}
+function pickWeighted(rows){ const list=rows.map(r=>({r,w:Math.max(1,parseInt(r[1],10)||1)})); const tot=list.reduce((s,x)=>s+x.w,0); let rnd=getSecureRandomNumber()*tot; for(const x of list){ if(rnd<x.w) return x.r; rnd-=x.w; } return list[list.length-1].r; }
+async function processRows(rows){ if(!rows.length) throw new Error('CSV empty'); for(const r of rows){ if(r[0].trim()==='csv' && parseInt(r[1],10)===0){ try{ r[1]=(await fetchCSV(r[2])).length.toString(); }catch(e){ console.error(e); r[1]='1'; } } }
+ const sel=pickWeighted(rows); const type=sel[0].trim();
+  if(type==='link' || type==='injection'){ location.href=handleSkywayLink(sel); return; }
+  if(type==='link-jp'){ location.href=handleSkywayLink(sel,null,true); return; }
+ if(type==='git-specific'){ const user=sel[2].split('=')[1], repo=sel[3].split('=')[1]; const list=sel[4].split('=')[1].split('_'); location.href=`https://github.com/${user}/${repo}/issues/${list[randInt(0,list.length-1)]}`; return; }
+ if(type==='git-range'){ const user=sel[2].split('=')[1], repo=sel[3].split('=')[1]; const [min,max]=sel[4].split('=')[1].split('_').map(Number); if(isNaN(min)||isNaN(max)) throw new Error('Bad git-range row'); location.href=`https://github.com/${user}/${repo}/issues/${randInt(min,max)}`; return; }
+ if(type==='csv'){ return processRows(await fetchCSV(sel[2])); }
+ throw new Error('Unknown row type: '+type);
+}
+function showError(msg){ const el=document.getElementById('msg'); el.textContent=msg; el.classList.remove('d-none'); }
+function sliceFinalPercent(rows,p){ const weights=rows.map(r=>Math.max(1,parseInt(r[1],10)||1)); const total=weights.reduce((a,b)=>a+b,0); if(total===0) return []; const threshold=total*(1-p); let cum=0; for(let i=0;i<rows.length;i++){ cum+=weights[i]; if(cum>=threshold) return rows.slice(i); } return rows.slice(); }
+window.onload=async()=>{
+  try{
+    const cfg=await loadConfig();
+    const settings=Array.isArray(cfg.recent5Settings)?cfg.recent5Settings[0]:null;
+    if(!settings) throw new Error('Missing recent5Settings in config');
+    const useFirst=getSecureRandomNumber()<0.5;
+    if(useFirst){
+       const start=parseInt(cfg.stash3Starting), end=parseInt(cfg.stash3Ending);
+       if(isNaN(start)||isNaN(end)||end<start) throw new Error('Bad stash3 range');
+       const total=end-start+1; const slice=Math.floor(total*0.20); if(slice<1) throw new Error('Range too small');
+       const s=end-slice+1; const issue=randInt(s,end);
+       const user=settings.username||cfg.stashUsername;
+       const repo=settings.repository||cfg.stashRepository;
+       location.href=`https://github.com/${user}/${repo}/issues/${issue}`;
+    }else{
+       const rows=await fetchCSV(settings.csvUrl);
+       const filtered=rows.filter(r=>r[0].trim().toLowerCase()!=='injection');
+       const sub=sliceFinalPercent(filtered,0.20);
+       if(!sub.length) throw new Error('No rows in final 5%');
+       await processRows(sub);
+    }
+  }catch(e){ showError(e.message); }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

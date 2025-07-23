@@ -1,0 +1,197 @@
+<!--  stash-utils redirect with “Active-Recall” IndexedDB-SRS ★ 2025-06-07  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+<meta charset="UTF-8">
+<title>Redirect (Active-Recall SRS)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script type="module">
+/*─────────────────────────────────────────────────────*
+ |  CRYPTO RNG                                         |
+ *─────────────────────────────────────────────────────*/
+const rand = () => {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] / 0x100000000;               // [0,1)
+};
+
+/*─────────────────────────────────────────────────────*
+ |  DB CONSTANTS                                       |
+ *─────────────────────────────────────────────────────*/
+const DB_NAME   = 'stashActiveRecall';
+const STORE     = 'cards';
+const VERSION   = 1;
+
+/*─────────────────────────────────────────────────────*
+ |  SRS CONFIG                                         |
+ *─────────────────────────────────────────────────────*/
+const MIN_INT_H = 1;                       // after first pass
+const MAX_INT_H = 24 * 180;                // clamp to 180 days
+const BASE_EASE = 2.5;
+const FAIL_PENALTY = 0.2;                  // ease decrease
+const SUCCESS_BONUS = 0.15;                // ease increase
+
+/*─────────────────────────────────────────────────────*
+ |  IndexedDB helper (promise-based)                   |
+ *─────────────────────────────────────────────────────*/
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject('IndexedDB unsupported');
+    const req = indexedDB.open(DB_NAME, VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE, { keyPath: 'id' });
+    };
+    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+const store = (db, mode) => db.transaction(STORE, mode).objectStore(STORE);
+
+const idbGet = (db, id) => new Promise((res, rej) => {
+  const r = store(db,'readonly').get(id);
+  r.onsuccess = () => res(r.result || null);
+  r.onerror   = () => rej(r.error);
+});
+const idbPut = (db, obj) => new Promise((res, rej) => {
+  const r = store(db,'readwrite').put(obj);
+  r.onsuccess = () => res();
+  r.onerror   = () => rej(r.error);
+});
+
+/*─────────────────────────────────────────────────────*
+ |  SRS weight & update                                |
+ *─────────────────────────────────────────────────────*/
+function weight(rec, base) {
+  if (!rec) return base * 5;                // unseen priority
+  const ageH   = (Date.now() - rec.last) / 3.6e6;
+  const due    = ageH / rec.intH;          // 1 = exactly due
+  if (due >= 1) return base * Math.min(12, 1 + due);   // overdue
+  return base * 0.05 * due;                // not due yet
+}
+
+function nextIntervalH(rec, success) {
+  if (!success) return MIN_INT_H;
+  if (rec.reps === 0) return 6;            // first success
+  const raw = rec.intH * rec.ease;
+  return Math.min(MAX_INT_H, Math.round(raw));
+}
+
+async function commit(db, id, rec, success) {
+  const now = Date.now();
+  if (!rec) rec = { id, reps: 0, ease: BASE_EASE, intH: MIN_INT_H, last: now };
+  if (success) {
+    rec.reps += 1;
+    rec.ease  = rec.ease + SUCCESS_BONUS;
+  } else {
+    rec.reps  = Math.max(0, rec.reps - 1);
+    rec.ease  = Math.max(1.3, rec.ease - FAIL_PENALTY);
+  }
+  rec.intH = nextIntervalH(rec, success);
+  rec.last = now;
+  if (db)       await idbPut(db, rec);
+  else          localStorage.setItem('ar-' + id, JSON.stringify(rec));
+}
+
+/*─────────────────────────────────────────────────────*
+ |  MAIN                                               |
+ *─────────────────────────────────────────────────────*/
+(async () => {
+  const injectionItems = [];
+  const injectionWeights = [];
+  try {
+    const resp = await fetch('config/injections.csv');
+    const txt = await resp.text();
+    txt.trim().split(/\r?\n/).forEach(line => {
+      const [w,u] = line.split(',');
+      if (w && u) {
+        injectionItems.push(u.trim());
+        injectionWeights.push(Number(w));
+      }
+    });
+  } catch {}
+  /*— Parse URL params —*/
+  const qs     = new URLSearchParams(location.search);
+  const modes  = (qs.get('modes')            || '').split(',').filter(Boolean);
+  let pairs  = (qs.get('usernameRepoList') || '').split(',').filter(Boolean);
+  let alloc  = (qs.get('allocation')       || '').split(',').map(Number);
+  const repoSizes = pairs.map(p => {
+    const [,,,s,e] = p.split('_');
+    const start = Number(s);
+    const end   = Number(e);
+    return Math.max(1, (isNaN(start) || isNaN(end)) ? 1 : (end - start + 1));
+  });
+
+  const validAlloc = alloc.length === pairs.length && alloc.length > 0 && alloc.every(n => n >= 0);
+
+  const baseW = repoSizes.map((sz, i) => sz * (validAlloc ? alloc[i] : 1));
+
+  const scaledInj = injectionWeights.slice();
+
+  const combinedItems = pairs.concat(injectionItems);
+  const combinedWeights = baseW.concat(scaledInj);
+
+  /*— Init DB (fallback → localStorage) —*/
+  let db = null;
+  try { db = await openDB(); } catch { /* fallback mode */ }
+
+  /*— Build weighted list —*/
+  const scored = [];
+  for (let i = 0; i < combinedItems.length; i++) {
+    const id   = combinedItems[i];
+    const base = combinedWeights[i] || 1;
+    let rec    = null;
+    if (db) {
+      rec = await idbGet(db, id);
+    } else {
+      try { rec = JSON.parse(localStorage.getItem('ar-' + id)); }
+      catch { /* ignore */ }
+    }
+    scored.push({ id, w: weight(rec, base), rec });
+  }
+
+  /*— Pick one item —*/
+  const total = scored.reduce((s,o) => s + o.w, 0);
+  let r = rand() * total;
+  let pick = scored[0];
+  for (const o of scored) { if ((r -= o.w) <= 0) { pick = o; break; } }
+
+  /*— Active-Recall prompt —*/
+  const promptText = '🧠 QUICK CHECK\n\nCould you recall the key idea of this note?\n\nOK = Yes (I remembered)\nCancel = No (I forgot)';
+  let success = true;
+  try { success = confirm(promptText); }       // returns true/false
+  catch { /* non-blocking browsers default to success */ }
+
+  /*— Commit updated SRS stats —*/
+  if (!pick.id.startsWith('http')) {
+    await commit(db, pick.id, pick.rec, success);
+  }
+
+  /*— Choose mode uniformly —*/
+  const mode = modes.length ? modes[Math.floor(rand()*modes.length)] : 'default';
+
+  /*— Build redirect URL —*/
+  if (pick.id.startsWith('http')) {
+    location.href = pick.id;
+    return;
+  }
+
+  const [user, repo, start, end] = pick.id.split('_');
+  const url = [
+    'https://sktoushi.github.io/stash-utils/redirect0915-',
+    encodeURIComponent(mode), '.html?username=',
+    encodeURIComponent(user  || ''),
+    '&repository=', encodeURIComponent(repo  || ''),
+    '&startIndex=', encodeURIComponent(start || ''),
+    '&endIndex=',   encodeURIComponent(end   || '')
+  ].join('');
+
+  /*— Redirect —*/
+  location.href = url;
+})();
+</script>
+</head>
+<body></body>
+</html>

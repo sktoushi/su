@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap CSS and necessary scripts -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <style>
+        /* Custom styles for tickets and modals */
+        .ticket-card {
+            width: 200px;
+            height: 120px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6FB1FC 0%, #4364F7 100%);
+            color: white;
+            position: relative;
+            margin: auto;
+        }
+        .ticket-card.consumed {
+            background: gray;
+        }
+        .ticket-percentage {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 18px;
+        }
+        .week-name {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .calendar-day {
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .calendar-day.has-ticket {
+            background-color: #d4edda;
+        }
+        .calendar-day.today {
+            border: 2px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="my-4">Ticket Management System</h1>
+    <!-- Configuration Section -->
+    <h3>Configuration</h3>
+    <form id="config-form">
+        <div class="form-group">
+            <label for="ticket-unit">Ticket Unit (must be greater than zero):</label>
+            <input type="number" class="form-control" id="ticket-unit" min="1" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+    </form>
+    <hr>
+    <!-- Cash Account Section -->
+    <h3>Cash Account</h3>
+    <form id="cash-form">
+        <div class="form-group">
+            <label for="cash-amount">Enter Cash Amount:</label>
+            <input type="number" class="form-control" id="cash-amount" required>
+        </div>
+        <button type="submit" class="btn btn-success">Add Cash</button>
+    </form>
+    <table class="table mt-4" id="cash-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Cash records will be populated here -->
+        </tbody>
+    </table>
+    <!-- Pagination controls would go here -->
+    <hr>
+    <!-- Tickets Section -->
+    <h3>Tickets</h3>
+    <button class="btn btn-info" id="view-tickets-btn">View Valid and Allocated Tickets</button>
+    <button class="btn btn-warning" id="view-stashed-tickets-btn">View Stashed Tickets</button>
+    <hr>
+    <!-- Goals Section -->
+    <h3>Goals</h3>
+    <form id="goal-form">
+        <div class="form-group">
+            <label for="goal-name">Goal Name:</label>
+            <input type="text" class="form-control" id="goal-name" required>
+        </div>
+        <div class="form-group">
+            <label for="goal-amount">Goal Amount:</label>
+            <input type="number" class="form-control" id="goal-amount" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Goal</button>
+    </form>
+    <table class="table mt-4" id="goal-table">
+        <thead>
+            <tr>
+                <th>Goal</th>
+                <th>Amount</th>
+                <th>Progress</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Goal records will be populated here -->
+        </tbody>
+    </table>
+    <!-- Pagination controls would go here -->
+    <hr>
+    <!-- Weekly Calendar View -->
+    <h3>Weekly Calendar</h3>
+    <div class="d-flex justify-content-between">
+        <button class="btn btn-secondary" id="prev-week-btn">&laquo; Previous Week</button>
+        <div class="week-name" id="week-name-display">2023W1-ExampleWeek</div>
+        <button class="btn btn-secondary" id="next-week-btn">Next Week &raquo;</button>
+    </div>
+    <div class="row mt-3" id="calendar-days">
+        <!-- Calendar days will be populated here -->
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Allocate Modal -->
+<div class="modal fade" id="allocate-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <form id="allocate-form">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Allocate Cash</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Select allocation method:</p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="allocateOption" id="allocate-option1" value="weekdays" checked>
+                        <label class="form-check-label" for="allocate-option1">
+                            Allocate evenly for the next weekdays
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="allocateOption" id="allocate-option2" value="period">
+                        <label class="form-check-label" for="allocate-option2">
+                            Allocate evenly for a specified time period (skip weekends)
+                        </label>
+                    </div>
+                    <div id="date-range-fields" class="mt-3" style="display: none;">
+                        <div class="form-group">
+                            <label for="start-date">Start Date:</label>
+                            <input type="date" class="form-control" id="start-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="end-date">End Date:</label>
+                            <input type="date" class="form-control" id="end-date">
+                        </div>
+                    </div>
+                    <div id="allocation-error" class="text-danger"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Allocate</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Ticket Modal -->
+<div class="modal fade" id="ticket-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Ticket Information</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="ticket-card" id="ticket-card">
+                    <div class="ticket-percentage" id="ticket-percentage">100%</div>
+                </div>
+                <div class="mt-3">
+                    <p>Ticket Consumed: <span id="ticket-consumed">0</span></p>
+                    <p>Ticket Remaining: <span id="ticket-remaining">100</span></p>
+                    <p>Ticket Total: <span id="ticket-total">100</span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="redeem-button">Redeem</button>
+                <button class="btn btn-warning" id="stash-button">Stash</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Variables
+    let config = { ticketUnit: 0 };
+    let cashRecords = [];
+    let tickets = [];
+    let stashedTickets = [];
+    let goals = [];
+    let currentWeek = new Date();
+
+    // Load state from ticket-state.json
+    function loadState() {
+        $.getJSON('ticket-state.json', function(data) {
+            config = data.config || config;
+            cashRecords = data.cashRecords || cashRecords;
+            tickets = data.tickets || tickets;
+            stashedTickets = data.stashedTickets || stashedTickets;
+            goals = data.goals || goals;
+            updateUI();
+        });
+    }
+
+    // Save state to ticket-state.json
+    function saveState() {
+        let state = {
+            config: config,
+            cashRecords: cashRecords,
+            tickets: tickets,
+            stashedTickets: stashedTickets,
+            goals: goals
+        };
+        // Since we can't write to files from browser, this would be handled server-side
+    }
+
+    // Update UI Elements
+    function updateUI() {
+        // Update configuration form
+        $('#ticket-unit').val(config.ticketUnit);
+
+        // Update cash table
+        let cashTableBody = $('#cash-table tbody');
+        cashTableBody.empty();
+        cashRecords.slice(-10).forEach(function(record, index) {
+            let row = `<tr>
+                <td>${record.date}</td>
+                <td>${record.amount}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary allocate-btn" data-index="${index}">Allocate</button>
+                    <button class="btn btn-sm btn-danger unallocate-btn" data-index="${index}">Unallocate</button>
+                </td>
+            </tr>`;
+            cashTableBody.append(row);
+        });
+
+        // Update goals table
+        let goalTableBody = $('#goal-table tbody');
+        goalTableBody.empty();
+        goals.slice(-10).forEach(function(goal, index) {
+            let progressPercentage = (goal.currentAmount / goal.amount * 100).toFixed(2);
+            let progressBar = `<div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: ${progressPercentage}%;" aria-valuenow="${progressPercentage}" aria-valuemin="0" aria-valuemax="100">${progressPercentage}%</div>
+            </div>`;
+            let goalName = goal.purchased ? `<s>${goal.name}</s>` : goal.name;
+            let row = `<tr>
+                <td>${goalName}</td>
+                <td>${goal.amount}</td>
+                <td>${progressBar}</td>
+                <td>
+                    <button class="btn btn-sm btn-info allocate-stashed-btn" data-index="${index}">Allocate Stashed Tickets</button>
+                    <button class="btn btn-sm btn-warning unallocate-goal-btn" data-index="${index}">Unallocate</button>
+                    <button class="btn btn-sm btn-success purchase-goal-btn" data-index="${index}">Purchased</button>
+                </td>
+            </tr>`;
+            goalTableBody.append(row);
+        });
+
+        // Update calendar
+        updateCalendar();
+    }
+
+    // Update Calendar View
+    function updateCalendar() {
+        let weekName = generateWeekName(currentWeek);
+        $('#week-name-display').text(weekName);
+        let startOfWeek = getStartOfWeek(currentWeek);
+        let calendarDays = $('#calendar-days');
+        calendarDays.empty();
+        for (let i = 0; i < 7; i++) {
+            let day = new Date(startOfWeek);
+            day.setDate(day.getDate() + i);
+            let isToday = isSameDate(day, new Date());
+            let hasTicket = tickets.some(t => isSameDate(new Date(t.date), day));
+            let dayClass = 'calendar-day';
+            if (isToday) dayClass += ' today';
+            if (hasTicket) dayClass += ' has-ticket';
+            let dayDiv = `<div class="col calendar-day ${dayClass}" data-date="${day.toISOString()}">
+                ${day.toDateString().slice(0, 10)}
+            </div>`;
+            calendarDays.append(dayDiv);
+        }
+    }
+
+    // Event Handlers
+    $('#config-form').on('submit', function(e) {
+        e.preventDefault();
+        let ticketUnit = parseInt($('#ticket-unit').val());
+        if (ticketUnit > 0) {
+            config.ticketUnit = ticketUnit;
+            saveState();
+            alert('Configuration saved.');
+        } else {
+            alert('Ticket Unit must be greater than zero.');
+        }
+    });
+
+    $('#cash-form').on('submit', function(e) {
+        e.preventDefault();
+        let amount = parseFloat($('#cash-amount').val());
+        if (amount > 0) {
+            cashRecords.push({ date: new Date().toISOString(), amount: amount, allocated: false });
+            saveState();
+            updateUI();
+            $('#cash-amount').val('');
+        } else {
+            alert('Amount must be positive.');
+        }
+    });
+
+    $(document).on('click', '.allocate-btn', function() {
+        let index = $(this).data('index');
+        $('#allocate-modal').data('cash-index', index).modal('show');
+    });
+
+    $('#allocate-option2').on('change', function() {
+        $('#date-range-fields').toggle(this.checked);
+    });
+
+    $('#allocate-form').on('submit', function(e) {
+        e.preventDefault();
+        let index = $('#allocate-modal').data('cash-index');
+        let cashRecord = cashRecords[index];
+        let ticketUnit = config.ticketUnit;
+        if (ticketUnit <= 0) {
+            $('#allocation-error').text('Invalid Ticket Unit configuration.');
+            return;
+        }
+        let totalTickets = Math.floor(cashRecord.amount / ticketUnit);
+        if (totalTickets <= 0) {
+            $('#allocation-error').text('Insufficient funds for allocation.');
+            return;
+        }
+        // Allocation logic would go here
+        cashRecord.allocated = true;
+        saveState();
+        updateUI();
+        $('#allocate-modal').modal('hide');
+    });
+
+    $('#view-tickets-btn').on('click', function() {
+        // Show tickets modal
+        $('#ticket-modal').modal('show');
+    });
+
+    // Navigation buttons
+    $('#prev-week-btn').on('click', function() {
+        currentWeek.setDate(currentWeek.getDate() - 7);
+        updateCalendar();
+    });
+    $('#next-week-btn').on('click', function() {
+        currentWeek.setDate(currentWeek.getDate() + 7);
+        updateCalendar();
+    });
+
+    // Utility Functions
+    function getStartOfWeek(date) {
+        let day = date.getDay();
+        let diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(date.setDate(diff));
+    }
+
+    function isSameDate(a, b) {
+        return a.getFullYear() === b.getFullYear() &&
+               a.getMonth() === b.getMonth() &&
+               a.getDate() === b.getDate();
+    }
+
+    function generateWeekName(date) {
+        let weekNumber = getWeekNumber(date);
+        let year = date.getFullYear().toString().slice(-2);
+        // Placeholder for name generation logic
+        let weekName = 'ExampleWeek';
+        return `${year}W${weekNumber}-${weekName}`;
+    }
+
+    function getWeekNumber(date) {
+        let firstDay = new Date(date.getFullYear(), 0, 1);
+        let pastDays = (date - firstDay) / 86400000;
+        return Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
+    }
+
+    // Initial Load
+    loadState();
+</script>
+</body>
+</html>

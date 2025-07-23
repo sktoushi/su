@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="common/history-utils.js"></script>
+    <script src="common/random-utils.js"></script>
+  <meta charset="UTF-8">
+  <title>skyway.html – Hierarchical Multi-Mode Randomizer (multi-distribution)</title>
+</head>
+<body>
+<script>
+/*╔══════════════════════════════════════════╗
+  ║  HIERARCHICAL DECISION STACK             ║
+  ║  1) modeWeights  → chooses randomMode.   ║
+  ║  2) distributions / distribution         ║
+  ║     • if present → forces “segments”.    ║
+  ║  3) randomMode   → manual override.      ║
+  ║  4) default      → “weighted”.           ║
+  ╚══════════════════════════════════════════╝*/
+
+/* ──────────────── URL PARAM PARSE ──────────────── */
+const urlParams   = new URLSearchParams(location.search);
+const targetCsv   = urlParams.get('target');                         // required
+
+/* ——— SINGLE distribution=1-2-3-2-1 etc. ——— */
+let   distributionArr = null;
+const distributionStr = urlParams.get('distribution');
+if (distributionStr) {
+  distributionArr = distributionStr
+      .split(/[-,]/)                                                 // hyphen / comma both OK
+      .map(n => parseInt(n.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0);
+}
+
+/* ——— MULTI distributions=dist:weight;dist:weight ——— */
+let distributionPool = [];                                           // [{arr:[…], weight:…}, …]
+const distributionsStr = urlParams.get('distributions');
+if (distributionsStr) {
+  const distEntries = distributionsStr.split(/[;|]/);                // allow ; or |
+  for (const entry of distEntries) {
+    const [distPart, wPart] = entry.split(/[:=]/);                   // allow : or =
+    if (!distPart || !wPart) continue;
+    const w = parseInt(wPart.trim(), 10);
+    if (w <= 0 || isNaN(w)) continue;
+    const arr = distPart
+        .split(/[-,]/)
+        .map(x => parseInt(x.trim(),10))
+        .filter(x => !isNaN(x) && x > 0);
+    if (arr.length) distributionPool.push({ arr, weight: w });
+  }
+}
+
+/* ——— randomMode fallback (before overrides) ——— */
+let randomMode = (urlParams.get('randomMode') || 'weighted').toLowerCase();
+
+/* ——— modeWeights=weighted:3,segments:4 … ——— */
+const modeWeightsStr = urlParams.get('modeWeights');
+if (modeWeightsStr) {
+  const allowed = new Set(['weighted','uniform','contiguous','segments']);
+  const mwList  = modeWeightsStr.split(/[;,]/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => {
+        const [k,v] = p.split(/[:=|]/);
+        return { mode: k?.trim().toLowerCase(), w: parseInt(v?.trim(),10) };
+      })
+      .filter(o => allowed.has(o.mode) && o.w > 0 && !isNaN(o.w));
+  if (mwList.length) {
+    const tot = mwList.reduce((s,m)=>s+m.w,0);
+    let  rnd  = randInt(1, tot);
+    for (const m of mwList) { if (rnd <= m.w) { randomMode = m.mode; break; } rnd -= m.w; }
+  }
+}
+
+/* ——— distributions override → segments mode ——— */
+if ((distributionArr && distributionArr.length) || distributionPool.length)
+  randomMode = 'segments';
+
+/* DEBUG (optional) */
+// console.log('Chosen randomMode:', randomMode);
+// console.log('distributionPool', distributionPool);
+
+/* ──────────────── CONFIG HANDLING ──────────────── */
+let configValues = {};
+async function loadConfig() {
+  if (Object.keys(configValues).length) return configValues;
+  try {
+    const resp = await fetch('config/values.json');
+    if (resp.ok) {
+      const raw = await resp.json();
+      const base = raw.base || {};
+      let patch = {};
+      if (Array.isArray(raw.patches) && raw.patches.length) {
+        const weights = raw.patches.map(p => Number(p.distributionWeight) || 1);
+        const tot = weights.reduce((a, b) => a + b, 0);
+        let rnd = getSecureRandomNumber() * tot;
+        for (let i = 0; i < raw.patches.length; i++) {
+          if (rnd < weights[i]) { patch = { ...raw.patches[i] }; break; }
+          rnd -= weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues = Object.assign({}, base, patch);
+    }
+  } catch (err) { console.error('Config load failed:', err); }
+  return configValues;
+}
+
+/* ──────────────── RANDOM HELPERS ──────────────── */
+function randInt(min, max) { return Math.floor(getSecureRandomNumber()*(max-min+1))+min; }
+function pickIdxByWeights(freq) {
+  const tot=freq.reduce((s,v)=>s+v,0);
+  let rnd=randInt(1,tot);
+  for(let i=0;i<freq.length;i++){ if(rnd<=freq[i]) return i; rnd-=freq[i]; }
+  return freq.length-1;
+}
+
+/* ──────────────── CSV HELPERS ──────────────── */
+function cleanCell(c){ return c.trim().replace(/^["']+|["']+$/g,''); }
+function parseCsvLine(l){
+  const out=[];let cell='',inQ=false;
+  for(let i=0;i<l.length;i++){
+    const ch=l[i];
+    if(ch==='"'){ if(inQ && l[i+1]==='"'){cell+='"';i++;} else inQ=!inQ; }
+    else if(ch===',' && !inQ){ out.push(cell); cell=''; }
+    else cell+=ch;
+  }
+  out.push(cell); return out;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(getSecureRandomNumber()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ───── placeholder + numeric-expr substitution ───── */
+function tryEvalExpr(str){
+  if(!/^[0-9+\-*/ ().]+$/.test(str)) return str;
+  try{ const v=Function('"use strict";return ('+str+')')(); return Number.isFinite(v)?String(v):str; }
+  catch{ return str; }
+}
+function applyConfig(rows){
+  const re=/\{([^}]+)}/g;
+  return rows.map(r=>r.map(c=>{
+    const sub=c.replace(re,(m,p)=>Object.prototype.hasOwnProperty.call(configValues,p)?configValues[p]:m);
+    return tryEvalExpr(sub);
+  }));
+}
+
+/* ──────────────── FETCH CSV ──────────────── */
+async function fetchCSV(name){
+  await loadConfig();
+  try{
+    const res=await fetch(name);
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const raw=(await res.text()).split('\n').map(l=>l.trim()).filter(Boolean);
+    let rows=raw.map(l=>parseCsvLine(l).map(cleanCell));
+    rows=applyConfig(rows);
+    const inj=[], normal=[];
+    for(const r of rows){
+      if(r[0].trim().toLowerCase()==='injection'){
+        const c=Math.max(1,parseInt(r[1],10)||1);
+        for(let i=0;i<c;i++) inj.push(['injection','1',r[2]]);
+      }else normal.push(r);
+    }
+    if(!['contiguous','segments'].includes(randomMode)) shuffle(normal);
+    rows=normal;
+    if(inj.length){
+      const total=rows.length+inj.length;
+      const step=total/inj.length;
+      let next=step/2,idx=0; const out=[];
+      for(let i=0;i<total;i++){
+        if(idx<inj.length && i>=Math.round(next)){
+          out.push(inj[idx++]);
+          next+=step;
+        }else if(rows.length) out.push(rows.shift());
+        else out.push(inj[idx++]);
+      }
+      rows=out;
+    }
+    return rows;
+  }catch(e){ throw new Error('Error fetching "'+name+'": '+e.message); }
+}
+
+/* ──────────────── PICK ALGORITHMS ──────────────── */
+function pickUniform(rows){ return rows[randInt(0,rows.length-1)]; }
+function pickWeighted(rows){
+  const list=rows.map(r=>({r,w:Math.max(1,parseInt(r[1],10)||1)}));
+  const tot = list.reduce((s,x)=>s+x.w,0);
+  let rnd=getSecureRandomNumber()*tot;
+  for(const x of list){ if(rnd<x.w) return x.r; rnd-=x.w; }
+  return list[list.length-1].r;
+}
+function pickContiguous(rows){
+  const tot=rows.reduce((s,r)=>s+Math.max(1,parseInt(r[1],10)||1),0);
+  let rnd=randInt(1,tot);
+  for(const r of rows){
+    const w=Math.max(1,parseInt(r[1],10)||1);
+    if(rnd<=w) return r; rnd-=w;
+  }
+  return rows[rows.length-1];
+}
+function pickSegments(rows){
+  /* 1️⃣ choose which distribution to use */
+  let freq = null;
+  if (distributionPool.length) {                           // weighted pool
+    const weights = distributionPool.map(d=>d.weight);
+    freq = distributionPool[pickIdxByWeights(weights)].arr.slice();
+  } else if (distributionArr && distributionArr.length) {  // single
+    freq = distributionArr.slice();
+  } else {
+    return pickUniform(rows);                              // fallback
+  }
+
+  /* 2️⃣ ensure region count ≤ rows */
+  const nRows=rows.length;
+  if (freq.length>nRows){
+    const extra=freq.slice(nRows).reduce((s,v)=>s+v,0);
+    freq=freq.slice(0,nRows);
+    freq[nRows-1]+=extra;
+  }
+
+  /* 3️⃣ divide rows → regions */
+  const nReg=freq.length;
+  const base=Math.floor(nRows/nReg);
+  let   rem =nRows%nReg;
+  const bounds=[]; let start=0;
+  for(let i=0;i<nReg;i++){
+    const sz=base+(i<rem?1:0);
+    bounds.push([start,start+sz-1]);
+    start+=sz;
+  }
+
+  /* 4️⃣ pick region by freq, then pick row uniformly within region */
+  const regIdx = pickIdxByWeights(freq);
+  const [l,r]  = bounds[regIdx];
+  return rows[randInt(l,r)];
+}
+function pickRow(rows){
+  switch(randomMode){
+    case 'uniform'   : return pickUniform(rows);
+    case 'contiguous': return pickContiguous(rows);
+    case 'segments'  : return pickSegments(rows);
+    case 'weighted'  :
+    default          : return pickWeighted(rows);
+  }
+}
+
+/* ──────────────── MAIN PROCESSOR ──────────────── */
+async function processRows(rows,depth=0){
+  if(depth>2000) return document.body.textContent='Max CSV nesting depth exceeded.';
+  if(!rows.length)  return document.body.textContent='CSV empty.';
+  // auto-weight rows with "csv,0,child.csv"
+  for(const r of rows){
+    if(r[0].trim()==='csv' && parseInt(r[1],10)===0){
+      try{ r[1]=(await fetchCSV(r[2])).length.toString(); }
+      catch(e){ console.error(e); r[1]='1'; }
+    }
+  }
+  const sel=pickRow(rows);
+  const type=sel[0].trim();
+
+  if(type==='link' || type==='injection'){ location.href=sel[2]; return; }
+
+  if(type==='git-specific'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const list=sel[4].split('=')[1].split('_');
+    location.href=`https://github.com/${user}/${repo}/issues/${list[randInt(0,list.length-1)]}`; return;
+  }
+  if(type==='git-range'){
+    const user=sel[2].split('=')[1], repo=sel[3].split('=')[1];
+    const [min,max]=sel[4].split('=')[1].split('_').map(Number);
+    if(isNaN(min)||isNaN(max)) return document.body.textContent='Bad git-range row';
+    location.href=`https://github.com/${user}/${repo}/issues/${randInt(min,max)}`; return;
+  }
+  if(type==='csv'){
+    try{ return processRows(await fetchCSV(sel[2]),depth+1); }
+    catch(e){ return document.body.textContent=e.message; }
+  }
+  document.body.textContent='Unknown row type: '+type;
+}
+
+/* ──────────────── ENTRY ──────────────── */
+window.onload = async ()=>{
+  if(!targetCsv){ document.body.textContent='Missing ?target=…'; return; }
+  try{ await processRows(await fetchCSV(targetCsv)); }
+  catch(e){ document.body.textContent=e.message; }
+};
+</script>
+</body>
+</html>
