@@ -1,0 +1,19 @@
+{
+  "beginsWith": [
+    "https://sktoushi.github.io/stash-utils/tdgs-randomizer.html",
+    "https://github.com/mdr19ganseki95cf/redirect0915/issues/241"
+  ],
+  "contains": [
+    "https://youtu.be",
+    "youtube",
+    "looptube",
+    "stash-randomizer",
+    "skyway-recent5percent",
+    "google-images",
+    "defaultRandomModeWeights",
+    "lc300",
+    "lc200",
+    "instagram"
+  ],
+  "endsWith": []
+}
