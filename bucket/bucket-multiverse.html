@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>bucket-multiverse.html – Network Traverser</title>
+  <script src="../common/random-utils.js"></script>
+  <script src="../common/color-utils.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    #portal{display:none;box-sizing:border-box;padding:1rem;max-width:640px;margin:0 auto;height:100%;overflow-y:auto;background:#0d1117;color:#c9d1d9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Open Sans","Helvetica Neue",sans-serif;}
+    #portal h3{margin-top:0;color:#58a6ff;font-size:1.25rem;font-weight:600;}
+    #portal p{margin:.4rem 0;font-size:.875rem;}
+    #portal button{display:inline-block;margin:.25rem .25rem .5rem 0;padding:.45rem .85rem;font-size:.75rem;font-weight:600;border-radius:6px;border:1px solid #30363d;background:#2ea44f;color:#fff;}
+    #portal button:hover{background:#2c974b;cursor:pointer;}
+    #textareaImport{width:100%;box-sizing:border-box;background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:.5rem;font-size:.75rem;}
+    @media(max-width:480px){#portal{padding:.75rem;}}
+  </style>
+</head>
+<body>
+  <div id="progressBarContainer" style="position:fixed;top:0;left:0;width:100%;display:none;z-index:9999;">
+    <div class="progress" style="height:30px;">
+      <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+  </div>
+  <div id="progressCount" style="position:fixed;top:calc(50% + 80px);left:50%;transform:translateX(-50%);text-align:center;font-family:Helvetica, sans-serif;font-size:1.5rem;display:none;z-index:9999;"></div>
+  <div id="network" style="position:fixed;top:0;left:0;width:100%;height:100%;display:none;z-index:9998;"></div>
+  <div id="portal"></div>
+<script>
+const DB_NAME='multiverseBuckets';
+const STORE='state';
+const DB_VERSION=1;
+let bucketDb=null, bucketState=null;
+
+let directoryData=null;
+
+async function applyRandomPantoneColor(){
+  try{
+    const resp=await fetch('../pantone-colors.json');
+    const data=await resp.json();
+    const {names,values}=data;
+    if(!names||!values||names.length!==values.length) throw new Error('bad pantone');
+    const idx=Math.floor(getSecureRandomNumber()*names.length);
+    const val=values[idx];
+    document.body.style.backgroundColor=val;
+    const disp=document.getElementById('pantoneColorDisplay');
+    if(disp) disp.textContent=`${names[idx]} (${val})`;
+    window.lastPantoneColor=val;
+  }catch(e){
+    console.error('Pantone color load failed',e);
+    document.body.style.backgroundColor='#ffffff';
+    window.lastPantoneColor='#ffffff';
+  }
+}
+
+const HIST_DB_NAME='multiverseHistory';
+const HIST_STORE='links';
+const HIST_VERSION=1;
+let historyDb=null;
+const LOCAL_HIST_KEY='bucketMultiverseHistory';
+
+const idToUrl={};
+const idToPath={};
+const categoryMap={};
+const allItemIds=[];
+
+function getItemsForCategory(catId){
+  let items=categoryMap[catId];
+  if(!Array.isArray(items) || !items.length){
+    const parts=catId.split('/');
+    items=allItemIds.filter(id=>{
+      const p=idToPath[id];
+      if(!p||p.length<parts.length) return false;
+      for(let i=0;i<parts.length;i++) if(p[i]!==parts[i]) return false;
+      return true;
+    });
+    categoryMap[catId]=items;
+  }
+  return items;
+}
+
+async function openBucketDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VERSION);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE,{keyPath:'id'});
+    };
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>res(r.result);
+  });
+}
+function idbGet(key){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readonly').objectStore(STORE).get(key);
+    tx.onsuccess=()=>res(tx.result?tx.result.data:null);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+function idbPut(key,val){
+  return new Promise((res,rej)=>{
+    const tx=bucketDb.transaction(STORE,'readwrite').objectStore(STORE).put({id:key,data:val});
+    tx.onsuccess=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+async function openHistoryDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(HIST_DB_NAME,HIST_VERSION);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(HIST_STORE))
+        db.createObjectStore(HIST_STORE,{keyPath:'id'});
+    };
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>res(r.result);
+  });
+}
+async function histGet(id){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readonly').objectStore(HIST_STORE).get(id);
+    tx.onsuccess=()=>res(tx.result||null);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+async function histPut(rec){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readwrite').objectStore(HIST_STORE).put(rec);
+    tx.onsuccess=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+async function getAllHistory(){
+  if(!historyDb) historyDb=await openHistoryDB();
+  return new Promise((res,rej)=>{
+    const tx=historyDb.transaction(HIST_STORE,'readonly').objectStore(HIST_STORE).getAll();
+    tx.onsuccess=()=>res(tx.result||[]);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+let skipBegins=null, skipContains=null, skipEnds=null;
+async function loadSkipConfig(){
+  if(skipBegins&&skipContains&&skipEnds) return;
+  skipBegins=[]; skipContains=[]; skipEnds=[];
+  try{
+    const resp=await fetch('../config/skyway-url-prefix-skip-list');
+    if(resp.ok){
+      const data=await resp.json();
+      if(Array.isArray(data.beginsWith))  skipBegins=data.beginsWith.map(s=>s.toLowerCase());
+      if(Array.isArray(data.contains))    skipContains=data.contains.map(s=>s.toLowerCase());
+      if(Array.isArray(data.endsWith))    skipEnds=data.endsWith.map(s=>s.toLowerCase());
+    }
+  }catch(e){ console.warn('Failed to load skip config',e); }
+}
+function shouldSkip(url){
+  const decoded=decodeURIComponent(url||'').toLowerCase();
+  if(skipBegins.some(p=>decoded.startsWith(p))) return true;
+  if(skipEnds.some(e=>decoded.endsWith(e))) return true;
+  if(skipContains.some(c=>decoded.includes(c))) return true;
+  return false;
+}
+async function recordHistory(url){
+  await loadSkipConfig();
+  if(shouldSkip(url)) return;
+  try{
+    let arr=JSON.parse(localStorage.getItem(LOCAL_HIST_KEY)||'[]');
+    if(!Array.isArray(arr)) arr=[];
+    arr=arr.filter(u=>u!==url);
+    arr.push(url);
+    if(arr.length>10) arr=arr.slice(-10);
+    localStorage.setItem(LOCAL_HIST_KEY,JSON.stringify(arr));
+  }catch(e){ console.warn('local history fail',e); }
+  await updateHistoryRecord(url);
+}
+async function syncLocalHistory(){
+  let arr;
+  try{ arr=JSON.parse(localStorage.getItem(LOCAL_HIST_KEY)||'[]'); }
+  catch{ arr=[]; }
+  if(!Array.isArray(arr)) arr=[];
+  for(const url of arr){
+    try{ await updateHistoryRecord(url); }catch{}
+  }
+}
+async function getHistory(){
+  try{
+    await syncLocalHistory();
+    const all=await getAllHistory();
+    all.sort((a,b)=>(b.lastSeen||0)-(a.lastSeen||0));
+    return all.slice(0,10).map(r=>r.url);
+  }catch(e){ console.error('getHistory fail',e); return []; }
+}
+async function updateHistoryRecord(url){
+  const now=Date.now();
+  try{
+    const existing=await histGet(url);
+    const rec=existing?{...existing,freq:(existing.freq||0)+1,lastSeen:now}:{id:url,url,freq:1,lastSeen:now};
+    await histPut(rec);
+  }catch(e){ console.error('hist update fail',e); }
+}
+function getPhilippineNow(){
+  const now=new Date();
+  const utc=now.getTime()+now.getTimezoneOffset()*60000;
+  return new Date(utc+8*3600000);
+}
+
+async function loadDirectory(){
+  const resp=await fetch('bucket-directory.json');
+  const data=await resp.json();
+  directoryData=data;
+  function walk(obj,path){
+    for(const [k,v] of Object.entries(obj)){
+      if(Array.isArray(v)){
+        const catPath=path.concat(k);
+        const catKey=catPath.join('/');
+        if(!categoryMap[catKey]) categoryMap[catKey]=[];
+        for(const item of v){
+          idToUrl[item.id]=item.url;
+          idToPath[item.id]=catPath;
+          allItemIds.push(item.id);
+          categoryMap[catKey].push(item.id);
+        }
+      }else if(typeof v==='object'){
+        walk(v,path.concat(k));
+      }
+    }
+  }
+  walk(data,[]);
+}
+
+async function loadBucketState(){
+  bucketDb=await openBucketDB();
+  bucketState=await idbGet('main');
+  if(!bucketState){
+    bucketState={reviewBucket:[],newBucket:[],counts:{},initiated:false};
+  }
+  if(!bucketState.initiated){
+    initBuckets();
+    bucketState.initiated=true;
+    await saveBucketState();
+  }
+}
+function initBuckets(){
+  for(const id of allItemIds){
+    if(!bucketState.newBucket.includes(id)&&!bucketState.reviewBucket.includes(id))
+      bucketState.newBucket.push(id);
+  }
+}
+async function saveBucketState(){ await idbPut('main',bucketState); }
+
+function traverseNeighbors(id){
+  const count=bucketState.counts[id]||0;
+  let path=idToPath[id];
+  let level=Math.floor(count/3);
+  while(level>0 && path.length>1){ path=path.slice(0,-1); level--; }
+  const catKey=path.join('/');
+  const options=categoryMap[catKey]||[id];
+  return options[randInt(0,options.length-1)];
+}
+
+function pickBucketItem(){
+  if(!bucketState.reviewBucket.length && !bucketState.newBucket.length) return null;
+  const useReview=getSecureRandomNumber()<0.33 && bucketState.reviewBucket.length;
+  const bucket=useReview?bucketState.reviewBucket:bucketState.newBucket;
+  if(!bucket.length){
+    const other=useReview?bucketState.newBucket:bucketState.reviewBucket;
+    if(!other.length) return null;
+    return pickFromBucket(other,!useReview);
+  }
+  return pickFromBucket(bucket,useReview);
+}
+function pickFromBucket(bucket,isReview){
+  const idx=Math.floor(getSecureRandomNumber()*bucket.length);
+  const id=bucket[idx];
+  if(!isReview){
+    bucket.splice(idx,1);
+    bucketState.reviewBucket.push(id);
+  }
+  bucketState.counts[id]=(bucketState.counts[id]||0)+1;
+  saveBucketState();
+  const finalId=traverseNeighbors(id);
+  return idToUrl[finalId];
+}
+
+async function showProgressAndRedirect(url){
+  await recordHistory(url);
+  const config=await loadConfig();
+  const cur=evalFormula(config.progressCurrentValueFormula);
+  const target=evalFormula(config.progressTargetValueFormula);
+  const container=document.getElementById('progressBarContainer');
+  const bar=document.getElementById('progressBar');
+  if(!container||!bar){ location.href=url; return; }
+  if(isNaN(cur)||isNaN(target)||target<=cur){ location.href=url; return; }
+  container.style.display='block';
+  bar.style.width='0%';
+  bar.setAttribute('aria-valuenow','0');
+  bar.textContent='0%';
+  const steps=60; const duration=2000; let step=0;
+  const inc=(target-cur)/steps; let val=cur;
+  return new Promise(resolve=>{
+    const timer=setInterval(()=>{
+      val+=inc; step++;
+      const pct=((val-cur)/(target-cur))*100;
+      bar.style.width=pct+'%';
+      bar.setAttribute('aria-valuenow',pct);
+      bar.textContent=Math.floor(pct)+'%';
+      if(step>=steps){
+        clearInterval(timer);
+        const delay=0.5+getSecureRandomNumber()*(5000-0.5);
+        setTimeout(()=>{ location.href=url; resolve(); }, delay);
+      }
+    }, duration/steps);
+  });
+}
+
+async function animateProgressCount(){
+  const config=await loadConfig();
+  const target=evalFormula(config.progressCurrentValueFormula);
+  const el=document.getElementById('progressCount');
+  if(!el||isNaN(target)) return;
+  el.style.display='block';
+  const steps=60; const duration=2000; let step=0; let val=0;
+  const inc=target/steps;
+  const timer=setInterval(()=>{
+    val+=inc; step++;
+    if(step>=steps){ clearInterval(timer); val=target; }
+    el.textContent=Math.round(val).toLocaleString();
+  }, duration/steps);
+}
+
+function updateVisitCounter(){
+  const key='bucketMultiverseVisitCount';
+  let count=parseInt(localStorage.getItem(key)||'0',10);
+  count++; localStorage.setItem(key,count);
+  return count;
+}
+
+let configValues={};
+async function loadConfig(){
+  if(Object.keys(configValues).length) return configValues;
+  try{
+    const resp=await fetch('../config/values.json');
+    if(resp.ok){
+      const raw=await resp.json();
+      const base=raw.base||{};
+      let patch={};
+      if(Array.isArray(raw.patches)&&raw.patches.length){
+        const weights=raw.patches.map(p=>Number(p.distributionWeight)||1);
+        const tot=weights.reduce((a,b)=>a+b,0);
+        let rnd=getSecureRandomNumber()*tot;
+        for(let i=0;i<raw.patches.length;i++){
+          if(rnd<weights[i]){ patch={...raw.patches[i]}; break; }
+          rnd-=weights[i];
+        }
+        delete patch.distributionWeight;
+      }
+      configValues=Object.assign({},base,patch);
+      for(const [k,v] of Object.entries(configValues)){
+        if(typeof v==='string' && /^\d+(?:\.\d+)?$/.test(v)){
+          configValues[k]=Number(v);
+        }
+      }
+    }
+  }catch(err){ console.error('Config load failed:',err); }
+  return configValues;
+}
+
+function evalFormula(formula){
+  if(formula===undefined||formula===null||formula==='') return NaN;
+  if(typeof formula==='number') return formula;
+  let expr=String(formula);
+  for(const [k,v] of Object.entries(configValues)){
+    expr=expr.replace(new RegExp('\\b'+k+'\\b','g'),v);
+  }
+  try{ return Function('"use strict";return ('+expr+')')(); }
+  catch{ return NaN; }
+}
+
+function showPortal(){
+  getAllHistory().then(arr=>{
+    const size=new Blob([JSON.stringify({links:arr})]).size;
+    const earliest=arr.length?new Date(Math.min(...arr.map(r=>r.lastSeen))).toLocaleString():'N/A';
+    const latest=arr.length?new Date(Math.max(...arr.map(r=>r.lastSeen))).toLocaleString():'N/A';
+    const div=document.getElementById('portal');
+    div.style.display='block';
+    div.innerHTML=`<h3>History Portal</h3><p>Total JSON size: ${size} bytes</p><p>${arr.length} unique URLs</p><p>First seen: ${earliest}</p><p>Last seen: ${latest}</p><button onclick="exportData()">Export JSON</button><button onclick="importPrompt()">Import JSON</button><button onclick="resetData()">Reset State</button><br/><textarea id="textareaImport" style="display:none" placeholder="Paste JSON here"></textarea>`;
+  });
+}
+function exportData(){
+  getAllHistory().then(arr=>{
+    const blob=new Blob([JSON.stringify({links:arr})],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='multiverseHistory.json';a.click();URL.revokeObjectURL(url);
+  });
+}
+function importPrompt(){
+  const area=document.getElementById('textareaImport');area.style.display='block';area.value='';
+  const btn=document.createElement('button');btn.textContent='Import';area.after(btn);
+  btn.onclick=async()=>{await importData(area.value);location.reload();};
+}
+async function importData(txt){
+  txt=txt.trim();if(!txt)return;let j;try{j=JSON.parse(txt);}catch(e){alert('Invalid JSON');return;}
+  if(!Array.isArray(j.links)){alert('Malformed JSON');return;}
+  for(const r of j.links){if(!r.url)continue;await histPut({id:r.url,url:r.url,freq:r.freq||1,lastSeen:r.lastSeen||Date.now()});}
+}
+function resetData(){const r=indexedDB.deleteDatabase(HIST_DB_NAME);r.onsuccess=()=>location.reload();}
+
+function buildGraphData(){
+  if(!directoryData) return {nodes:[],links:[]};
+  const nodes=[]; const links=[]; const map={};
+  function ensure(id,type){ if(!map[id]){ map[id]={id,type,count:0}; nodes.push(map[id]); } return map[id]; }
+  ensure('root','cat');
+  function walk(obj,path){
+    for(const [k,v] of Object.entries(obj)){
+      if(Array.isArray(v)){
+        const parent=ensure(path.join('/')||'root','cat');
+        for(const item of v){
+          const n=ensure(item.id,'item');
+          n.count=(bucketState?.counts[item.id])||0;
+          links.push({source:parent.id,target:n.id});
+        }
+      }else if(typeof v==='object'){
+        const parent=ensure(path.join('/')||'root','cat');
+        const key=path.concat(k).join('/');
+        ensure(key,'cat');
+        links.push({source:parent.id,target:key});
+        walk(v,path.concat(k));
+      }
+    }
+  }
+  walk(directoryData,[]);
+  return {nodes,links};
+}
+
+function handleNodeClick(node){
+  if(!node||node.id==='root') return;
+  let url=null;
+  if(node.type==='item'){
+    url=idToUrl[node.id];
+  }else if(node.type==='cat'){
+    const items=getItemsForCategory(node.id);
+    if(items.length) url=idToUrl[items[randInt(0,items.length-1)]];
+  }
+  if(url){
+    try{ recordHistory(url); }catch{}
+    location.href=url;
+  }
+}
+
+async function drawNetwork(){
+  const {nodes,links}=buildGraphData();
+  const div=document.getElementById('network');
+  div.style.display='block';
+  div.innerHTML='';
+  const width=div.clientWidth, height=div.clientHeight;
+  const svg=d3.select(div).append('svg').attr('width',width).attr('height',height);
+  const link=svg.append('g').selectAll('line').data(links).enter().append('line').attr('stroke','#999').attr('stroke-opacity',0.6);
+  const node=svg.append('g').selectAll('circle').data(nodes).enter().append('circle')
+    .attr('r',d=>d.type==='item'?5+2*d.count:8)
+    .attr('fill',d=>d.type==='item'?'#69b3a2':'#ffdd57')
+    .attr('id',d=>d.id==='root'?'root-node':null)
+    .style('cursor','pointer')
+    .on('click',(event,d)=>{ if(d.id!=='root') handleNodeClick(d); });
+  const label=svg.append('g').selectAll('text').data(nodes).enter().append('text')
+    .text(d=>d.id).attr('font-size','10px').attr('fill','#fff');
+  node.append('title').text(d=>d.id);
+  const drag=d3.drag()
+    .on('start',(event,d)=>{ if(!event.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on('drag',(event,d)=>{ d.fx=event.x; d.fy=event.y; })
+    .on('end',(event,d)=>{ if(!event.active) sim.alphaTarget(0); d.fx=null; d.fy=null; });
+  node.call(drag);
+  const sim=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(50))
+    .force('charge',d3.forceManyBody().strength(-50))
+    .force('center',d3.forceCenter(width/2,height/2));
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('cx',d=>d.x).attr('cy',d=>d.y);
+    label.attr('x',d=>d.x+10).attr('y',d=>d.y+4);
+  });
+  return new Promise(res=>setTimeout(()=>{sim.stop();res();},4000));
+}
+
+async function showNetworkAndRedirect(url){
+  try{ await drawNetwork(); }
+  catch(e){ console.error('graph fail',e); }
+  return new Promise(resolve=>{
+    const root=document.getElementById('root-node');
+    if(!root){
+      showProgressAndRedirect(url).then(resolve);
+      return;
+    }
+    root.style.cursor='pointer';
+    const handler=()=>{
+      root.removeEventListener('click',handler);
+      document.getElementById('network').style.display='none';
+      showProgressAndRedirect(url).then(resolve);
+    };
+    root.addEventListener('click',handler);
+  });
+}
+
+async function runOriginal(){
+  await applyRandomPantoneColor();
+  await loadConfig();
+  animateProgressCount();
+  const count=updateVisitCounter();
+  await loadBucketState();
+  const url=pickBucketItem();
+  if(url) await showNetworkAndRedirect(url);
+  else document.body.textContent='No bucket items available.';
+}
+
+async function runHistoryGate(){
+  try{
+    await loadConfig();
+    await loadBucketState();
+  }catch(e){ console.error('history gate prep failed',e); }
+  const hist=await getHistory();
+  if(!hist.length) return runOriginal();
+  const records=[];
+  for(const url of hist){
+    try{
+      const rec=await histGet(url);
+      records.push({url,freq:rec?.freq||0,lastSeen:rec?.lastSeen||0});
+    }catch{ records.push({url,freq:0,lastSeen:0}); }
+  }
+  if(!records.length) return runOriginal();
+  const now=Date.now();
+  let best=records[0];
+  let bestScore=-Infinity;
+  for(const r of records){
+    const score=(now-r.lastSeen)/(r.freq+1);
+    if(score>bestScore){ bestScore=score; best=r; }
+  }
+  await showNetworkAndRedirect(best.url);
+}
+
+window.onload=async()=>{
+  const params=new URLSearchParams(location.search);
+  if(params.has('portal')){ return showPortal(); }
+  await loadDirectory();
+  if(getSecureRandomNumber()<0.33){ await runHistoryGate(); } else { await runOriginal(); }
+};
+</script>
+</body>
+</html>

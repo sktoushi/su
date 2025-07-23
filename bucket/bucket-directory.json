@@ -1,0 +1,189 @@
+{
+  "Philosophy & Ethics": {
+    "Political & Social Philosophy": {
+      "Western Canon": [
+        { "title": "A Theory of Justice", "id": "a-theory-of-justice-rawls", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=a-theory-of-justice-rawls&blob=a-theory-of-justice-rawls-&startIndex=12&endIndex=537" },
+        { "title": "Beyond Good and Evil", "id": "bucket-Beyond-Good-and-Evil", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Beyond-Good-and-Evil" },
+        { "title": "Treatise of Human Nature", "id": "bucket-a-treatise-of-human-nature", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-a-treatise-of-human-nature" },
+        { "title": "Enquiry Concerning Human Understanding", "id": "bucket-an-enquiry-concerning-human-understanding-oxford-worlds-classics", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-an-enquiry-concerning-human-understanding-oxford-worlds-classics" }
+      ],
+      "Eastern & Religious Thought": [
+        { "title": "Autobiography of a Yogi", "id": "bucket-Autobiography-of-a-Yogi", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Autobiography-of-a-Yogi" },
+        { "title": "Way to Wisdom", "id": "bucket-way-to-wisdom", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-way-to-wisdom" }
+      ]
+    }
+  },
+
+  "Religion & Theology": {
+    "Catholic Doctrine": [
+      { "title": "Catechism (Pt 1)", "id": "bucket-Catechism-of-the-Catholic-Church-tr-p1", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Catechism-of-the-Catholic-Church-tr-p1" },
+      { "title": "Catechism (Pt 2)", "id": "bucket-Catechism-of-the-Catholic-Church-tr-p2", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Catechism-of-the-Catholic-Church-tr-p2" },
+      { "title": "Catechism (Pt 3)", "id": "bucket-Catechism-of-the-Catholic-Church-tr-p3", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Catechism-of-the-Catholic-Church-tr-p3" },
+      { "title": "Vatican II Documents", "id": "bucket-Vatican-Council-2-documents", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Vatican-Council-2-documents" },
+      { "title": "Code of Canon Law", "id": "bucket-code-of-canon-law", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-code-of-canon-law" }
+    ],
+    "Augustinian Works": [
+      { "title": "Against the Academics v1", "id": "bucket-Against-the-Academics-St-Augustine-volume1", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Against-the-Academics-St-Augustine-volume1" },
+      { "title": "On Order v3", "id": "bucket-On-Order-St-Augustine-volume3", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-On-Order-St-Augustine-volume3" },
+      { "title": "On the Happy Life v2", "id": "bucket-On-the-Happy-Life-Saint-Augustine-volume2", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-On-the-Happy-Life-Saint-Augustine-volume2" },
+      { "title": "Answers on Prayer", "id": "bucket-st-augustine-answers-questions-on-prayer", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-st-augustine-answers-questions-on-prayer" }
+    ]
+  },
+
+  "Psychology & Decision": {
+    "Influence & Persuasion": [
+      { "title": "Influence", "id": "bucket-influence-the-psychology-of-persuasion", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-influence-the-psychology-of-persuasion" },
+      { "title": "Pre-Suasion", "id": "bucket-pre-suasion-cialdini", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-pre-suasion-cialdini" },
+      { "title": "Predictably Irrational", "id": "bucket-predictably-irrational", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-predictably-irrational" },
+      { "title": "Thinking Fast & Slow", "id": "bucket-thinking-fast-and-slow", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-thinking-fast-and-slow" },
+      { "title": "Dark Persuasion", "id": "bucket-dark-persuasion", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-dark-persuasion" }
+    ],
+    "Behavioral Economics": [
+      { "title": "Nudge", "id": "bucket-nudge-improving-decisions", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-nudge-improving-decisions" },
+      { "title": "Fooled by Randomness", "id": "bucket-fooled-by-randomness", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-fooled-by-randomness" },
+      { "title": "Skin in the Game", "id": "bucket-skin-in-the-game", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-skin-in-the-game" },
+      { "title": "Antifragile", "id": "bucket-antifragile", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-antifragile" }
+    ],
+    "Classic Psychology": [
+      { "title": "Principles of Psychology", "id": "bucket-The-Principles-of-Psychology", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-The-Principles-of-Psychology" },
+      { "title": "Behaviorism (Watson)", "id": "bucket-Behaviorism-watson", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Behaviorism-watson" },
+      { "title": "Beyond Freedom and Dignity", "id": "bucket-Beyond-Freedom-and-Dignity", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Beyond-Freedom-and-Dignity" },
+      { "title": "Interpretation of Dreams", "id": "bucket-the-interpretation-of-dreams", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-interpretation-of-dreams" }
+    ]
+  },
+
+  "Game Theory & Strategy": {
+    "Core Textbooks": [
+      { "title": "Games of Strategy – Dixit p1-4", "id": "games-of-strategy-dixit", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Games-of-Strategy-dixit-p1" },
+      { "title": "Game Theory – Fudenberg p1-5", "id": "game-theory-fudenberg", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-game-theory-fudenberg-p1" },
+      { "title": "Evolution & Games – Maynard Smith", "id": "bucket-Evolution-and-the-Theory-of-Games-maynard", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Evolution-and-the-Theory-of-Games-maynard" },
+      { "title": "Theory of Games & Economic Behavior", "id": "bucket-the-theory-of-games-and-economic-behavior", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-theory-of-games-and-economic-behavior" }
+    ],
+    "Applied & Behavioral": [
+      { "title": "Behavioral Game Theory – Camerer p1-5", "id": "behavioral-game-theory-camerer", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Behavioral-Game-Theory-Camerer-p1" },
+      { "title": "Games & Information – Rasmusen p1-2", "id": "games-and-information-rasmusen", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-games-and-information-rasmusen-p1" },
+      { "title": "Game Theory Evolving", "id": "bucket-Game-theory-evolving", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Game-theory-evolving" }
+    ],
+    "Strategic Classics": [
+      { "title": "Art of Strategy", "id": "bucket-the-art-of-strategy", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-art-of-strategy" },
+      { "title": "Strategy of Conflict p1-3", "id": "strategy-of-conflict", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-The-Strategy-of-Conflict-p1" },
+      { "title": "Art of War (Sun Zi)", "id": "bucket-the-art-of-war-complete-text", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-art-of-war-complete-text" },
+      { "title": "33 Strategies of War", "id": "bucket-33-strategies-of-war", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-33-strategies-of-war" },
+      { "title": "48 Laws of Power", "id": "bucket-48lawsofpower", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-48lawsofpower" }
+    ],
+    "Quick-Access Buckets": [
+      { "title": "stash2 – Decision Making", "id": "bucket-202409-stash2-DecisionMaking", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-202409-stash2-DecisionMaking" },
+      { "title": "stash2 – Game Theory", "id": "bucket-202409-stash2-GameTheory", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-202409-stash2-GameTheory" },
+      { "title": "stash2 – Randomness", "id": "bucket-202409-stash2-Randomness", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-202409-stash2-Randomness" }
+    ]
+  },
+
+  "Business & Leadership": {
+    "Management Classics": [
+      { "title": "Effective Executive", "id": "bucket-Effective-Executive-drucker", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Effective-Executive-drucker" },
+      { "title": "High Output Management", "id": "bucket-high-output-management", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-high-output-management" },
+      { "title": "Good to Great", "id": "bucket-good-to-great", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-good-to-great" },
+      { "title": "Greatest Business Decisions", "id": "bucket-the-greatest-business-decisions", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-greatest-business-decisions" }
+    ],
+    "Leadership & Teams": [
+      { "title": "Extreme Ownership", "id": "extreme-ownership", "url": "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=extreme-ownership-29-246.pdf" },
+      { "title": "The Leadership Challenge", "id": "bucket-The-Leadership-Challenge", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-The-Leadership-Challenge" },
+      { "title": "Five Dysfunctions of a Team", "id": "bucket-The-Five-Dysfunctions-of-a-Team", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-The-Five-Dysfunctions-of-a-Team" },
+      { "title": "Leadership & Self-Deception", "id": "bucket-leadership-and-self-deception", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-leadership-and-self-deception" }
+    ],
+    "Negotiation & Influence": [
+      { "title": "Never Split the Difference", "id": "bucket-never-split-the-difference-negotiate", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-never-split-the-difference-negotiate" },
+      { "title": "Getting More of What You Want", "id": "bucket-Getting-More-of-What-You-Want-Secrets-of-Economics-and-Psychology-Negotiate-Business-Life", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Getting-More-of-What-You-Want-Secrets-of-Economics-and-Psychology-Negotiate-Business-Life" },
+      { "title": "Intelligent Negotiator", "id": "bucket-the-intelligent-negotiator", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-intelligent-negotiator" }
+    ]
+  },
+
+  "Economics & Finance": {
+    "Microeconomics": [
+      { "title": "Intermediate Micro – Varian", "id": "bucket-Intermediate-Microeconomics-Hal-Varian", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Intermediate-Microeconomics-Hal-Varian" },
+      { "title": "Microeconomic Theory – Mas-Colell p1-10", "id": "microeconomic-theory-mas-colell", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Microeconomic-Theory-Andreu-Mas-Colell-p1" }
+    ],
+    "Macroeconomics": [
+      { "title": "Macroeconomics – Mankiw", "id": "bucket-Macroeconomics-Mankiw", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Macroeconomics-Mankiw" },
+      { "title": "Advanced Macroeconomics", "id": "bucket-Advanced-Macroeconomics", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Advanced-Macroeconomics" },
+      { "title": "Economics – Nordhaus p1-3", "id": "economics-nordhaus", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-economics-nordhaus-p1" }
+    ],
+    "Political Economy Classics": [
+      { "title": "Wealth of Nations", "id": "bucket-wealth-of-nations", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-wealth-of-nations" },
+      { "title": "Capitalism & Freedom", "id": "bucket-capitalism-and-freedom-fortieth-anniversary-edition", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-capitalism-and-freedom-fortieth-anniversary-edition" },
+      { "title": "Capitalism, Socialism & Democracy", "id": "bucket-capitalism-socialism-and-democracy", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-capitalism-socialism-and-democracy" },
+      { "title": "Road to Serfdom", "id": "bucket-the-road-to-serfdom", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-road-to-serfdom" }
+    ],
+    "Investing & Markets": [
+      { "title": "Intelligent Investor", "id": "traverse-intelligent-investor", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=intelligent-investor&blob=The_intelligent_investor-&startIndex=9&endIndex=601" },
+      { "title": "Value at Risk p2", "id": "bucket-value-at-risk-p2", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-value-at-risk-p2" }
+    ]
+  },
+
+  "Operations & Lean": {
+    "Toyota & Lean": [
+      { "title": "Toyota Production System", "id": "bucket-toyota-production-system", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-toyota-production-system" },
+      { "title": "Taiichi Ohno – Workplace Mgmt", "id": "bucket-taiichi-ohnos-workplace-management", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-taiichi-ohnos-workplace-management" },
+      { "title": "The Toyota Way", "id": "bucket-the-toyota-way", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-the-toyota-way" }
+    ],
+    "Production & Supply Chain": [
+      { "title": "Operations Mgmt – Bozarth p1-4", "id": "operations-bozarth", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Introduction-to-operations-and-supply-chain-management-Bozarth-p1" },
+      { "title": "Production & Operations Analysis p1-3", "id": "production-operations-analysis", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-production-and-operations-analysis-p1" },
+      { "title": "Factory Physics", "id": "bucket-factory-physics", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-factory-physics" }
+    ],
+    "Critical Projects": [
+      { "title": "Critical Chain", "id": "critical-chain", "url": "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=critical-chain-6-97.pdf" },
+      { "title": "Goal – Ongoing Improvement", "id": "goal-ongoing", "url": "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=the-goal-ongoing-process-improvement-10-392.pdf" }
+    ]
+  },
+
+  "Mathematics & Science": {
+    "Calculus & Analysis": [
+      { "title": "Calculus (Stewart) p1-2", "id": "bucket-Calculus-p1", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Calculus-p1" },
+      { "title": "Calc Made Easy p1-2", "id": "bucket-calculus-made-easy-p1", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-calculus-made-easy-p1" },
+      { "title": "Principles of Math Analysis – Rudin", "id": "bucket-Principles-of-Mathematical-Analysis-Rudin", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-Principles-of-Mathematical-Analysis-Rudin" }
+    ],
+    "Probability & Statistics": [
+      { "title": "Harvard Probability Lectures (CSV)", "id": "skyway-probability", "url": "https://sktoushi.github.io/stash-utils/skyway.html?target=skyway-harvard-probability-youtube.csv" }
+    ]
+  },
+
+  "Language & Learning": {
+    "Japanese": [
+      { "title": "Kanji Pictographix", "id": "kanji-pictographix", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=kanji-pictographix&blob=kanji-pict-o-graphix-&startIndex=4&endIndex=213" },
+      { "title": "Tae Kim Grammar Guide", "id": "tae-kim-grammar", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=tae-kim-grammar-guide&blob=tae-kim-grammar-guide-&startIndex=11&endIndex=353" },
+      { "title": "JP Sentences (CSV)", "id": "indexedDb-jp-sentences", "url": "https://sktoushi.github.io/stash-utils/lc300.html?target=indexedDb-jp-sentences.csv" }
+    ],
+    "Flashcards & Verses": [
+      { "title": "Biblical Wisdom Flashcards", "id": "flashcards-biblical-wisdom", "url": "https://sktoushi.github.io/stash-utils/flashcards.html?target=flashcards-biblical-wisdom-solomon-job-matthew-henry.csv" },
+      { "title": "Solomon Verses (Seq)", "id": "lc300seq-solomon", "url": "https://sktoushi.github.io/stash-utils/lc300seq.html?target=indexedDb-solomon-verses.csv" }
+    ]
+  },
+
+  "History & Biography": {
+    "Roman & Ancient": [
+      { "title": "Lives of the Caesars p1", "id": "lives-caesars-p1", "url": "https://sktoushi.github.io/ref2506/viewer-range.html?fileName=lives-of-the-caesars-p1-8-224.pdf" },
+      { "title": "Lives of the Caesars p2", "id": "lives-caesars-p2", "url": "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=lives-of-the-caesars-p2-1-182.pdf" }
+    ],
+    "Modern Biographies": [
+      { "title": "Elon Musk (Isaacson)", "id": "elon-musk-isaacson", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=elon-musk&blob=Elon-Musk-Walter-Isaacson-&startIndex=4&endIndex=469" },
+      { "title": "Steve Jobs (Isaacson)", "id": "steve-jobs-isaacson", "url": "https://sktoushi.github.io/stash-utils/traverse0915-pdf.html?repository=steve-jobs&blob=Steve%20Jobs-By-Walter-Isaacson-&startIndex=14&endIndex=637" }
+    ],
+    "World History & Politics": [
+      { "title": "Anatomy of Malice – Nazi War Criminals", "id": "anatomy-of-malice", "url": "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=Anatomy-of-Malice-The-Enigma-of-the-Nazi-War-Criminals-22-216.pdf" },
+      { "title": "Shah of Shahs – Iran", "id": "bucket-shah-of-shahs-iran", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-shah-of-shahs-iran" }
+    ]
+  },
+
+  "Special Topics": {
+    "Mind Control & Propaganda": [
+      { "title": "CIA MK-ULTRA Files", "id": "bucket-project-mkultra-cia", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-project-mkultra-cia" },
+      { "title": "Mass Mind Control", "id": "bucket-mass-mind-control", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-mass-mind-control" },
+      { "title": "Propaganda Techniques", "id": "bucket-propaganda-techniques", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-propaganda-techniques" }
+    ],
+    "Mob & Crime": [
+      { "title": "King of the Godfathers p1-3", "id": "king-godfathers", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-King-of-the-godfathers-Big-Joey-Massino-p1" },
+      { "title": "stash2 – Mob Bucket", "id": "bucket-202409-stash2-Mob", "url": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-202409-stash2-Mob" }
+    ]
+  }
+}
