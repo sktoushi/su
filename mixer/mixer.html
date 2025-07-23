@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="../common/history-utils.js"></script>
+    <meta charset="UTF-8">
+    <title>Text Jumbler</title>
+    <!-- Viewport meta tag for responsiveness -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <!-- Include Swiper CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css">
+    <!-- Optional: Include Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Include Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <!-- Include Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+    <!-- Include Swiper JS -->
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <style>
+        body {
+            padding: 20px;
+        }
+        #inputTextArea {
+            height: 200px;
+        }
+        .suica-card {
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            max-width: 600px; /* Similar to GitHub issues width */
+            margin: auto;
+            width: 100%;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .suica-card .card-header {
+            background: #f6f8fa;
+            border-bottom: 1px solid #e1e4e8;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 16px;
+        }
+        .suica-card .card-body {
+            padding: 16px;
+            flex: 1 1 auto;
+        }
+        .suica-card .card-text {
+            font-size: 1rem;
+            margin-bottom: 16px;
+        }
+        .suica-card .hex-code {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            font-size: 0.8rem;
+            color: rgba(0, 0, 0, 0.7);
+        }
+        .swiper-container {
+            width: 100%;
+            padding: 20px 0;
+        }
+        .swiper-slide {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: auto;
+        }
+        .slider-container {
+            width: 100%;
+        }
+        .swiper-button-next, .swiper-button-prev {
+            color: #000;
+        }
+        @media (max-width: 768px) {
+            .suica-card {
+                border-radius: 0;
+                margin: 0;
+            }
+            .suica-card .card-header,
+            .suica-card .card-body {
+                padding: 12px;
+            }
+            .suica-card .card-text {
+                font-size: 0.9rem;
+            }
+            .swiper-button-next, .swiper-button-prev {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="text-center">Text Jumbler</h1>
+
+    <!-- Configuration Section -->
+    <div class="card mb-3">
+        <div class="card-header">
+            Configuration
+            <button class="btn btn-sm btn-secondary float-right" id="editConfigButton">Edit</button>
+            <button class="btn btn-sm btn-success float-right mr-2" id="saveConfigButton" style="display:none;">Save</button>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="storageLocationInput">Storage Location:</label>
+                <!-- Updated the default value to point to GitHub Pages URL -->
+                <input type="text" class="form-control" id="storageLocationInput1" value="https://github.com/sktoushi/stash-utils/upload/main/mixer/files" readonly>
+                <input type="text" class="form-control" id="storageLocationInput" value="https://sktoushi.github.io/stash-utils/mixer/files/" readonly>
+            </div>
+            <div class="form-group">
+                <label for="stashLocationInput">Stash Location:</label>
+                <input type="text" class="form-control" id="stashLocationInput" value="https://github.com/sktoushi/stash2/issues/new" readonly>
+            </div>
+        </div>
+    </div>
+
+    <!-- Textarea for input -->
+    <div class="form-group" id="inputArea">
+        <label for="inputTextArea">Input Text:</label>
+        <textarea class="form-control" id="inputTextArea" rows="10"></textarea>
+    </div>
+
+    <!-- Buttons -->
+    <div class="form-group">
+        <button class="btn btn-primary" id="jumbleButton">Jumble</button>
+        <button class="btn btn-secondary" id="importButton">Import Data</button>
+        <button class="btn btn-secondary" id="exportButton">Export Data</button>
+        <button class="btn btn-danger" id="resetButton">Reset</button>
+        <button class="btn btn-success btn-lg" id="stashButton" style="display:none;">Stash</button>
+    </div>
+
+    <!-- Swiper container for cards -->
+    <div class="swiper-container" id="outputArea" style="display:none;">
+        <div class="swiper-wrapper">
+            <!-- Cards will be inserted here -->
+        </div>
+        <!-- Add Pagination -->
+        <div class="swiper-pagination"></div>
+        <!-- Add Navigation -->
+        <div class="swiper-button-next d-none d-md-block"></div>
+        <div class="swiper-button-prev d-none d-md-block"></div>
+    </div>
+
+</div>
+
+<!-- JavaScript -->
+<script>
+    // Declare stashFilename and swiper in the global scope
+    var stashFilename = '';
+    var swiper;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        var stashMixerUrl = '';
+
+        // Configuration Edit/Save functionality
+        var storageLocationInput = document.getElementById('storageLocationInput');
+        var stashLocationInput = document.getElementById('stashLocationInput');
+        var editConfigButton = document.getElementById('editConfigButton');
+        var saveConfigButton = document.getElementById('saveConfigButton');
+
+        editConfigButton.addEventListener('click', function() {
+            storageLocationInput.removeAttribute('readonly');
+            stashLocationInput.removeAttribute('readonly');
+            editConfigButton.style.display = 'none';
+            saveConfigButton.style.display = 'inline-block';
+        });
+
+        saveConfigButton.addEventListener('click', function() {
+            storageLocationInput.setAttribute('readonly', 'readonly');
+            stashLocationInput.setAttribute('readonly', 'readonly');
+            editConfigButton.style.display = 'inline-block';
+            saveConfigButton.style.display = 'none';
+        });
+
+        // Jumble button click event
+        document.getElementById('jumbleButton').addEventListener('click', function() {
+            var inputText = document.getElementById('inputTextArea').value;
+
+            // Hide the input area
+            document.getElementById('inputArea').style.display = 'none';
+
+            // Clear previous output
+            var swiperWrapper = document.querySelector('.swiper-wrapper');
+            swiperWrapper.innerHTML = '';
+
+            // Show the swiper container
+            document.getElementById('outputArea').style.display = 'block';
+
+            // Process and display the sentences
+            displayJumbledSentences(inputText);
+
+            // Initialize Swiper
+            if (swiper) swiper.destroy(true, true); // Destroy previous instance if exists
+            swiper = new Swiper('.swiper-container', {
+                loop: false,
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                },
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev',
+                },
+            });
+        });
+
+        // Import data button click event
+        document.getElementById('importButton').addEventListener('click', function() {
+            importData();
+        });
+
+        // Export data button click event
+        document.getElementById('exportButton').addEventListener('click', function() {
+            exportData();
+        });
+
+        // Reset button click event
+        document.getElementById('resetButton').addEventListener('click', function() {
+            document.getElementById('inputTextArea').value = '';
+            document.getElementById('inputArea').style.display = 'block';
+            document.getElementById('outputArea').style.display = 'none';
+            // Hide the Stash button
+            document.getElementById('stashButton').style.display = 'none';
+        });
+
+        // Stash button click event
+        document.getElementById('stashButton').addEventListener('click', function() {
+            var stashUrl = stashLocationInput.value;
+            var mixerPageUrl = 'https://sktoushi.github.io/stash-utils/mixer/mixer.html?data=' + encodeURIComponent(stashFilename);
+            var issueTitle = encodeURIComponent(mixerPageUrl);
+            var issueBody = encodeURIComponent(mixerPageUrl);
+            var fullUrl = stashUrl + '?title=' + issueTitle + '&body=' + issueBody;
+            window.location.href = fullUrl;
+        });
+
+        // Handle 'data' URL parameter
+        var urlParams = new URLSearchParams(window.location.search);
+        var dataParam = urlParams.get('data');
+        if (dataParam) {
+            stashFilename = dataParam; // Set the global stashFilename
+            loadData(dataParam);
+            // Show the Stash button
+            document.getElementById('stashButton').style.display = 'inline-block';
+        }
+    });
+
+    // Function to display jumbled sentences with per-sentence difficulty sliders
+    function displayJumbledSentences(text) {
+        var swiperWrapper = document.querySelector('.swiper-wrapper');
+        // Split text into sentences
+        var sentences = text.match(/[^\.!\?]+[\.!\?]+["']?|.+$/g);
+        if (sentences === null) return;
+
+        sentences.forEach(function(sentence, index) {
+            var originalSentence = sentence.trim();
+
+            // Generate random difficulty between 0 and 100
+            var difficulty = Math.floor(getSecureRandomNumber() * 101);
+
+            // Jumble the sentence with the difficulty
+            var jumbledSentence = jumbleSentence(originalSentence, difficulty);
+
+            // Generate a random hex color
+            var hexColor = getRandomHexColor();
+
+            // Create swiper slide
+            var swiperSlide = document.createElement('div');
+            swiperSlide.className = 'swiper-slide';
+
+            // Create card
+            var cardDiv = document.createElement('div');
+            cardDiv.className = 'card suica-card';
+
+            // Hex code display
+            var hexCodeSpan = document.createElement('span');
+            hexCodeSpan.className = 'hex-code';
+            hexCodeSpan.textContent = hexColor;
+            cardDiv.appendChild(hexCodeSpan);
+
+            // Card header (optional, if you want to include a header)
+            // var cardHeader = document.createElement('div');
+            // cardHeader.className = 'card-header';
+            // cardHeader.textContent = 'Card ' + (index + 1);
+            // cardDiv.appendChild(cardHeader);
+
+            // Card body
+            var cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+
+            // Jumbled sentence paragraph
+            var jumbledP = document.createElement('p');
+            jumbledP.className = 'jumbled-sentence card-text';
+            jumbledP.textContent = jumbledSentence;
+            cardBody.appendChild(jumbledP);
+
+            // Original sentence paragraph (hidden)
+            var originalP = document.createElement('p');
+            originalP.textContent = originalSentence;
+            originalP.className = 'original-sentence card-text';
+            originalP.style.display = 'none';
+            cardBody.appendChild(originalP);
+
+            // Difficulty Slider
+            var sliderDiv = document.createElement('div');
+            sliderDiv.className = 'form-group slider-container';
+
+            var sliderLabel = document.createElement('label');
+            sliderLabel.textContent = 'Difficulty: ';
+
+            var sliderValueSpan = document.createElement('span');
+            sliderValueSpan.className = 'sentence-difficulty-value';
+            sliderValueSpan.textContent = difficulty;
+
+            sliderLabel.appendChild(sliderValueSpan);
+
+            var sliderInput = document.createElement('input');
+            sliderInput.type = 'range';
+            sliderInput.className = 'form-control-range sentence-difficulty-slider';
+            sliderInput.min = 0;
+            sliderInput.max = 100;
+            sliderInput.value = difficulty;
+
+            sliderDiv.appendChild(sliderLabel);
+            sliderDiv.appendChild(sliderInput);
+            cardBody.appendChild(sliderDiv);
+
+            // Jumble Button
+            var jumbleButton = document.createElement('button');
+            jumbleButton.className = 'btn btn-primary btn-sm';
+            jumbleButton.textContent = 'Jumble';
+            cardBody.appendChild(jumbleButton);
+
+            // Reveal button
+            var revealButton = document.createElement('button');
+            revealButton.className = 'btn btn-info btn-sm ml-2';
+            revealButton.textContent = 'Reveal';
+            cardBody.appendChild(revealButton);
+
+            // Hide button
+            var hideButton = document.createElement('button');
+            hideButton.className = 'btn btn-warning btn-sm ml-2';
+            hideButton.textContent = 'Hide';
+            cardBody.appendChild(hideButton);
+
+            // Event Listeners
+            sliderInput.addEventListener('input', function() {
+                var newDifficulty = parseInt(sliderInput.value);
+                sliderValueSpan.textContent = newDifficulty;
+            });
+
+            jumbleButton.addEventListener('click', function() {
+                var currentDifficulty = parseInt(sliderInput.value);
+                var newJumbledSentence = jumbleSentence(originalSentence, currentDifficulty);
+                jumbledP.textContent = newJumbledSentence;
+            });
+
+            revealButton.addEventListener('click', function() {
+                originalP.style.display = 'block';
+            });
+
+            hideButton.addEventListener('click', function() {
+                swiper.slideNext();
+            });
+
+            cardDiv.appendChild(cardBody);
+            swiperSlide.appendChild(cardDiv);
+            swiperWrapper.appendChild(swiperSlide);
+        });
+    }
+
+    // Function to jumble a sentence based on difficulty
+    function jumbleSentence(sentence, difficulty) {
+        // Remove leading/trailing whitespace
+        sentence = sentence.trim();
+
+        // Split sentence into words, keeping punctuation
+        var words = sentence.match(/\b[\w']+\b|[^\w\s]/g);
+        if (words === null) return sentence;
+
+        // Get indices of actual words (excluding punctuation)
+        var wordIndices = [];
+        for (var i = 0; i < words.length; i++) {
+            if (/^\b[\w']+\b$/.test(words[i])) {
+                wordIndices.push(i);
+            }
+        }
+
+        // Shuffle words based on difficulty
+        var shuffledIndices = wordIndices.slice();
+        if (difficulty > 0) {
+            for (var i = shuffledIndices.length - 1; i > 0; i--) {
+                if (getSecureRandomNumber() < (difficulty / 100)) {
+                    var j = Math.floor(getSecureRandomNumber() * (i + 1));
+                    var temp = shuffledIndices[i];
+                    shuffledIndices[i] = shuffledIndices[j];
+                    shuffledIndices[j] = temp;
+                }
+            }
+        }
+
+        // Create a mapping from original indices to shuffled indices
+        var indexMap = {};
+        for (var i = 0; i < wordIndices.length; i++) {
+            indexMap[wordIndices[i]] = shuffledIndices[i];
+        }
+
+        // Construct the new sentence
+        var newWords = words.slice();
+        for (var originalIndex in indexMap) {
+            var shuffledIndex = indexMap[originalIndex];
+            newWords[originalIndex] = words[shuffledIndex];
+        }
+
+        return newWords.join(' ');
+    }
+
+    // Function to get a random hex color
+    function getRandomHexColor() {
+        var hex = '#' + Math.floor(getSecureRandomNumber() * 16777215).toString(16);
+        return hex.padEnd(7, '0'); // Ensure the hex code is 7 characters
+    }
+
+    // Function to import data
+    function importData() {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+
+        input.onchange = e => {
+            var file = e.target.files[0];
+
+            var reader = new FileReader();
+            reader.readAsText(file, 'UTF-8');
+
+            reader.onload = readerEvent => {
+                var content = readerEvent.target.result;
+                try {
+                    var data = JSON.parse(content);
+                    // Clear previous output
+                    var swiperWrapper = document.querySelector('.swiper-wrapper');
+                    swiperWrapper.innerHTML = '';
+                    // Hide the input area
+                    document.getElementById('inputArea').style.display = 'none';
+                    // Show the swiper container
+                    document.getElementById('outputArea').style.display = 'block';
+                    // Display the sentences
+                    displayImportedSentences(data);
+
+                    // Initialize Swiper
+                    if (swiper) swiper.destroy(true, true); // Destroy previous instance if exists
+                    swiper = new Swiper('.swiper-container', {
+                        loop: false,
+                        pagination: {
+                            el: '.swiper-pagination',
+                            clickable: true,
+                        },
+                        navigation: {
+                            nextEl: '.swiper-button-next',
+                            prevEl: '.swiper-button-prev',
+                        },
+                    });
+
+                    // Set stashFilename to the imported file's name
+                    stashFilename = file.name;
+
+                    // Show the Stash button
+                    document.getElementById('stashButton').style.display = 'inline-block';
+                } catch (e) {
+                    console.error('Invalid JSON data:', e);
+                }
+            }
+        }
+
+        input.click();
+    }
+
+    // Function to display imported sentences
+    function displayImportedSentences(data) {
+        var swiperWrapper = document.querySelector('.swiper-wrapper');
+        data.forEach(function(item) {
+            var originalSentence = item.originalSentence;
+            var difficulty = item.difficulty;
+
+            // Jumble the sentence with the difficulty
+            var jumbledSentence = jumbleSentence(originalSentence, difficulty);
+
+            // Generate a random hex color
+            var hexColor = getRandomHexColor();
+
+            // Create swiper slide
+            var swiperSlide = document.createElement('div');
+            swiperSlide.className = 'swiper-slide';
+
+            // Create card
+            var cardDiv = document.createElement('div');
+            cardDiv.className = 'card suica-card';
+
+            // Hex code display
+            var hexCodeSpan = document.createElement('span');
+            hexCodeSpan.className = 'hex-code';
+            hexCodeSpan.textContent = hexColor;
+            cardDiv.appendChild(hexCodeSpan);
+
+            // Card body
+            var cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+
+            // Jumbled sentence paragraph
+            var jumbledP = document.createElement('p');
+            jumbledP.className = 'jumbled-sentence card-text';
+            jumbledP.textContent = jumbledSentence;
+            cardBody.appendChild(jumbledP);
+
+            // Original sentence paragraph (hidden)
+            var originalP = document.createElement('p');
+            originalP.textContent = originalSentence;
+            originalP.className = 'original-sentence card-text';
+            originalP.style.display = 'none';
+            cardBody.appendChild(originalP);
+
+            // Difficulty Slider
+            var sliderDiv = document.createElement('div');
+            sliderDiv.className = 'form-group slider-container';
+
+            var sliderLabel = document.createElement('label');
+            sliderLabel.textContent = 'Difficulty: ';
+
+            var sliderValueSpan = document.createElement('span');
+            sliderValueSpan.className = 'sentence-difficulty-value';
+            sliderValueSpan.textContent = difficulty;
+
+            sliderLabel.appendChild(sliderValueSpan);
+
+            var sliderInput = document.createElement('input');
+            sliderInput.type = 'range';
+            sliderInput.className = 'form-control-range sentence-difficulty-slider';
+            sliderInput.min = 0;
+            sliderInput.max = 100;
+            sliderInput.value = difficulty;
+
+            sliderDiv.appendChild(sliderLabel);
+            sliderDiv.appendChild(sliderInput);
+            cardBody.appendChild(sliderDiv);
+
+            // Jumble Button
+            var jumbleButton = document.createElement('button');
+            jumbleButton.className = 'btn btn-primary btn-sm';
+            jumbleButton.textContent = 'Jumble';
+            cardBody.appendChild(jumbleButton);
+
+            // Reveal button
+            var revealButton = document.createElement('button');
+            revealButton.className = 'btn btn-info btn-sm ml-2';
+            revealButton.textContent = 'Reveal';
+            cardBody.appendChild(revealButton);
+
+            // Hide button
+            var hideButton = document.createElement('button');
+            hideButton.className = 'btn btn-warning btn-sm ml-2';
+            hideButton.textContent = 'Hide';
+            cardBody.appendChild(hideButton);
+
+            // Event Listeners
+            sliderInput.addEventListener('input', function() {
+                var newDifficulty = parseInt(sliderInput.value);
+                sliderValueSpan.textContent = newDifficulty;
+            });
+
+            jumbleButton.addEventListener('click', function() {
+                var currentDifficulty = parseInt(sliderInput.value);
+                var newJumbledSentence = jumbleSentence(originalSentence, currentDifficulty);
+                jumbledP.textContent = newJumbledSentence;
+            });
+
+            revealButton.addEventListener('click', function() {
+                originalP.style.display = 'block';
+            });
+
+            hideButton.addEventListener('click', function() {
+                swiper.slideNext();
+            });
+
+            cardDiv.appendChild(cardBody);
+            swiperSlide.appendChild(cardDiv);
+            swiperWrapper.appendChild(swiperSlide);
+        });
+    }
+
+    // Function to export data
+    function exportData() {
+        var sentenceRecords = document.querySelectorAll('.swiper-slide');
+        var data = [];
+
+        sentenceRecords.forEach(function(record) {
+            var originalSentence = record.querySelector('.original-sentence').textContent;
+            var difficulty = parseInt(record.querySelector('.sentence-difficulty-slider').value);
+
+            data.push({
+                originalSentence: originalSentence,
+                difficulty: difficulty
+            });
+        });
+
+        var jsonData = JSON.stringify(data);
+
+        // Generate filename as per the convention
+        var filename = generateFilename(data);
+
+        var blob = new Blob([jsonData], { type: 'application/json' });
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        // Set stashFilename to the generated filename
+        stashFilename = filename;
+
+        // Show the Stash button
+        document.getElementById('stashButton').style.display = 'inline-block';
+
+        // Optionally, inform the user
+        alert('Data exported as ' + filename + '.');
+
+        // Open storage location in a new tab
+        setTimeout(function() {
+            window.open(document.getElementById('storageLocationInput1').value, '_blank');
+        }, 3000);
+    }
+
+    // Function to generate filename
+    function generateFilename(data) {
+        var date = new Date();
+        var year = date.getFullYear().toString().slice(-2);
+        var month = ('0' + (date.getMonth() + 1)).slice(-2);
+        var day = ('0' + date.getDate()).slice(-2);
+
+        // Extract words from the text
+        var allText = data.map(function(item) {
+            return item.originalSentence;
+        }).join(' ');
+
+        var meaningfulWords = extractMeaningfulWords(allText);
+
+        // Get three random words
+        var selectedWords = [];
+        for (var i = 0; i < 3 && meaningfulWords.length > 0; i++) {
+            var index = Math.floor(getSecureRandomNumber() * meaningfulWords.length);
+            selectedWords.push(meaningfulWords.splice(index, 1)[0]);
+        }
+
+        var wordsPart = selectedWords.join('-');
+
+        var filename = year + '-' + month + '-' + day + '-' + wordsPart + '-mixer.json';
+        return filename;
+    }
+
+    // Function to extract meaningful words
+    function extractMeaningfulWords(text) {
+        var stopwords = [
+            'i', 'me', 'my', 'myself', 'we', 'our', 'ours',
+            'ourselves', 'you', 'your', 'yours', 'yourself',
+            'yourselves', 'he', 'him', 'his', 'himself', 'she',
+            'her', 'hers', 'herself', 'it', 'its', 'itself',
+            'they', 'them', 'their', 'theirs', 'themselves',
+            'what', 'which', 'who', 'whom', 'this', 'that',
+            'these', 'those', 'am', 'is', 'are', 'was', 'were',
+            'be', 'been', 'being', 'have', 'has', 'had', 'having',
+            'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and',
+            'but', 'if', 'or', 'because', 'as', 'until', 'while',
+            'of', 'at', 'by', 'for', 'with', 'about', 'against',
+            'between', 'into', 'through', 'during', 'before', 'after',
+            'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out',
+            'on', 'off', 'over', 'under', 'again', 'further', 'then',
+            'once', 'here', 'there', 'when', 'where', 'why', 'how',
+            'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
+            'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same',
+            'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just',
+            'don', 'should', 'now'
+        ];
+
+        // Split text into words
+        var words = text.toLowerCase().match(/\b[a-zA-Z]{3,}\b/g);
+
+        if (!words) return [];
+
+        // Filter out stopwords and duplicates
+        var meaningfulWords = words.filter(function(word, index) {
+            return stopwords.indexOf(word) === -1 && words.indexOf(word) === index;
+        });
+
+        return meaningfulWords;
+    }
+
+    // Function to load data from JSON file specified in 'data' URL parameter
+    function loadData(filename) {
+        stashFilename = filename; // Set the global stashFilename
+        var storageLocationInput = document.getElementById('storageLocationInput');
+        var baseUrl = storageLocationInput.value;
+
+        // Ensure there is a trailing slash
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+
+        var url = baseUrl + filename;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // parse JSON
+            })
+            .then(data => {
+                // Clear previous output
+                var swiperWrapper = document.querySelector('.swiper-wrapper');
+                swiperWrapper.innerHTML = '';
+                // Hide the input area
+                document.getElementById('inputArea').style.display = 'none';
+                // Show the swiper container
+                document.getElementById('outputArea').style.display = 'block';
+                // Display the sentences
+                displayImportedSentences(data);
+                // Initialize Swiper
+                if (swiper) swiper.destroy(true, true); // Destroy previous instance if exists
+                swiper = new Swiper('.swiper-container', {
+                    loop: false,
+                    pagination: {
+                        el: '.swiper-pagination',
+                        clickable: true,
+                    },
+                    navigation: {
+                        nextEl: '.swiper-button-next',
+                        prevEl: '.swiper-button-prev',
+                    },
+                });
+            })
+            .catch(error => {
+                console.error('There has been a problem with your fetch operation:', error);
+            });
+    }
+</script>
+
+</body>
+</html>
