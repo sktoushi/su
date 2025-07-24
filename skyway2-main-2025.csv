@@ -2,10 +2,10 @@ variable,publicRepoEnding=3991
 variable,stashEnding=4569
 variable,stash2Ending=3774
 variable,stash2Starting=3019
-link,1,https://sktoushi.github.io/stash-utils/mental-games-2025.html
+link,1,https://sktoushi.github.io/su/mental-games-2025.html
 csv,2,skyway-main-202502.csv
 csv,3,skyway-main-202503.csv
 csv,null,skyway-modifiable-redirect0915-133-stash-of-stashes.csv
-link,null,https://sktoushi.github.io/stash-utils/lc300.html
-link,null,https://sktoushi.github.io/stash-utils/lc300.html?target=indexedDb-solomon-verses.csv
+link,null,https://sktoushi.github.io/su/lc300.html
+link,null,https://sktoushi.github.io/su/lc300.html?target=indexedDb-solomon-verses.csv
 csv,null,skyway-random-stuff.csv

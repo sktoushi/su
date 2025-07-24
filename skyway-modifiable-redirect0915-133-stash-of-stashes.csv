@@ -1,8 +1,8 @@
 link,{stashSequenceProbability1},https://github.com/cjcaf1995/redirect0915/issues/241
 csv,{stashSequenceProbability2},skyway-stash1p5.csv
-link,{stashSequenceProbability3},https://sktoushi.github.io/stash-utils/skyway.html?target=skyway-stashf.csv&modeWeights={defaultRandomModeWeights}
+link,{stashSequenceProbability3},https://sktoushi.github.io/su/skyway.html?target=skyway-stashf.csv&modeWeights={defaultRandomModeWeights}
 csv,{stashSequenceProbability4},skyway-public-repo.csv
 csv,{stashSequenceProbability5},skyway-stash.csv
 csv,{stashSequenceProbability6},skyway-stash2.csv
-link,{stashSequenceProbability7},https://sktoushi.github.io/stash-utils/skyway.html?target=skyway-stash3.csv&modeWeights={defaultRandomModeWeights}
+link,{stashSequenceProbability7},https://sktoushi.github.io/su/skyway.html?target=skyway-stash3.csv&modeWeights={defaultRandomModeWeights}
 csv,{stashSequenceProbability8},skyway-stash3-recent20percent.csv

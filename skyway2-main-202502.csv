@@ -2,14 +2,14 @@ variable,publicRepoEnding=3991
 variable,stashEnding=4569
 variable,stash2Ending=3774
 variable,stash2Starting=3019
-link,null,https://sktoushi.github.io/stash-utils/flashcards.html?target=flashcards-solomon-s-word-of-wisdom.csv
+link,null,https://sktoushi.github.io/su/flashcards.html?target=flashcards-solomon-s-word-of-wisdom.csv
 csv,null,skyway-bucket-finer-things-in-life.csv
 csv,null,skyway-modifiable-redirect0915-133-stash-of-stashes.csv
 csv,3,skyway-bucket-main.csv
 csv,3,skyway-bucket-main-jp.csv
 csv,3,skyway-modifiable-redirect0915-144-japanese-learning-alloc.csv
 csv,3,skyway-modifiable-redirect0915-150-stash2-recent10percent.csv
-link,2,https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-pmbok-2025
-link,1,https://sktoushi.github.io/stash-utils/lc300.html?target=indexedDb-250225_2035-196-504.csv
+link,2,https://sktoushi.github.io/su/bucket.html?target=bucket-pmbok-2025
+link,1,https://sktoushi.github.io/su/lc300.html?target=indexedDb-250225_2035-196-504.csv
 link,1,https://github.com/cjcaf1995/redirect0915/issues/148
 csv,1,skyway-random-stuff.csv
