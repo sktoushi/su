@@ -105,7 +105,7 @@
       "id": 1727267870604,
       "selected": false,
       "name": "Drools",
-      "link": "https://sktoushi.github.io/stash-utils/bucket.html?target=bucket-drools",
+      "link": "https://sktoushi.github.io/su/bucket.html?target=bucket-drools",
       "type": "Generator",
       "frequency": 92,
       "tags": "",
@@ -276,5 +276,5 @@
   "totalReviewRolls": 194,
   "totalGeneratorRolls": 196,
   "userLevel": 3,
-  "storageDestination": "https://github.com/sktoushi/stash-utils/upload/main"
+  "storageDestination": "https://github.com/sktoushi/su/upload/main"
 }

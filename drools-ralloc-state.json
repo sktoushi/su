@@ -70,7 +70,7 @@
   "totalRolls": 21,
   "totalReviewRolls": 5,
   "totalGeneratorRolls": 6,
-  "storageDestination": "https://github.com/sktoushi/stash-utils/upload/main",
+  "storageDestination": "https://github.com/sktoushi/su/upload/main",
   "localStorageKey": "lsk240925drools",
   "maxRecordsShown": 5,
   "jsonPrefix": "drools"

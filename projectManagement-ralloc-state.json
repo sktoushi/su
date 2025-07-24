@@ -6333,7 +6333,7 @@
   "totalRolls": 18,
   "totalReviewRolls": 5,
   "totalGeneratorRolls": 3,
-  "storageDestination": "https://github.com/sktoushi/stash-utils/upload/main",
+  "storageDestination": "https://github.com/sktoushi/su/upload/main",
   "localStorageKey": "projectManagementRalloc",
   "maxRecordsShown": 5,
   "jsonPrefix": "projectManagement"
