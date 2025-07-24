@@ -112,8 +112,8 @@
             <div class="form-group">
                 <label for="storageLocationInput">Storage Location:</label>
                 <!-- Updated the default value to point to GitHub Pages URL -->
-                <input type="text" class="form-control" id="storageLocationInput1" value="https://github.com/sktoushi/stash-utils/upload/main/mixer/files" readonly>
-                <input type="text" class="form-control" id="storageLocationInput" value="https://sktoushi.github.io/stash-utils/mixer/files/" readonly>
+                <input type="text" class="form-control" id="storageLocationInput1" value="https://github.com/sktoushi/su/upload/main/mixer/files" readonly>
+                <input type="text" class="form-control" id="storageLocationInput" value="https://sktoushi.github.io/su/mixer/files/" readonly>
             </div>
             <div class="form-group">
                 <label for="stashLocationInput">Stash Location:</label>
@@ -234,7 +234,7 @@
         // Stash button click event
         document.getElementById('stashButton').addEventListener('click', function() {
             var stashUrl = stashLocationInput.value;
-            var mixerPageUrl = 'https://sktoushi.github.io/stash-utils/mixer/mixer.html?data=' + encodeURIComponent(stashFilename);
+            var mixerPageUrl = 'https://sktoushi.github.io/su/mixer/mixer.html?data=' + encodeURIComponent(stashFilename);
             var issueTitle = encodeURIComponent(mixerPageUrl);
             var issueBody = encodeURIComponent(mixerPageUrl);
             var fullUrl = stashUrl + '?title=' + issueTitle + '&body=' + issueBody;
