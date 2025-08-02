@@ -1,6 +1,9 @@
 {
   "target": "skyway-central-2506.csv",
   "cycle": [
+    "https://sktoushi.github.io/stash-utils/bucket.html?targets=bucket-ecclesiastes-matthew-henry,bucket-proverbs-matthew-henry", 
+    "https://sktoushi.github.io/stash-utils/bucket.html?targets=bucket-ecclesiastes-matthew-henry,bucket-proverbs-matthew-henry", 
+    "https://sktoushi.github.io/stash-utils/bucket.html?targets=bucket-ecclesiastes-matthew-henry,bucket-proverbs-matthew-henry", 
     "https://sktoushi.github.io/su/Rockefeller-38-letters-6-128.html",
     "https://sktoushi.github.io/su/skyway-odd.html?target=skyway-central-2506.csv",
     "https://sktoushi.github.io/su/finer.html",
