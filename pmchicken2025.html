@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Redirecting…</title>
+  <style>
+    html, body { height:100%; margin:0; font:16px/1.4 system-ui, sans-serif; }
+    .wrap { display:flex; align-items:center; justify-content:center; height:100%; text-align:center; padding:2rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p>Picking a random issue and redirecting…</p>
+    <noscript>
+      JavaScript is required to redirect.  
+      Please open issues 22–99 manually in the repo:
+      <br>
+      <a href="https://github.com/mdr19ganseki95cf/pm/issues">View Issues</a>
+    </noscript>
+  </div>
+
+  <script>
+    (function () {
+      var min = 22, max = 99;
+      var issueNum = Math.floor(Math.random() * (max - min + 1)) + min;
+      var url = "https://github.com/mdr19ganseki95cf/pm/issues/" + issueNum;
+      window.location.replace(url); // avoids history back-loop
+    })();
+  </script>
+</body>
+</html>
