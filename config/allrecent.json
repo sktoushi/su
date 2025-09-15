@@ -1,0 +1,17 @@
+{
+  "repositories": {
+    "the-snackbar": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 33},
+    "img": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 195},
+    "stash1p5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 265},
+    "log": {"username": "mdr19ganseki95cf", "issueStartNumber": 9, "issueEndNumber": 39},
+    "redirect0915": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 255},
+    "public-repo": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 3991},
+    "stash": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4569},
+    "stash2": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4508},
+    "stash3": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 3432}
+  },
+  "formulas": [
+    "recent20Percent",
+    "recent5Percent"
+  ]
+}
