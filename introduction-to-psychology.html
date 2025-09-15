@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>VRP PDF Randomizer</title>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .wrap { display: grid; place-items: center; height: 100%; padding: 24px; }
+    .card { max-width: 720px; width: 100%; border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,.06); }
+    h1 { margin: 0 0 8px; font-size: 1.4rem; }
+    p { margin: 0 0 16px; color: #374151; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    button, a.btn { appearance: none; border: 0; border-radius: 999px; padding: 10px 16px; font-weight: 600; cursor: pointer; background: #111827; color: white; text-decoration: none; }
+    button.secondary { background: #6b7280; }
+    .small { font-size: .9rem; color: #6b7280; }
+  </style>
+  <script>
+    // ---------- Configuration ----------
+    const BASE_URL = "https://sktoushi.github.io/ref2506/vrp.html?fileName=";
+    const FILES = [
+      "introduction-to-psychology-kalat-p18-1-25.pdf",
+      "introduction-to-psychology-kalat-p17-1-25.pdf",
+      "introduction-to-psychology-kalat-p16-1-25.pdf",
+      "introduction-to-psychology-kalat-p15-1-25.pdf",
+      "introduction-to-psychology-kalat-p14-1-25.pdf",
+      "introduction-to-psychology-kalat-p13-1-25.pdf",
+      "introduction-to-psychology-kalat-p12-1-25.pdf",
+      "introduction-to-psychology-kalat-p11-1-25.pdf",
+      "introduction-to-psychology-kalat-p10-1-25.pdf",
+      "introduction-to-psychology-kalat-p9-1-25.pdf",
+      "introduction-to-psychology-kalat-p8-1-25.pdf",
+      "introduction-to-psychology-kalat-p7-1-25.pdf",
+      "introduction-to-psychology-kalat-p6-1-26.pdf",
+      "introduction-to-psychology-kalat-p5-1-26.pdf",
+      "introduction-to-psychology-kalat-p4-1-26.pdf",
+      "introduction-to-psychology-kalat-p3-1-26.pdf",
+      "introduction-to-psychology-kalat-p2-1-26.pdf",
+      "introduction-to-psychology-kalat-p1-1-26.pdf",
+      "introduction-to-psychology-kalat-p25-1-25.pdf",
+      "introduction-to-psychology-kalat-p24-1-25.pdf",
+      "introduction-to-psychology-kalat-p23-1-25.pdf",
+      "introduction-to-psychology-kalat-p22-1-25.pdf",
+      "introduction-to-psychology-kalat-p21-1-25.pdf",
+      "introduction-to-psychology-kalat-p20-1-25.pdf",
+      "introduction-to-psychology-kalat-p19-1-25.pdf",
+    ];
+
+    function pickRandom(arr) {
+      // Prefer cryptographically-strong randomness when available
+      if (window.crypto && crypto.getRandomValues) {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return arr[buf[0] % arr.length];
+      }
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function go(now = true) {
+      const file = pickRandom(FILES);
+      const target = BASE_URL + encodeURIComponent(file);
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = `Redirecting to: ${target}`;
+      if (now) {
+        // Use replace() so this page won't stay in the history stack
+        location.replace(target);
+      } else {
+        // Provide a manual link if auto-redirect is disabled / blocked
+        const link = document.getElementById('manualLink');
+        if (link) {
+          link.href = target;
+          link.textContent = 'Open selected PDF';
+        }
+      }
+    }
+
+    // Auto-redirect shortly after load so users see a helpful status flash
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => go(true), 150);
+    });
+  </script>
+</head>
+<body>
+  <noscript>
+    <div class="wrap">
+      <div class="card">
+        <h1>VRP PDF Randomizer</h1>
+        <p>This page needs JavaScript enabled to auto-redirect. Here are some options:</p>
+        <ul>
+          <li>Enable JavaScript and reload.</li>
+          <li>Or pick one manually:
+            <ul>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p18-1-25.pdf">p18</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p17-1-25.pdf">p17</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p16-1-25.pdf">p16</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p15-1-25.pdf">p15</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p14-1-25.pdf">p14</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p13-1-25.pdf">p13</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p12-1-25.pdf">p12</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p11-1-25.pdf">p11</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p10-1-25.pdf">p10</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p9-1-25.pdf">p9</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p8-1-25.pdf">p8</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p7-1-25.pdf">p7</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p6-1-26.pdf">p6</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p5-1-26.pdf">p5</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p4-1-26.pdf">p4</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p3-1-26.pdf">p3</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p2-1-26.pdf">p2</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p1-1-26.pdf">p1</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p25-1-25.pdf">p25</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p24-1-25.pdf">p24</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p23-1-25.pdf">p23</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p22-1-25.pdf">p22</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p21-1-25.pdf">p21</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p20-1-25.pdf">p20</a></li>
+              <li><a href="https://homepage.com/vrp.html?fileName=introduction-to-psychology-kalat-p19-1-25.pdf">p19</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </noscript>
+
+  <div class="wrap" aria-live="polite" aria-atomic="true">
+    <div class="card">
+      <h1>VRP PDF Randomizer</h1>
+      <p id="status">Preparing a random redirect…</p>
+      <div class="row">
+        <button onclick="go(true)">Pick & Redirect Now</button>
+        <a id="manualLink" class="btn" href="#" rel="nofollow noopener">Manual Open</a>
+        <button class="secondary" onclick="go(false)">Pick (don’t redirect)</button>
+      </div>
+      <p class="small">Tip: Bookmark this page. Each load sends you to a random file. Links use <code>encodeURIComponent</code> for safety and <code>location.replace</code> so this page won’t stick in history.</p>
+    </div>
+  </div>
+</body>
+</html>
