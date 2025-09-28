@@ -1,8 +1,8 @@
 {
   "base": {
-    "stash3EightyPercent": "2882",
-    "stash3NinetyPercent": "3282",
-    "stash3Ending": "3652",
+    "stash3EightyPercent": "3022",
+    "stash3NinetyPercent": "3402",
+    "stash3Ending": "3780",
     "lastUpdated": "2025-07-24T19:00:00+08:00",
     "defaultRandomModeWeights-250614": "=weighted:1,segments:4,uniform:1&distributions=1-2-3-4-5-6-7-8-7-6-5-4-3-2-1:1|8-7-6-5-4-3-2-1-2-3-4-5-6-7-8:1|6-10-12-15-22-35:1|35-22-15-12-10-6:1",
     "originalFormula-random": "3",
@@ -12,7 +12,7 @@
     "originalFormula-random-centerLow-8-7-6-5-4-3-2-1-2-3-4-5-6-7-8": "2",
     "originalFormula-random-rightLeaning-6-10-12-15-22-35": "3",
     "originalFormula-random-leftLeaning-35-22-15-12-10-6": "1",
-    "redirect0915Ending": "258",
+    "redirect0915Ending": "290",
     "logStarting": "9",
     "logEnding": "51",
     "publicRepoStarting": "1",
