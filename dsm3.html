@@ -1,105 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>VRP PDF Randomizer</title>
-  <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .wrap { display: grid; place-items: center; height: 100%; padding: 24px; }
-    .card { max-width: 720px; width: 100%; border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,.06); }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; }
-    p { margin: 0 0 16px; color: #374151; }
-    code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    button, a.btn { appearance: none; border: 0; border-radius: 999px; padding: 10px 16px; font-weight: 600; cursor: pointer; background: #111827; color: white; text-decoration: none; }
-    button.secondary { background: #6b7280; }
-    .small { font-size: .9rem; color: #6b7280; }
-  </style>
-  <script>
-    // ---------- Configuration ----------
-    const BASE_URL = "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=";
-    const FILES = [
-		"dsm3_part_4_1-36.pdf",
-		"dsm3_part_5_1-35.pdf",
-		"dsm3_part_6_1-34.pdf",
-		"dsm3_part_7_1-36.pdf",
-		"dsm3_part_8_1-38.pdf",
-		"dsm3_part_9_1-35.pdf",
-		"dsm3_part_10_1-40.pdf",
-		"dsm3_part_11_1-47.pdf",
-		"dsm3_part_12_1-52.pdf",
-		"dsm3_part_1_1-40.pdf",
-		"dsm3_part_2_1-33.pdf",
-		"dsm3_part_3_1-37.pdf"
-    ];
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random URL Redirect</title>
+    <script>
+        // List of URLs to redirect to
+        const urls = [
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p4-1-36.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p5-1-35.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p6-1-34.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p7-1-36.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p8-1-38.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p9-1-35.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p10-1-30.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p11-1-47.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p12-1-52.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p1-1-54.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p2-1-33.pdf",
+            "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=dsm3-p3-1-37.pdf"
+        ];
 
-    function pickRandom(arr) {
-      // Prefer cryptographically-strong randomness when available
-      if (window.crypto && crypto.getRandomValues) {
-        const buf = new Uint32Array(1);
-        crypto.getRandomValues(buf);
-        return arr[buf[0] % arr.length];
-      }
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
-
-    function go(now = true) {
-      const file = pickRandom(FILES);
-      const target = BASE_URL + encodeURIComponent(file);
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.textContent = `Redirecting to: ${target}`;
-      if (now) {
-        // Use replace() so this page won't stay in the history stack
-        location.replace(target);
-      } else {
-        // Provide a manual link if auto-redirect is disabled / blocked
-        const link = document.getElementById('manualLink');
-        if (link) {
-          link.href = target;
-          link.textContent = 'Open selected PDF';
+        // Function to randomly pick a URL and redirect the user
+        function redirectToRandomURL() {
+            const randomIndex = Math.floor(Math.random() * urls.length);
+            window.location.href = urls[randomIndex];
         }
-      }
-    }
 
-    // Auto-redirect shortly after load so users see a helpful status flash
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => go(true), 150);
-    });
-  </script>
+        // Redirect on page load
+        window.onload = redirectToRandomURL;
+    </script>
 </head>
 <body>
-  <noscript>
-    <div class="wrap">
-      <div class="card">
-        <h1>VRP PDF Randomizer</h1>
-        <p>This page needs JavaScript enabled to auto-redirect. Here are some options:</p>
-        <ul>
-          <li>Enable JavaScript and reload.</li>
-          <li>Or pick one manually:
-            <ul>
-              <p>asdf</p>
-            </ul>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </noscript>
-
-  <div class="wrap" aria-live="polite" aria-atomic="true">
-    <div class="card">
-      <h1>VRP PDF Randomizer</h1>
-      <p id="status">Preparing a random redirect…</p>
-      <div class="row">
-        <button onclick="go(true)">Pick & Redirect Now</button>
-        <a id="manualLink" class="btn" href="#" rel="nofollow noopener">Manual Open</a>
-        <button class="secondary" onclick="go(false)">Pick (don’t redirect)</button>
-      </div>
-      <p class="small">Tip: Bookmark this page. Each load sends you to a random file. Links use <code>encodeURIComponent</code> for safety and <code>location.replace</code> so this page won’t stick in history.</p>
-    </div>
-  </div>
+    <h1>Redirecting...</h1>
+    <p>If you are not redirected, <a href="#" onclick="redirectToRandomURL()">click here</a>.</p>
 </body>
 </html>
