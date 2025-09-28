@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random URL Redirect</title>
+    <script>
+        window.onload = function() {
+            const urls = [
+                "https://sktoushi.github.io/su/bucket.html?target=bucket-good-strategy-bad-strategy",
+                "https://sktoushi.github.io/su/bucket.html?target=bucket-the-goal-a-process-of-ongoing-improvement",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=Who-The-A-Method-for-Hiring-17-193.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=inspired-tech-company-21-346.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=marketing-positioning-the-battle-for-your-mind-12-254.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=The-Challenger-Sale-18-235.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=The-Hard-Thing-About-Hard-Thing-9-249.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=Security-Engineering-A-Guide-to-Building-Dependable-1-1041.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=competing-on-analytics-1-270.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=zero-to-one-thiel-8-184.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=What-You-Do-Is-Who-You-Are-1-146.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=the-world-is-flat-4-309.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=boards-that-lead-8-263.pdf",
+                "https://sktoushi.github.io/ref2506/viewer-range-plus.html?fileName=High-Output-Management-28-234.pdf"
+            ];
+
+            // Generate a cryptographically secure random index
+            const array = new Uint32Array(1);
+            window.crypto.getRandomValues(array);
+            const randomIndex = array[0] % urls.length;
+
+            // Redirect to the selected URL
+            window.location.href = urls[randomIndex];
+        };
+    </script>
+</head>
+<body>
+    <h1>Redirecting...</h1>
+    <p>If you are not redirected automatically, <a href="#" id="redirectLink">click here</a>.</p>
+</body>
+</html>
