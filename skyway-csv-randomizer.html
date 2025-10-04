@@ -3,322 +3,142 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Weighted CSV Redirector</title>
+  <title>Weighted CSV Redirector (Headless)</title>
+  <meta name="robots" content="noindex" />
   <style>
-    :root { --bg:#0b1020; --card:#121a33; --fg:#e7ecff; --muted:#9fb0ff; --accent:#6aa8ff; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background:var(--bg); color:var(--fg); }
-    .wrap { min-height: 100dvh; display:grid; place-items:center; padding:24px; }
-    .card { width:min(720px, 100%); background:var(--card); border-radius:18px; padding:20px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-    h1 { font-size: clamp(18px, 2.6vw, 26px); margin:0 0 12px; letter-spacing:.3px; }
-    p { margin: 10px 0 14px; color: var(--muted); }
-    label { font-weight: 600; display:block; margin:.25rem 0 .35rem; }
-    input[type="text"] { width:100%; padding:12px 14px; border-radius:12px; border:1px solid #26345e; background:#0d1530; color:var(--fg); outline:none; }
-    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(106,168,255,.25); }
-    .row { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
-    .row > * { flex: 1 1 auto; }
-    button { cursor:pointer; padding:12px 14px; border-radius:12px; border:1px solid #2d457e; background:#10204a; color:var(--fg); font-weight:700; }
-    button:hover { filter: brightness(1.08); }
-    small code { background: #0d1530; padding:2px 6px; border-radius:6px; border:1px solid #223160; }
-    .meta { display:flex; gap:8px; flex-wrap:wrap; opacity:.9; }
-    .tag { background:#0e1937; border:1px solid #243565; padding:6px 10px; border-radius:999px; color:#cfe0ff; }
-    .log { margin-top:14px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.4; background:#0d1530; border:1px solid #233465; border-radius:12px; padding:12px; max-height: 220px; overflow:auto; }
-    a { color: #b7cdff; }
+    html,body{height:100%;margin:0}
+    body{display:grid;place-items:center;background:#0b1020;color:#dbe4ff;font:14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial}
+    .msg{opacity:.8;max-width:780px;padding:12px 16px;border:1px dashed #22325f;border-radius:12px;background:#0f1733}
+    code{background:#0b1430;padding:1px 6px;border-radius:6px;border:1px solid #1e2e60}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Weighted CSV Redirector</h1>
-      <p>Loads a CSV from the <strong>same directory</strong>, caches it in <strong>IndexedDB</strong> on first run, then picks a random row using its <code>probabilityWeight</code> and redirects you to the row's <code>link</code>.</p>
-
-      <form id="csvForm" autocomplete="off">
-        <label for="fileInput">CSV filename (relative to this page)</label>
-        <div class="row">
-          <input id="fileInput" name="file" type="text" value="input.csv" placeholder="e.g., input.csv" />
-          <button type="submit" title="Load (or use cached), pick & redirect">Go ▶</button>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button type="button" id="refreshBtn" title="Ignore cache for this run and update it">Force Refresh ♻️</button>
-          <button type="button" id="clearBtn" title="Delete cached copy for this filename">Clear Cache 🧹</button>
-          <button type="button" id="testBtn" title="Load & pick, but don’t redirect; just show which link would be chosen">Test Only 🔍</button>
-        </div>
-      </form>
-
-      <div class="meta" id="meta"></div>
-      <div class="log" id="log" hidden></div>
-
-      <p style="margin-top:16px;color:#c7d6ff">CSV format supported:
-        <br>• Headerless rows: <code>type,probabilityWeight,link</code>
-        <br>• Or with headers containing these three fields (case-insensitive)
-      </p>
-      <p><small>Tip: You can prefill via querystring: <code>?file=input.csv</code> and optional <code>&test=1</code> or <code>&refresh=1</code>.</small></p>
-    </div>
-  </div>
+  <div class="msg" id="msg">Loading…</div>
 
   <script>
-  (function() {
+  (async function(){
+    const Q = new URLSearchParams(location.search);
+    // Accept the user's requested query param name: target=input.csv (falls back to input.csv)
+    const FILENAME = (Q.get('target') || Q.get('file') || 'input.csv').replace(/^\/+/, '');
+
     const DB_NAME = 'csvCacheDB';
     const STORE = 'files';
     const VERSION = 1;
+    const info = (t)=>{ const el=document.getElementById('msg'); if (el) el.textContent = t; console.log('[redirector]', t); };
 
-    // ---------- tiny logger ----------
-    const logEl = document.getElementById('log');
-    function log(...args) {
-      const s = args.map(x => typeof x === 'string' ? x : JSON.stringify(x, null, 2)).join(' ');
-      logEl.hidden = false;
-      logEl.textContent += s + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    // ---------- IndexedDB helpers ----------
-    function openDB() {
-      return new Promise((resolve, reject) => {
+    function openDB(){
+      return new Promise((res,rej)=>{
         const req = indexedDB.open(DB_NAME, VERSION);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(STORE)) {
-            db.createObjectStore(STORE, { keyPath: 'id' });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'}); };
+        req.onsuccess = ()=>res(req.result);
+        req.onerror = ()=>rej(req.error);
       });
     }
+    async function idbGet(id){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readonly'); const st=tx.objectStore(STORE); const r=st.get(id); r.onsuccess=()=>res(r.result||null); r.onerror=()=>rej(r.error); }); }
+    async function idbSet(obj){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readwrite'); const st=tx.objectStore(STORE); const r=st.put(obj); r.onsuccess=()=>res(true); r.onerror=()=>rej(r.error); }); }
 
-    async function idbGet(id) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, 'readonly');
-        const store = tx.objectStore(STORE);
-        const r = store.get(id);
-        r.onsuccess = () => resolve(r.result || null);
-        r.onerror = () => reject(r.error);
-      });
-    }
-
-    async function idbSet(record) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, 'readwrite');
-        const store = tx.objectStore(STORE);
-        const r = store.put(record);
-        r.onsuccess = () => resolve(true);
-        r.onerror = () => reject(r.error);
-      });
-    }
-
-    async function idbDelete(id) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, 'readwrite');
-        const store = tx.objectStore(STORE);
-        const r = store.delete(id);
-        r.onsuccess = () => resolve(true);
-        r.onerror = () => reject(r.error);
-      });
-    }
-
-    // ---------- CSV parsing (handles simple quotes) ----------
-    function parseCSV(text) {
-      const rows = [];
-      let cur = [];
-      let field = '';
-      let inQuotes = false;
-      let i = 0;
-      while (i < text.length) {
-        const ch = text[i];
-        if (inQuotes) {
-          if (ch === '"') {
-            if (text[i+1] === '"') { field += '"'; i++; }
-            else { inQuotes = false; }
-          } else { field += ch; }
+    function parseCSV(text){
+      // simple CSV: supports quotes and commas; trims CRLF
+      const rows=[]; let field='', cur=[], q=false; const s=text.replace(/\r/g,'');
+      for(let i=0;i<s.length;i++){
+        const ch=s[i];
+        if(q){
+          if(ch==='"'){
+            if(s[i+1]==='"'){ field+='"'; i++; } else { q=false; }
+          } else field+=ch;
         } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { cur.push(field.trim()); field = ''; }
-          else if (ch === '\n') { cur.push(field.trim()); rows.push(cur); cur = []; field = ''; }
-          else if (ch === '\r') { /* ignore */ }
-          else { field += ch; }
+          if(ch==='"') q=true;
+          else if(ch===','){ cur.push(field.trim()); field=''; }
+          else if(ch==='\n'){ cur.push(field.trim()); rows.push(cur); cur=[]; field=''; }
+          else field+=ch;
         }
-        i++;
       }
-      if (field.length || cur.length) { cur.push(field.trim()); rows.push(cur); }
-      // drop blank lines
-      return rows.filter(r => r.some(x => x && x.length));
+      if(field.length||cur.length){ cur.push(field.trim()); rows.push(cur); }
+      return rows.filter(r=>r.some(x=>x&&x.length));
     }
 
-    // ---------- Row normalization ----------
-    function normalizeRows(rows) {
-      if (!rows.length) return [];
-      const headerLooksLike = rows[0].map(s => (s||'').toLowerCase());
-      const hasHeader = headerLooksLike.includes('link') || headerLooksLike.includes('probabilityweight') || headerLooksLike.includes('type');
-      let startIdx = 0;
-      let idxMap = { type: 0, probabilityWeight: 1, link: 2 };
+    function normalizeRows(rows){
+      if(!rows.length) return [];
+      const firstLower = rows[0].map(x => (x||'').toLowerCase());
 
-      if (hasHeader) {
+      // Header detection (robust): treat as header ONLY if we can see ALL 3 header keys among common aliases
+      const alias = {
+        type: new Set(['type','kind','category']),
+        weight: new Set(['probabilityweight','probability','weight','w']),
+        link: new Set(['link','url','href'])
+      };
+      const hasAllHeaders = (
+        firstLower.some(x=>alias.type.has(x)) &&
+        firstLower.some(x=>alias.weight.has(x)) &&
+        firstLower.some(x=>alias.link.has(x))
+      );
+
+      let start = hasAllHeaders ? 1 : 0;
+      let idx = { type: 0, weight: 1, link: 2 };
+
+      if(hasAllHeaders){
         const map = {};
-        headerLooksLike.forEach((key, idx) => {
-          if (key === 'probability' || key === 'weight' || key === 'probabilityweight') map.probabilityWeight = idx;
-          if (key === 'link' || key === 'url' || key === 'href') map.link = idx;
-          if (key === 'type' || key === 'kind' || key === 'category') map.type = idx;
+        firstLower.forEach((k,i)=>{
+          if(alias.type.has(k)) map.type = i;
+          if(alias.weight.has(k)) map.weight = i;
+          if(alias.link.has(k)) map.link = i;
         });
-        idxMap = { ...idxMap, ...map };
-        startIdx = 1;
+        idx = { ...idx, ...map };
       }
 
-      const out = [];
-      for (let i = startIdx; i < rows.length; i++) {
-        const r = rows[i];
-        const obj = {
-          type: r[idxMap.type] ?? '',
-          probabilityWeight: Number(r[idxMap.probabilityWeight] ?? '0'),
-          link: r[idxMap.link] ?? ''
-        };
-        if (!obj.link) continue;
-        if (!(obj.probabilityWeight > 0)) continue; // keep only positive weight
-        // sanity: ensure protocol
-        if (!/^https?:\/\//i.test(obj.link)) {
-          obj.link = 'https://' + obj.link.replace(/^\/*/, '');
-        }
-        out.push(obj);
+      const out=[];
+      for(let r=start; r<rows.length; r++){
+        const row = rows[r];
+        const type = row[idx.type] ?? '';
+        const weight = Number(row[idx.weight] ?? '0');
+        const link = row[idx.link] ?? '';
+        if(!link) continue;
+        if(!(weight>0)) continue;
+        out.push({ type, probabilityWeight: weight, link });
       }
       return out;
     }
 
-    // ---------- Weighted choice ----------
-    function weightedPick(items) {
-      const total = items.reduce((s, it) => s + (Number(it.probabilityWeight) || 0), 0);
-      if (!total) return null;
-      const r = Math.random() * total;
-      let acc = 0;
-      for (const it of items) {
-        acc += (Number(it.probabilityWeight) || 0);
-        if (r <= acc) return it;
-      }
-      return items[items.length - 1] || null;
+    function weightedPick(items){
+      const total = items.reduce((s,it)=> s + (Number(it.probabilityWeight)||0), 0);
+      if(!total) return null;
+      let r = Math.random()*total, acc=0;
+      for(const it of items){ acc += (Number(it.probabilityWeight)||0); if(r <= acc) return it; }
+      return items[items.length-1]||null;
     }
 
-    // ---------- Fetch + cache ----------
-    async function fetchCSVWithCache(filename, { refresh = false } = {}) {
-      const id = filename;
-      if (!refresh) {
-        const cached = await idbGet(id);
-        if (cached && cached.content) {
-          log('⚡ Using cached CSV for', id, '\nFetched at:', new Date(cached.fetchedAt).toISOString(), cached.etag ? `\nETag: ${cached.etag}` : '');
-          return cached.content;
-        }
-      }
-
-      const url = './' + filename.replace(/^\/+/, '');
-      log('⬇️ Fetching', url);
-      const headers = {};
-      // If we have an ETag, try conditional fetch
-      const prev = await idbGet(id);
-      if (prev && prev.etag && !refresh) {
-        headers['If-None-Match'] = prev.etag;
-      }
-      let res;
-      try {
-        res = await fetch(url, { headers, cache: 'no-cache' });
-      } catch (e) {
-        log('❌ Fetch failed:', String(e));
-        // fall back to cache if available
-        if (prev && prev.content) {
-          log('↩️ Falling back to cached copy.');
-          return prev.content;
-        }
-        throw e;
-      }
-
-      if (res.status === 304 && prev && prev.content) {
-        log('🔁 304 Not Modified — using cached copy');
-        return prev.content;
-      }
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
-
+    async function fetchCSVWithCache(name){
+      const id = name;
+      const cached = await idbGet(id);
+      if(cached && cached.content){ info('Using cached CSV for '+name); return cached.content; }
+      const url = './'+name;
+      info('Fetching '+url);
+      const res = await fetch(url, { cache: 'no-cache' });
+      if(!res.ok) throw new Error('HTTP '+res.status+' '+res.statusText);
       const text = await res.text();
-      const etag = res.headers.get('etag') || null;
-      await idbSet({ id, content: text, etag, fetchedAt: Date.now() });
-      log('✅ Cached new copy', etag ? `(etag ${etag})` : '');
+      await idbSet({ id, content:text, fetchedAt: Date.now() });
+      info('Cached fresh copy');
       return text;
     }
 
-    // ---------- UI + redirect ----------
-    const form = document.getElementById('csvForm');
-    const fileInput = document.getElementById('fileInput');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const testBtn = document.getElementById('testBtn');
-    const meta = document.getElementById('meta');
+    try{
+      const text = await fetchCSVWithCache(FILENAME);
+      const rows = parseCSV(text);
+      const items = normalizeRows(rows);
+      if(!items.length) throw new Error('No valid rows found (need type, positive probability, link).');
+      const pick = weightedPick(items);
+      if(!pick) throw new Error('Weighted pick failed.');
 
-    function setMeta(filename, { rows, picked, cached }) {
-      meta.innerHTML = '';
-      const tags = [];
-      const mk = (t) => { const el = document.createElement('span'); el.className = 'tag'; el.textContent = t; return el; };
-      tags.push(mk('file: ' + filename));
-      if (typeof rows === 'number') tags.push(mk('rows: ' + rows));
-      if (picked) tags.push(mk('picked weight: ' + picked.probabilityWeight));
-      if (cached) tags.push(mk('cache: ' + cached));
-      tags.forEach(t => meta.appendChild(t));
+      // Use the link exactly as provided (no auto-prefixing)
+      const href = String(pick.link).trim();
+      if(!href){ throw new Error('Chosen row has empty link.'); }
+
+      info('Redirecting…');
+      location.replace(href);
+    } catch(e){
+      console.error(e);
+      info('Error: '+(e && e.message || e));
     }
-
-    async function run({ testOnly = false, refresh = false } = {}) {
-      const filename = (fileInput.value || 'input.csv').trim();
-      setMeta(filename, { cached: refresh ? 'refresh' : 'normal' });
-      try {
-        const text = await fetchCSVWithCache(filename, { refresh });
-        const rows = parseCSV(text);
-        const items = normalizeRows(rows);
-        if (!items.length) throw new Error('No valid rows with positive probabilityWeight and link.');
-        const picked = weightedPick(items);
-        if (!picked) throw new Error('Weighted pick failed.');
-        setMeta(filename, { rows: items.length, picked });
-        log('🎯 Picked:', picked);
-        if (testOnly) {
-          // Show link but do not redirect
-          const a = document.createElement('a');
-          a.href = picked.link; a.textContent = picked.link; a.target = '_blank';
-          log('🧪 Test mode — would redirect to:', picked.link);
-          // Also show a clickable link above the log for convenience
-          const p = document.createElement('p');
-          p.innerHTML = 'Would redirect to: ';
-          p.appendChild(a);
-          document.querySelector('.card').appendChild(p);
-        } else {
-          // Redirect
-          window.location.replace(picked.link);
-        }
-      } catch (e) {
-        log('💥 Error:', String(e && e.message || e));
-        alert('Error: ' + (e && e.message || e));
-      }
-    }
-
-    // Wire up UI
-    form.addEventListener('submit', (ev) => { ev.preventDefault(); run({ testOnly: false, refresh: false }); });
-    refreshBtn.addEventListener('click', () => run({ testOnly: false, refresh: true }));
-    clearBtn.addEventListener('click', async () => {
-      const filename = (fileInput.value || 'input.csv').trim();
-      await idbDelete(filename);
-      log('🧹 Cache cleared for', filename);
-      setMeta(filename, { cached: 'cleared' });
-      alert('Cache cleared for ' + filename);
-    });
-    testBtn.addEventListener('click', () => run({ testOnly: true, refresh: false }));
-
-    // Auto-apply query params
-    (function autoFromQuery(){
-      const sp = new URLSearchParams(window.location.search);
-      const file = sp.get('file');
-      const test = sp.get('test');
-      const refresh = sp.get('refresh');
-      if (file) fileInput.value = file;
-      // If any query present, auto-run; else wait for user
-      if (file || test || refresh) {
-        run({ testOnly: !!test, refresh: !!refresh });
-      }
-    })();
-
   })();
   </script>
 </body>
