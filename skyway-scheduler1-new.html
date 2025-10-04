@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Random Redirect (Weighted)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Bootstrap CSS (from CDN) -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .weight-input { width: 4.5rem; text-align: center; }
+    .sticky-topbar { position: sticky; top: 0; z-index: 1020; background: #fff; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
+    .btn-icon { width: 2.25rem; }
+    .small-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.8rem; }
+  </style>
+
+  <script>
+    // ----- IndexedDB helpers -----
+    const DB_NAME = 'skywayScheduler';
+    const DB_VERSION = 1;
+    const STORE_WEIGHTS = 'weights';
+    const STORE_META = 'meta';
+    const META_ACTIVE_KEY = 'activeKey';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE_WEIGHTS)) {
+            db.createObjectStore(STORE_WEIGHTS);
+          }
+          if (!db.objectStoreNames.contains(STORE_META)) {
+            db.createObjectStore(STORE_META);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function idbGet(db, store, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly');
+        const st = tx.objectStore(store);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    function idbSet(db, store, key, val) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        const st = tx.objectStore(store);
+        const r = st.put(val, key);
+        r.onsuccess = () => resolve();
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    function idbKeys(db, store) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly');
+        const st = tx.objectStore(store);
+        const r = st.getAllKeys();
+        r.onsuccess = () => resolve(r.result || []);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    // UUID v4 for the one-time unique seed key
+    function uuidv4() {
+      const a = new Uint8Array(16);
+      crypto.getRandomValues(a);
+      a[6] = (a[6] & 0x0f) | 0x40; // version
+      a[8] = (a[8] & 0x3f) | 0x80; // variant
+      const h = [...a].map(b => b.toString(16).padStart(2, '0'));
+      return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`;
+    }
+
+    // Secure random int in [0, maxExclusive)
+    function secureRandInt(maxExclusive) {
+      if (maxExclusive <= 0) return 0;
+      // Use rejection sampling to avoid modulo bias
+      const range = 4294967296; // 2^32
+      const bucket = Math.floor(range / maxExclusive) * maxExclusive;
+      const u32 = new Uint32Array(1);
+      let r;
+      do {
+        crypto.getRandomValues(u32);
+        r = u32[0];
+      } while (r >= bucket);
+      return r % maxExclusive;
+    }
+
+    // Weighted pick (non-negative integer weights)
+    function weightedPick(items) {
+      const weights = items.map(i => Math.max(0, Math.floor(i.weight || 0)));
+      const total = weights.reduce((a, b) => a + b, 0);
+      if (total <= 0) return null;
+      const r = secureRandInt(total); // integer in [0,total)
+      let acc = 0;
+      for (let i = 0; i < items.length; i++) {
+        acc += weights[i];
+        if (r < acc) return items[i];
+      }
+      return null;
+    }
+
+    // Bootstrap UI toggling (10% chance)
+    function shouldShowEditor() {
+      const u8 = new Uint8Array(1);
+      crypto.getRandomValues(u8);
+      return (u8[0] / 256) < 0.10;
+    }
+
+    async function seedIfNeededAndGetActive(db) {
+      let activeKey = await idbGet(db, STORE_META, META_ACTIVE_KEY);
+      if (activeKey) {
+        const existing = await idbGet(db, STORE_WEIGHTS, activeKey);
+        if (existing && Array.isArray(existing.items)) return { activeKey, data: existing };
+        // activeKey missing? fall through to reseed
+      }
+      // One-time unique key
+      const newKey = `weights-${uuidv4()}`;
+      try {
+        const res = await fetch('/config/skyway-scheduler1-weights.json', { cache: 'no-store' });
+        const json = await res.json();
+        // Minimal validation
+        if (!json || !Array.isArray(json.items)) throw new Error('Invalid config format');
+        await idbSet(db, STORE_WEIGHTS, newKey, json);
+        await idbSet(db, STORE_META, META_ACTIVE_KEY, newKey);
+        return { activeKey: newKey, data: json };
+      } catch (e) {
+        // Fallback: empty items to avoid redirect crash
+        const fallback = { schema: 1, generatedAt: new Date().toISOString(), items: [] };
+        await idbSet(db, STORE_WEIGHTS, newKey, fallback);
+        await idbSet(db, STORE_META, META_ACTIVE_KEY, newKey);
+        return { activeKey: newKey, data: fallback };
+      }
+    }
+
+    async function loadActiveWeights(db) {
+      const activeKey = await idbGet(db, STORE_META, META_ACTIVE_KEY);
+      if (!activeKey) return null;
+      const data = await idbGet(db, STORE_WEIGHTS, activeKey);
+      return data || null;
+    }
+
+    async function saveActiveWeights(db, updated) {
+      const activeKey = await idbGet(db, STORE_META, META_ACTIVE_KEY);
+      if (!activeKey) throw new Error('No active key to save to.');
+      await idbSet(db, STORE_WEIGHTS, activeKey, updated);
+      return activeKey;
+    }
+
+    // ----- UI rendering for the 10% editor -----
+    function renderEditor(container, state, onChange, onSave, onDownload) {
+      const total = state.items.reduce((s, it) => s + Math.max(0, Math.floor(it.weight || 0)), 0);
+      container.innerHTML = `
+        <div class="sticky-topbar">
+          <div class="container d-flex align-items-center gap-2">
+            <button id="btn-download" class="btn btn-outline-secondary">Download JSON</button>
+            <div class="ms-auto small text-muted">Active key: <span class="small-mono">${state._activeKey}</span></div>
+          </div>
+        </div>
+        <div class="container mt-3">
+          <h1 class="h4 mb-1">Skyway Weights Editor</h1>
+          <p class="text-muted mb-3">Adjust weights (higher = more likely). Total weight: <strong>${total}</strong></p>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="width: 3rem;">#</th>
+                  <th>URL</th>
+                  <th style="width: 14rem;">Weight</th>
+                  <th style="width: 10rem;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="weights-tbody"></tbody>
+            </table>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="btn-save" class="btn btn-primary">Save</button>
+            <a id="btn-go" class="btn btn-outline-primary" href="#" role="button">Go (random pick)</a>
+          </div>
+          <hr/>
+          <p class="small text-muted">Tip: weight 0 disables a URL without deleting it.</p>
+        </div>
+      `;
+
+      const tbody = container.querySelector('#weights-tbody');
+      tbody.innerHTML = '';
+      state.items.forEach((item, idx) => {
+        const safeUrl = item.url;
+        const weight = Math.max(0, Math.floor(item.weight || 0));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><div class="text-break small">${safeUrl}</div></td>
+          <td>
+            <div class="input-group">
+              <button class="btn btn-outline-secondary btn-sm btn-icon" data-action="dec" data-index="${idx}">−</button>
+              <input type="number" min="0" step="1" class="form-control form-control-sm weight-input" data-index="${idx}" value="${weight}" />
+              <button class="btn btn-outline-secondary btn-sm btn-icon" data-action="inc" data-index="${idx}">+</button>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-outline-danger btn-sm" data-action="zero" data-index="${idx}">Set 0</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Handlers
+      tbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.index, 10);
+        const action = btn.dataset.action;
+        const item = state.items[idx];
+        if (!item) return;
+
+        const input = tbody.querySelector(`input.weight-input[data-index="${idx}"]`);
+        let val = Math.max(0, Math.floor(Number(input.value) || 0));
+        if (action === 'inc') val += 1;
+        if (action === 'dec') val = Math.max(0, val - 1);
+        if (action === 'zero') val = 0;
+        input.value = val;
+        item.weight = val;
+        onChange(state);
+      });
+
+      tbody.addEventListener('input', (e) => {
+        const input = e.target.closest('input.weight-input');
+        if (!input) return;
+        const idx = parseInt(input.dataset.index, 10);
+        const val = Math.max(0, Math.floor(Number(input.value) || 0));
+        state.items[idx].weight = val;
+        onChange(state);
+      });
+
+      container.querySelector('#btn-save').addEventListener('click', () => onSave(state));
+      container.querySelector('#btn-download').addEventListener('click', () => onDownload(state));
+      container.querySelector('#btn-go').addEventListener('click', (e) => {
+        e.preventDefault();
+        const pick = weightedPick(state.items);
+        if (pick && pick.url) window.location.replace(pick.url);
+      });
+    }
+
+    function downloadJSON(filename, dataObj) {
+      const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // ----- Main flow -----
+    document.addEventListener('DOMContentLoaded', async () => {
+      const db = await openDB();
+
+      // Seed once (unique key) if needed, then ensure we have active data
+      const { activeKey, data } = await seedIfNeededAndGetActive(db);
+      data._activeKey = activeKey; // for UI display only
+
+      const showUI = shouldShowEditor();
+
+      if (showUI) {
+        // Render editor
+        document.body.innerHTML = `<div id="app"></div>`;
+        const app = document.getElementById('app');
+
+        // Make a shallow working copy so user can tweak before save
+        const state = {
+          schema: data.schema || 1,
+          generatedAt: new Date().toISOString(),
+          items: (data.items || []).map(it => ({ url: it.url, weight: Math.max(0, Math.floor(it.weight || 0)) })),
+          _activeKey: activeKey
+        };
+
+        renderEditor(
+          app,
+          state,
+          () => { /* live change hook if you want live totals, etc. */ },
+          async (finalState) => {
+            // Save back to IndexedDB under the same active key
+            await saveActiveWeights(db, { schema: finalState.schema, generatedAt: new Date().toISOString(), items: finalState.items });
+            // Little toast-ish feedback
+            alert('Saved to IndexedDB ✅');
+          },
+          (finalState) => {
+            const downloadable = { schema: finalState.schema, generatedAt: new Date().toISOString(), items: finalState.items };
+            downloadJSON('skyway-scheduler1-weights.json', downloadable);
+          }
+        );
+      } else {
+        // No UI → redirect using current IndexedDB weights
+        const pick = weightedPick(data.items || []);
+        if (pick && pick.url) {
+          window.location.replace(pick.url);
+        } else {
+          // Nothing to pick? Soft fallback destination
+          window.location.replace('https://instagram.com/reels');
+        }
+      }
+    });
+  </script>
+
+  <!-- Fallback for users with JavaScript disabled -->
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://instagram.com/reels" />
+    <style>body { font-family: sans-serif; }</style>
+    <p>If you’re seeing this, JavaScript is disabled. You’ll be sent to Instagram Reels in a moment.</p>
+  </noscript>
+</head>
+<body></body>
+
+<!-- Bootstrap JS (for future-proofing; not strictly needed for the simple editor above) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+  crossorigin="anonymous"
+></script>
+</html>
