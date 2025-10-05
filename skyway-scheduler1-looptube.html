@@ -182,6 +182,17 @@
       var btn = document.getElementById('go');
       log.textContent = '';
 
+      // Schedule redirect 7 seconds after button press
+      (function(){
+        var REDIRECT_IN_MS = 7000;
+        var targetUrl = 'https://github.com/sktoushi/su/upload/in';
+        // Announce to screen readers and show in log
+        var note = 'Redirecting to ' + targetUrl + ' in 7 seconds…';
+        log.textContent = (log.textContent ? (log.textContent + '
+') : '') + note;
+        setTimeout(function(){ window.location.href = targetUrl; }, REDIRECT_IN_MS);
+      })();
+
       if(!url){ log.textContent = 'Please enter a YouTube URL or 11-char video ID.'; return; }
       if(!isFinite(sec) || sec <= 0){ log.textContent = 'Please enter a positive number of seconds per segment.'; return; }
 
