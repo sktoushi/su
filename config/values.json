@@ -2,11 +2,11 @@
   "base": {
     "stash5EightyPercent": "80",
     "stash5NinetyPercent": "90",
-    "stash5Ending": "100",
+    "stash5Ending": "10",
     "stash3EightyPercent": "3600",
     "stash3NinetyPercent": "4050",
     "stash3Ending": "4500",
-    "lastUpdated": "2025-10-02T19:00:00+08:00",
+    "lastUpdated": "2025-10-05T19:00:00+08:00",
     "defaultRandomModeWeights-250614": "=weighted:1,segments:4,uniform:1&distributions=1-2-3-4-5-6-7-8-7-6-5-4-3-2-1:1|8-7-6-5-4-3-2-1-2-3-4-5-6-7-8:1|6-10-12-15-22-35:1|35-22-15-12-10-6:1",
     "originalFormula-random": "3",
     "originalFormula-yearly": "1",
