@@ -46,6 +46,9 @@
   </script>
 
   <script>
+    // Constant to control random PDF selection
+    const RANDOM_PDF_MAX = 3;
+
     // 2%: send to the edit link; 98%: weighted pick from JSON
     const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
 
@@ -57,6 +60,11 @@
     if (u < 0.02) {
       // 2% direct redirect
       window.location.replace(EDIT_URL);
+    } else if (u < 0.12) {
+      // 10% chance to redirect to PDF viewer
+      const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
+      const pdfUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs.html?fileName=${chosenNumber}.pdf`;
+      window.location.replace(pdfUrl);
     } else {
       // Parse central JSON config
       const { items } = JSON.parse(document.getElementById('urlProbability').textContent);
