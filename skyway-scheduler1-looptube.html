@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LoopTube Segmenter → Bucket JSON</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121935; --ink:#eaf1ff; --muted:#9db1ff; --accent:#6aa3ff; --ok:#3ddc97; --bad:#ff6b6b; }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b1020,#11183a);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    a{color:var(--accent)}
+    .wrap{max-width:920px;margin:40px auto;padding:0 20px}
+    .card{background:var(--card);border:1px solid #1d2652;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:22px}
+    h1{margin:0 0 10px;font-size:28px;letter-spacing:.3px}
+    p.hint{margin-top:4px;color:var(--muted)}
+    label{display:block;margin:.75rem 0 .35rem;color:#cfe0ff}
+    input[type="text"],input[type="number"]{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a366e;background:#0e1430;color:var(--ink);outline:none}
+    input[type="number"]{max-width:280px}
+    .row{display:flex;gap:16px;flex-wrap:wrap;align-items:end}
+    .btn{appearance:none;background:linear-gradient(180deg,#5aa2ff,#3778f0);border:0;color:white;padding:12px 16px;border-radius:12px;cursor:pointer;font-weight:700;letter-spacing:.2px}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .btn.alt{background:linear-gradient(180deg,#444b75,#303a6d)}
+    .log{margin-top:16px;padding:12px 14px;background:#0e1430;border:1px dashed #2a366e;border-radius:12px;min-height:40px;white-space:pre-wrap}
+    .grid{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#0e1430;border:1px solid #2a366e;color:#cfe0ff;font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;word-break:break-all}
+    .footer{margin:24px 0;color:#a8b7ff;font-size:13px;text-align:center}
+    .ok{color:var(--ok)}.bad{color:var(--bad)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>LoopTube Segmenter → Bucket JSON</h1>
+      <p class="hint">Paste a YouTube URL (or 11-char video ID), enter segment length (seconds), then generate a <em>bucket-*.json</em> file containing all segment URLs in the requested <code>[index, url, 1]</code> triplet format.</p>
+
+      <label for="ytUrl">YouTube URL or Video ID</label>
+      <input id="ytUrl" type="text" placeholder="https://www.youtube.com/watch?v=sKieIqZgL7M" />
+
+      <div class="row">
+        <div style="flex:1; min-width:240px">
+          <label for="slice">Seconds per segment</label>
+          <input id="slice" type="number" min="1" step="1" placeholder="e.g., 30" />
+        </div>
+        <button id="go" class="btn">Create Segments</button>
+        <button class="btn alt" type="button" id="clearBtn">Clear</button>
+      </div>
+
+      <div id="log" class="log" role="status" aria-live="polite"></div>
+      <div id="out" class="grid" aria-label="Preview of generated segment URLs"></div>
+    </div>
+
+    <p class="footer">Format used in JSON: <code class="mono">{"initialFiles": [[1, "{segmentURL1}", 1], [2, "{segmentURL2}", 1], ...]}</code></p>
+  </div>
+
+  <script>
+    'use strict';
+
+    function extractYouTubeId(input){
+      if(!input) return null;
+      var s = input.trim();
+      if(/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+      try{
+        var u = new URL(s);
+        if(u.hostname === 'youtu.be'){
+          var id1 = u.pathname.split('/').filter(Boolean)[0];
+          if(id1 && id1.length === 11) return id1;
+        }
+        if(u.searchParams.has('v')){
+          var id2 = u.searchParams.get('v');
+          if(id2 && id2.length === 11) return id2;
+        }
+        var parts = u.pathname.split('/').filter(Boolean);
+        var idx = parts.indexOf('embed');
+        if(idx !== -1 && parts[idx+1] && parts[idx+1].length === 11) return parts[idx+1];
+      }catch(e){}
+      var m = s.match(/[a-zA-Z0-9_-]{11}/);
+      return m ? m[0] : null;
+    }
+
+    var ytApiReadyPromise;
+    function loadYouTubeAPI(){
+      if(ytApiReadyPromise) return ytApiReadyPromise;
+      ytApiReadyPromise = new Promise(function(resolve){
+        var tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+        window.onYouTubeIframeAPIReady = function(){ resolve(); };
+      });
+      return ytApiReadyPromise;
+    }
+
+    function fetchDuration(videoId){
+      return loadYouTubeAPI().then(function(){
+        return new Promise(function(resolve,reject){
+          var holder = document.createElement('div');
+          holder.style.position='absolute';
+          holder.style.left='-9999px';
+          holder.style.width='1px';
+          holder.style.height='1px';
+          document.body.appendChild(holder);
+          var player;
+          try{
+            player = new YT.Player(holder,{
+              videoId: videoId,
+              playerVars:{autoplay:0,controls:0,disablekb:1,playsinline:1},
+              events:{
+                onReady:function(){
+                  setTimeout(function(){
+                    var d = player.getDuration();
+                    if(d && isFinite(d)){
+                      resolve(d);
+                    } else {
+                      reject(new Error('Unable to read duration. Video may be unavailable or restricted.'));
+                    }
+                    try{ player.destroy(); }catch(e){}
+                    holder.remove();
+                  }, 250);
+                },
+                onError:function(e){
+                  reject(new Error('YouTube API error: ' + (e && e.data)));
+                  try{ player && player.destroy(); }catch(err){}
+                  holder.remove();
+                }
+              }
+            });
+          }catch(err){
+            reject(err);
+            try{ player && player.destroy(); }catch(e){}
+            holder.remove();
+          }
+        });
+      });
+    }
+
+    function buildSegments(totalSeconds, sliceSeconds){
+      var segs = [];
+      var start = 0;
+      var D = Math.max(0, Math.floor(totalSeconds * 1000) / 1000);
+      var step = Math.max(0.001, Number(sliceSeconds));
+      while(start < D){
+        var end = Math.min(D, start + step);
+        segs.push([start, end]);
+        start = end;
+      }
+      return segs;
+    }
+
+    function fmtTs(){
+      var d = new Date();
+      function pad(n){ return String(n).padStart(2,'0'); }
+      return d.getFullYear()+''+pad(d.getMonth()+1)+''+pad(d.getDate())+'_'+pad(d.getHours())+''+pad(d.getMinutes());
+    }
+
+    // Build the desired JSON payload
+    function makeBucketJSON(urls){
+      var rows = urls.map(function(u, i){
+        return [i+1, u, 1];
+      });
+      return { initialFiles: rows };
+    }
+
+    function downloadJSON(filename, dataObj){
+      var json = JSON.stringify(dataObj, null, 2);
+      var blob = new Blob([json], {type: 'application/json;charset=utf-8'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+
+    function makeLoopUrl(videoId, start, end){
+      return 'https://looptube.io/?videoId='+videoId+'&start='+start+'&end='+end+'&rate=1';
+    }
+
+    function onCreate(){
+      var url = document.getElementById('ytUrl').value.trim();
+      var sec = Number(document.getElementById('slice').value);
+      var log = document.getElementById('log');
+      var btn = document.getElementById('go');
+      log.textContent = '';
+
+      if(!url){ log.textContent = 'Please enter a YouTube URL or 11-char video ID.'; return; }
+      if(!isFinite(sec) || sec <= 0){ log.textContent = 'Please enter a positive number of seconds per segment.'; return; }
+
+      var videoId = extractYouTubeId(url);
+      if(!videoId){ log.innerHTML = 'Could not extract a valid YouTube video ID.\nTip: Paste a full URL like https://www.youtube.com/watch?v=XXXXXXXXXXX'; return; }
+
+      btn.disabled = true; btn.textContent = 'Working...';
+      fetchDuration(videoId).then(function(duration){
+        if(!duration || !isFinite(duration) || duration <= 0) throw new Error('Invalid duration.');
+        log.textContent = 'Duration: ' + duration.toFixed(3) + 's. Slicing...';
+        var segments = buildSegments(duration, sec);
+        var urls = segments.map(function(pair){
+          var s = Number(pair[0].toFixed(10));
+          var e = Number(pair[1].toFixed(10));
+          return makeLoopUrl(videoId, s, e);
+        });
+        var out = document.getElementById('out');
+        out.innerHTML = '';
+        urls.slice(0, 12).forEach(function(u){
+          var el = document.createElement('div');
+          el.className = 'pill mono';
+          el.textContent = u;
+          out.appendChild(el);
+        });
+        if(urls.length > 12){
+          var more = document.createElement('div');
+          more.className = 'pill';
+          more.textContent = '+' + (urls.length-12) + ' more...';
+          out.appendChild(more);
+        }
+
+        // Maintain base name, prefix with "bucket-" and switch to .json
+        var base = 'loopTube_' + videoId + '_' + fmtTs();
+        var filename = 'bucket-' + base + '.json';
+
+        var payload = makeBucketJSON(urls);
+        downloadJSON(filename, payload);
+        log.innerHTML = '<span class="ok">Done.</span> JSON file downloaded: <span class="mono">' + filename + '</span>\nOpen it with any text editor or import it into your system.';
+      }).catch(function(err){
+        console.error(err);
+        log.innerHTML = '<span class="bad">Error:</span> ' + (err.message || err);
+      }).finally(function(){
+        btn.disabled = false; btn.textContent = 'Create Segments';
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', function(){
+      document.getElementById('go').addEventListener('click', onCreate);
+      document.getElementById('clearBtn').addEventListener('click', function(){
+        document.getElementById('out').innerHTML='';
+        document.getElementById('log').textContent='Cleared.';
+      });
+      document.getElementById('ytUrl').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); onCreate(); }});
+      document.getElementById('slice').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); onCreate(); }});
+    });
+  </script>
+</body>
+</html>
