@@ -91,7 +91,7 @@ window.onload=async()=>{
     const useFirst=getSecureRandomNumber()<0.5;
     if(useFirst){
        const start=parseInt(cfg.stash5Starting), end=parseInt(cfg.stash5Ending);
-       if(isNaN(start)||isNaN(end)||end<start) throw new Error('Bad stash3 range');
+       if(isNaN(start)||isNaN(end)||end<start) throw new Error('Bad stash5 range');
        const total=end-start+1; const slice=Math.floor(total*0.05); if(slice<1) throw new Error('Range too small');
        const s=end-slice+1; const issue=randInt(s,end);
        const user=settings.username||cfg.stashUsername;
