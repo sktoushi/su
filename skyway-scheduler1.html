@@ -62,6 +62,11 @@
       // 2% direct redirect
       window.location.replace(EDIT_URL);
     } else if (u < 0.12) {
+
+      if (Math.random() < 0.5) {
+        window.location.replace(`https://sktoushi.github.io/su/allrecent.html`);
+      } 
+      
       // 10% chance to redirect to PDF viewer
       const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
       const pdfUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs.html?fileName=${chosenNumber}.pdf`;
