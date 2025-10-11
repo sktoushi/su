@@ -9,7 +9,7 @@
     "stash": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4569},
     "stash2": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4508},
     "stash3": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4500},
-    "stash5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 231}
+    "stash5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 400}
   },
   "formulas": [
     "recent20Percent",
