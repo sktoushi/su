@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Weighted Redirect</title>
+  <title>Adaptive Weighted Redirect (Crypto RNG + Memory Drift)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
@@ -11,32 +11,89 @@
   </style>
   <script>
     (function () {
-      // Weighted pick: 50% -> all.html, 30% -> allrecent.html, 20% -> allrecent100.html
-      var r = Math.random(); // in [0, 1)
-      var target;
-
-      if (r < 0.5) {
-        target = "https://sktoushi.github.io/su/all.html";          // 50%
-      } else if (r < 0.8) {
-        target = "https://sktoushi.github.io/su/allrecent.html";     // 30%
-      } else {
-        target = "https://sktoushi.github.io/su/allrecent100.html";  // 20%
+      // --- Crypto RNG helpers
+      function cryptoRandom() {
+        const buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      }
+      function cryptoNormal(mean = 0, stdDev = 1) {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
       }
 
-      // Redirect ASAP; replace() avoids leaving this page in the back history
+      // --- Core configuration
+      const urls = [
+        "https://sktoushi.github.io/su/all.html",          // base 50%
+        "https://sktoushi.github.io/su/allrecent.html",    // base 30%
+        "https://sktoushi.github.io/su/allrecent100.html"  // base 20%
+      ];
+      const baseWeights = [0.5, 0.3, 0.2];
+
+      // --- Load past stats
+      const memoryKey = "redirect_memory_v1";
+      let history = JSON.parse(localStorage.getItem(memoryKey) || "{}");
+      let counts = history.counts || [0, 0, 0];
+      let totalVisits = counts.reduce((a, b) => a + b, 0);
+
+      // --- Compute adaptive bias (favor under-visited links)
+      let bias = [0, 0, 0];
+      if (totalVisits > 0) {
+        const avg = totalVisits / counts.length;
+        bias = counts.map(c => (avg - c) / avg * 0.1); // up to ±10% adaptive bias
+      }
+
+      // --- Determine noise volatility
+      const erratic = cryptoRandom() < 0.1; // 10% chance for erratic mode
+      const noiseStdDev = erratic ? 0.25 : 0.05;
+
+      // --- Apply crypto noise and bias
+      let noisyWeights = baseWeights.map((w, i) => {
+        const noise = cryptoNormal(0, noiseStdDev) * w;
+        const adaptive = bias[i] || 0;
+        return Math.max(0, w + noise + adaptive);
+      });
+
+      // --- Normalize to sum = 1
+      const sum = noisyWeights.reduce((a, b) => a + b, 0);
+      noisyWeights = noisyWeights.map(w => w / sum);
+
+      // --- Choose target with crypto RNG
+      const thresholds = [noisyWeights[0], noisyWeights[0] + noisyWeights[1], 1.0];
+      const r = cryptoRandom();
+      let chosenIndex;
+      if (r < thresholds[0]) chosenIndex = 0;
+      else if (r < thresholds[1]) chosenIndex = 1;
+      else chosenIndex = 2;
+
+      const target = urls[chosenIndex];
+
+      // --- Update and persist memory
+      counts[chosenIndex]++;
+      localStorage.setItem(memoryKey, JSON.stringify({ counts }));
+
+      // --- Redirect immediately
       window.location.replace(target);
 
-      // For very old browsers or if JS is slow, also update the visible link
+      // --- Display diagnostic info if JS visible
       document.addEventListener("DOMContentLoaded", function () {
-        var a = document.getElementById("target-link");
+        const a = document.getElementById("target-link");
         if (a) a.href = target;
-        var pre = document.getElementById("picked");
-        if (pre) pre.textContent = target;
+        const pre = document.getElementById("picked");
+        if (pre) {
+          const info =
+            `weights: ${noisyWeights.map(w => (w * 100).toFixed(1) + "%").join(" / ")} | ` +
+            (erratic ? "⚡ erratic mode" : "⤵ stable mode") +
+            ` | visits: [${counts.join(", ")}]`;
+          pre.textContent = target + " (" + info + ")";
+        }
       });
     })();
   </script>
   <noscript>
-    <!-- Fallback for users with JavaScript disabled: show all options -->
     <meta http-equiv="refresh" content="0; url=https://sktoushi.github.io/su/all.html">
   </noscript>
 </head>
