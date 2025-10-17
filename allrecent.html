@@ -26,7 +26,7 @@
    ============================================================ */
 (async () => {
   try {
-    const res = await fetch('config/allrecent.json');
+    const res = await fetch('config/all.json');
     if (!res.ok) throw new Error('Failed to load config');
     const cfg = await res.json();
     const repos = cfg.repositories || {};
@@ -44,7 +44,13 @@
 
     const n = issues.length;
     let formulaParam = 'random';
-    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
+
+    // ✅ Define formulas explicitly here
+    const formulas = [
+      "recent20Percent",
+      "recent5Percent"
+    ];
+
     if (formulas.length > 0) {
       const idx = Math.floor(getSecureRandomNumber() * formulas.length);
       formulaParam = formulas[idx];
