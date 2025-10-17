@@ -9,7 +9,7 @@
 <script>
 (async () => {
   try {
-    const res = await fetch('config/allrecent100.json');
+    const res = await fetch('config/all.json');
     if (!res.ok) throw new Error('Failed to load config');
     const cfg = await res.json();
     const repos = cfg.repositories || {};
