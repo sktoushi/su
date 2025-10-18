@@ -25,7 +25,7 @@
    Crypto-secure randomness only (no Math.random)
    Steps:
    1) Load config/all.json
-   2) Extract a single repository entry (final repositories object)
+   2) Extract the LAST repository entry (in insertion order)
    3) Pick a random issue in [Math.max(1, end - 100), end] using crypto RNG
    4) Redirect immediately to the chosen issue URL
    ============================================================ */
@@ -65,6 +65,7 @@
     return min + (x % range);
   }
 
+  // >>> Modified to pick the LAST repository object <<<
   function extractFinalRepo(repositories) {
     if (!repositories || typeof repositories !== 'object') {
       throw new Error('Invalid repositories structure in config.');
@@ -79,12 +80,11 @@
       };
     }
 
-    // Case B: a mapping of repoName -> info. Choose one entry securely at random.
+    // Case B: mapping of repoName -> info. Pick the LAST entry (in insertion order).
     const entries = Object.entries(repositories);
     if (entries.length === 0) throw new Error('No repositories configured.');
 
-    const rndIdx = cryptoRandomInt(0, entries.length - 1);
-    const [repoName, info] = entries[rndIdx];
+    const [repoName, info] = entries[entries.length - 1]; // last one
 
     if (!info || typeof info !== 'object') throw new Error('Malformed repository info.');
     if (!info.username) throw new Error('Missing "username" in repository info.');
