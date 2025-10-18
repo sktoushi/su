@@ -46,10 +46,7 @@
     let formulaParam = 'random';
 
     // ✅ Define formulas explicitly here
-    const formulas = [
-      "recent20Percent",
-      "recent5Percent"
-    ];
+    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
 
     if (formulas.length > 0) {
       const idx = Math.floor(getSecureRandomNumber() * formulas.length);
