@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PSEi Redirect</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:2rem;line-height:1.4}
+    .note{color:#555}
+  </style>
+</head>
+<body>
+  <h1>PSEi Auto-Redirect</h1>
+  <p class="note">Picks a cryptographically random ticker from <code>psei</code>, appends <code>suffix</code>, then redirects.</p>
+
+  <script>
+    // all lowercase + added "keepr"
+    const psei = [
+      "ac","acen","aev","agi","ali","areit",
+      "bdo","bpi","cbc","cnpf","cnvrg","dmc",
+      "emi","glo","gtcap","ict","jfc","jgs",
+      "ltg","mbt","mer","monde","pgold","plus",
+      "scc","sm","smc","smph","tel","urc","keepr"
+    ];
+
+    const suffix = "202510.pdf";
+
+    // cryptographically secure, unbiased pick
+    function pick(arr){
+      const n = arr.length;
+      if (!n) throw new Error("empty array");
+      const buf = new Uint32Array(1);
+      const MAX = 0x100000000;
+      const LIMIT = MAX - (MAX % n);
+      let x;
+      do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= LIMIT);
+      return arr[x % n];
+    }
+
+    const file = pick(psei) + suffix;
+    const url = "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=" + encodeURIComponent(file);
+    location.replace(url);
+  </script>
+
+  <noscript>Enable JavaScript to be redirected.</noscript>
+</body>
+</html>
+```0
