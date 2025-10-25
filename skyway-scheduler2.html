@@ -35,13 +35,13 @@
       const baseWeights = [0.5, 0.25, 0.125, 0.125];
 
       // --- Load past stats
-      const memoryKey = "redirect_memory_v1";
+      const memoryKey = "redirect_memory_v2";
       let history = JSON.parse(localStorage.getItem(memoryKey) || "{}");
-      let counts = history.counts || [0, 0, 0];
+      let counts = history.counts || [0, 0, 0, 0];
       let totalVisits = counts.reduce((a, b) => a + b, 0);
 
       // --- Compute adaptive bias (favor under-visited links)
-      let bias = [0, 0, 0];
+      let bias = [0, 0, 0, 0];
       if (totalVisits > 0) {
         const avg = totalVisits / counts.length;
         bias = counts.map(c => (avg - c) / avg * 0.1); // up to ±10% adaptive bias
