@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Random Redirect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <script>
+    // Redirect ASAP—runs as soon as the parser hits this script.
+    (function () {
+      // Add or remove URLs here as needed
+      var urls = [
+        "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=berkshire-transcripts-1-1700.pdf",
+        "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=berkshire-transcripts-1701-3439.pdf"
+      ];
+
+      // Optional: allow manual forcing via ?pick=0 or ?pick=1 for testing
+      try {
+        var params = new URLSearchParams(location.search);
+        var pick = params.get("pick");
+        var idx = (pick !== null && !isNaN(+pick)) ? Math.max(0, Math.min(urls.length - 1, +pick)) 
+                                                   : Math.floor(Math.random() * urls.length);
+        var target = urls[idx];
+
+        // Use replace() so this page isn’t added to history
+        window.location.replace(target);
+      } catch (e) {
+        // Fallback if something odd happens
+        var fallback = urls[Math.floor(Math.random() * urls.length)];
+        window.location.href = fallback;
+      }
+    })();
+  </script>
+  <style>
+    /* Optional minimal style for the <noscript> fallback */
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+  </style>
+</head>
+<body>
+  <noscript>
+    <h1>Redirecting…</h1>
+    <p>Your browser has JavaScript disabled. Choose a destination:</p>
+    <ul>
+      <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=berkshire-transcripts-1-1700.pdf">Open 1–1700</a></li>
+      <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=berkshire-transcripts-1701-3439.pdf">Open 1701–3439</a></li>
+    </ul>
+  </noscript>
+</body>
+</html>
