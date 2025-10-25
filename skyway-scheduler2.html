@@ -25,26 +25,56 @@
         return z0 * stdDev + mean;
       }
 
-      // --- Core configuration
+      // --- Core configuration (add/remove URLs freely)
       const urls = [
-        "https://sktoushi.github.io/su/skyway-scheduler1.html",          // base 50%
-        "https://sktoushi.github.io/su/all503020.html",    // base 30%
-        "https://sktoushi.github.io/su/ryspare-psei-202510.html",  // base 20%
-        "https://sktoushi.github.io/su/berkshire-transcripts.html"
+        "https://sktoushi.github.io/su/skyway-scheduler1.html",        // base ~50%
+        "https://sktoushi.github.io/su/all503020.html",                 // base ~25%
+        "https://sktoushi.github.io/su/ryspare-psei-202510.html",       // base ~12.5%
+        "https://sktoushi.github.io/su/berkshire-transcripts.html"      // base ~12.5%
+        // Add more links here — picker will just work
       ];
-      const baseWeights = [0.5, 0.25, 0.125, 0.125];
+
+      // If you provide weights, make sure they match urls.length.
+      // If not, the script will fall back to equal weights automatically.
+      const configuredBaseWeights = [0.5, 0.25, 0.125, 0.125];
+
+      // --- Helpers
+      function normalizeWeights(arr) {
+        const sum = arr.reduce((a, b) => a + b, 0);
+        if (sum > 0 && isFinite(sum)) {
+          return arr.map(w => w / sum);
+        }
+        // Fallback to uniform if sum is zero/invalid
+        return Array(arr.length).fill(1 / arr.length);
+      }
+
+      function resizeCounts(storedCounts, targetLen) {
+        const out = Array.isArray(storedCounts) ? storedCounts.slice(0, targetLen) : [];
+        while (out.length < targetLen) out.push(0);
+        return out;
+      }
 
       // --- Load past stats
       const memoryKey = "redirect_memory_v2";
-      let history = JSON.parse(localStorage.getItem(memoryKey) || "{}");
-      let counts = history.counts || [0, 0, 0, 0];
-      let totalVisits = counts.reduce((a, b) => a + b, 0);
+      const history = JSON.parse(localStorage.getItem(memoryKey) || "{}");
+      let counts = resizeCounts(history.counts, urls.length);
+
+      // --- Base weights (auto-fallback to uniform if mismatch)
+      let baseWeights;
+      if (Array.isArray(configuredBaseWeights) && configuredBaseWeights.length === urls.length) {
+        baseWeights = normalizeWeights(configuredBaseWeights.slice());
+      } else {
+        baseWeights = Array(urls.length).fill(1 / urls.length);
+      }
 
       // --- Compute adaptive bias (favor under-visited links)
-      let bias = [0, 0, 0, 0];
+      const totalVisits = counts.reduce((a, b) => a + b, 0);
+      let bias = Array(urls.length).fill(0);
       if (totalVisits > 0) {
         const avg = totalVisits / counts.length;
-        bias = counts.map(c => (avg - c) / avg * 0.1); // up to ±10% adaptive bias
+        if (avg > 0) {
+          bias = counts.map(c => ((avg - c) / avg) * 0.1); // up to ±10% adaptive bias
+        }
       }
 
       // --- Determine noise volatility
@@ -58,22 +88,25 @@
         return Math.max(0, w + noise + adaptive);
       });
 
-      // --- Normalize to sum = 1
-      const sum = noisyWeights.reduce((a, b) => a + b, 0);
-      noisyWeights = noisyWeights.map(w => w / sum);
+      // --- Normalize to sum = 1 (with safety fallback)
+      noisyWeights = normalizeWeights(noisyWeights);
 
-      // --- Choose target with crypto RNG
-      const thresholds = [noisyWeights[0], noisyWeights[0] + noisyWeights[1], 1.0];
+      // --- Choose target with crypto RNG (generic for N items)
       const r = cryptoRandom();
-      let chosenIndex;
-      if (r < thresholds[0]) chosenIndex = 0;
-      else if (r < thresholds[1]) chosenIndex = 1;
-      else chosenIndex = 2;
+      let acc = 0;
+      let chosenIndex = urls.length - 1; // default to last in case of rounding
+      for (let i = 0; i < noisyWeights.length; i++) {
+        acc += noisyWeights[i];
+        if (r < acc) {
+          chosenIndex = i;
+          break;
+        }
+      }
 
       const target = urls[chosenIndex];
 
       // --- Update and persist memory
-      counts[chosenIndex]++;
+      counts[chosenIndex] += 1;
       localStorage.setItem(memoryKey, JSON.stringify({ counts }));
 
       // --- Redirect immediately
