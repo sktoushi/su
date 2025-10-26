@@ -1,0 +1,9 @@
+{
+  "appName": "Droolish (My Rules)",
+  "maxCycles": 100,
+  "salience": "desc",
+  "allowEval": true,
+  "logLevel": "info",
+  "dbName": "droolish",
+  "dbVersion": 1
+}
