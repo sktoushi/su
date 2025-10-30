@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Repository Issue Randomizer (with Noise Patch + Session Decay)</title>
+  <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend)</title>
   <script src="common/random-utils.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
@@ -78,6 +78,7 @@
 
     /* ============================================================
        NOISE PATCH — adaptive volatility + erratic randomness + session decay
+       + dynamic blend that never exceeds the base implementation
        ============================================================ */
     function noisePatch(weights, issues) {
       // --- Secure RNG
@@ -95,10 +96,23 @@
         return z0 * stdDev + mean;
       }
 
-      // --- Retrieve memory drift from localStorage
+      // --- time-varying gate for blending (0..1)
+      function dejaGate(nowMs) {
+        const d = new Date(nowMs);
+        const hour = d.getHours() + d.getMinutes()/60; // 0..24
+        const day  = d.getDay();                       // 0..6
+        const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
+        const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
+        const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+        const jitter = (u[0] / 0xffffffff) * 0.2;
+        return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
+      }
+
+      // --- Retrieve memory from localStorage (back-compat, now with per-index lastSeen)
       const key = "repo_randomizer_memory_v2";
       let mem = JSON.parse(localStorage.getItem(key) || "{}");
       let history = mem.history || new Array(weights.length).fill(0);
+      let lastSeen = mem.lastSeen || {}; // { index: ts }
       let lastTs = mem.lastTs || Date.now();
       const now = Date.now();
 
@@ -120,16 +134,62 @@
         bias = history.map(c => (avg - c) / avg * 0.05); // ±5% correction
       }
 
+      // --- Minor, time-aware deja multiplier derived from per-index lastSeen
+      //     Uses cohort mean gap as target; avoids immediate repeats.
+      const sixHours = 6 * 60 * 60 * 1000;
+      const seenDeltas = [];
+      for (let i = 0; i < weights.length; i++) {
+        if (lastSeen[i] != null) seenDeltas.push(now - lastSeen[i]);
+      }
+      const meanDelta = seenDeltas.length
+        ? (seenDeltas.reduce((a,b)=>a+b,0) / seenDeltas.length)
+        : null;
+
+      const dejaMults = weights.map((_, i) => {
+        const ts = lastSeen[i];
+        if (ts == null) return 1.03;
+        const delta = now - ts;
+        if (delta < sixHours) return 0.1;
+
+        if (meanDelta == null || meanDelta <= 0) return 1.0;
+        const sigma = meanDelta * 0.6; // broad window
+        const x = (delta - meanDelta) / (sigma || 1);
+        const due = Math.exp(-(x * x)); // 0..1
+        return 1 + 0.6 * due; // gentle bump near cohort mean gap
+      });
+
       // --- Erratic mode probability
       const erratic = cryptoRandom() < 0.08; // 8% chance
       const stdDev = erratic ? 0.35 : 0.08;
 
-      // --- Apply noise and bias to weights
-      let adjusted = weights.map((w, i) => {
+      // --- Build base (noise + bias) first
+      const base = weights.map((w, i) => {
         const noise = cryptoNormal(0, stdDev) * w;
         const drift = bias[i] || 0;
-        const noisy = Math.max(0.0001, w + w * noise + w * drift);
-        return noisy;
+        return Math.max(0.0001, w + w * noise + w * drift);
+      });
+
+      // --- Dynamic blend strength via entropy; ensures base dominates (no fixed cap exposed)
+      const baseSum = base.reduce((a,b)=>a+b, 0) || 1;
+      const p = base.map(v => v / baseSum);
+      let H = 0;
+      for (let i=0;i<p.length;i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
+      const Hnorm = (p.length > 1) ? (H / Math.log(p.length)) : 0; // 0..1
+
+      let beta; {
+        const g = dejaGate(now); // 0..1
+        const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+        const j = (u[0] / 0xffffffff); // 0..1
+        beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
+        if (beta >= 0.5) beta = 0.499; // base portion strictly larger
+        if (beta < 0) beta = 0;
+      }
+
+      // --- Blend base with deja multipliers
+      let adjusted = base.map((b, i) => {
+        const dv = Math.max(0, dejaMults[i] || 1);
+        const blended = b * ((1 - beta) + beta * dv);
+        return Math.max(0.000001, blended);
       });
 
       // --- Normalize to sum = 1
@@ -150,8 +210,10 @@
 
       // --- Memory update
       history[chosenIdx] = (history[chosenIdx] || 0) + 1;
+      lastSeen[chosenIdx] = now;
       localStorage.setItem(key, JSON.stringify({
         history,
+        lastSeen,
         lastTs: now
       }));
 
