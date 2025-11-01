@@ -1,3 +1,4 @@
+  
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,8 +114,15 @@
     .btn-mid {
       padding: .8rem .4rem; font-size: 1.05rem; border-radius: .6rem;
     }
+
+    /* UPDATED: allow full URL to wrap nicely in the rating modal */
     .url-line {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 100%;
+      display: block;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-overflow: clip;
     }
   </style>
 
