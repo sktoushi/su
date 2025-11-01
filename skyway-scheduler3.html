@@ -1,0 +1,434 @@
+  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Redirect (IndexedDB + Ratings)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Seed items: central source of truth (initial load only).
+       After first run, weights are loaded/adjusted from IndexedDB. -->
+  <script type="application/json" id="urlProbability">
+  {
+    "items": [
+      { "probabilityWeight": 16,  "url": "https://sktoushi.github.io/su/berkshire-transcripts.html" }, 
+      { "probabilityWeight": 7,  "url": "https://sktoushi.github.io/su/bucket.html?targets=bucket-loopTube_andrewTateHustlersUniversity_dwbnTddcm4U_20251005_0937" },
+      { "probabilityWeight": 9,  "url": "https://sktoushi.github.io/su/bucket.html?targets=bucket-loopTube_enriqueRazon_jqVFDMYSSX4_20251005_0918" },
+      { "probabilityWeight": 8,  "url": "https://sktoushi.github.io/su/bucket.html?targets=bucket-loopTube_n2AdvancedVocab_zcRk8SCpIZw_20251005_1203" },
+      { "probabilityWeight": 16,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=port-management-and-operations-17-265.pdf" },    
+      { "probabilityWeight": 8,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Ictsi-2025-annual-10-72.pdf" }, 
+      { "probabilityWeight": 4,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Ictsi-202505-q-7-41.pdf" }, 
+      { "probabilityWeight": 4,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Ictsi-202508-q-7-46.pdf" }, 
+      { "probabilityWeight": 12,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=common-stocks-and-uncommon-profits-30-305.pdf"}, 
+      { "probabilityWeight": 14, "url": "https://sktoushi.github.io/su/skyway-scheduler.html" },
+      { "probabilityWeight": 5,  "url": "https://sktoushi.github.io/su/ultimate-executive-pack-202509.html" },
+      { "probabilityWeight": 4,  "url": "https://sktoushi.github.io/su/bucket.html?target=bucket-202409-stash2-Mob" },
+      { "probabilityWeight": 6,  "url": "https://sktoushi.github.io/su/bucket.html?target=bucket-japanese" },
+      { "probabilityWeight": 10,  "url": "https://sktoushi.github.io/su/all.html" },
+      { "probabilityWeight": 10,  "url": "https://sktoushi.github.io/su/allrecent.html" },
+      { "probabilityWeight": 4,  "url": "https://sktoushi.github.io/su/skyway-csv-randomizer.html?file=stash-capture-2025.csv" },
+      { "probabilityWeight": 11,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=sources-of-power-how-people-make-decisions-23-607.pdf" },
+      { "probabilityWeight": 2,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=boards-that-lead-8-263.pdf" },
+      { "probabilityWeight": 12,  "url": "https://sktoushi.github.io/su/bucket.html?targets=bucket-ecclesiastes-matthew-henry,bucket-proverbs-matthew-henry,bucket-job-matthew-henry" },
+      { "probabilityWeight": 8,  "url": "https://sktoushi.github.io/su/bucket.html?target=bucket-job-matthew-henry" },
+      { "probabilityWeight": 2,  "url": "https://m.youtube.com/shorts" },
+      { "probabilityWeight": 5,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=against-the-gods-story-of-risk-1-486.pdf" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-most-important-thing-howard-marks-16-195.pdf" },
+      { "probabilityWeight": 3,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=superforecasting-8-231.pdf" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/stash3-japanese-issue-randomizer-2025.html" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-intelligent-negotiator-6-214.pdf" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-unseen-realm-15-391.pdf" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=making-japanese-citizens-32-269.pdf" },
+      { "probabilityWeight": 5,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Munger-almanack-8-618.pdf" },
+      { "probabilityWeight": 5,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-prince-1-133.pdf" },
+      { "probabilityWeight": 7,  "url": "https://sktoushi.github.io/su/incerto-4books-taleb.html" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/dsm3.html" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/Proverbs.html" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/introduction-to-psychology.html" },
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/pmchicken2025.html" },
+      { "probabilityWeight": 12,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=noise-10-360.pdf" }, 
+      { "probabilityWeight": 3,  "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=never-eat-alone-15-309.pdf" }, 
+      { "probabilityWeight": 1,  "url": "https://sktoushi.github.io/su/bucket.html?targets=bucket-the-intelligent-investor,bucket-the-intelligent-investor-chapter8,bucket-the-intelligent-investor-chapter20" }
+    ]
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --fg: #cfd8dc;
+      --muted: #90a4ae;
+      --accent: #7cb342;
+      --btn: #263238;
+      --btn-hover: #37474f;
+      --btn-active: #455a64;
+      --danger: #e53935;
+    }
+    html, body {
+      margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .hidden { display: none !important; }
+    .wrap {
+      display: grid; place-items: center; height: 100vh; text-align: center; gap: 1rem;
+    }
+    .small {
+      color: var(--muted); font-size: .9rem;
+    }
+    .toolbar {
+      display: inline-flex; gap: .5rem; align-items: center; flex-wrap: wrap; justify-content: center;
+    }
+    .btn {
+      border: 1px solid #111;
+      background: var(--btn);
+      color: var(--fg);
+      padding: .6rem 1rem;
+      border-radius: .5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow: 0 2px 0 rgba(0,0,0,.3);
+      user-select: none;
+    }
+    .btn:hover { background: var(--btn-hover); }
+    .btn:active { transform: translateY(1px); background: var(--btn-active); }
+    .btn-accent { background: var(--accent); color: #0b0c10; border-color: #5a8e2f; }
+    .btn-danger { background: var(--danger); color: #fff; border-color: #b71c1c; }
+    .badge { font-size: .8rem; padding: .25rem .5rem; border-radius: .4rem; background: #1c313a; color: #b2dfdb;}
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    dialog {
+      border: none; border-radius: 12px; padding: 0; background: #11161a; color: var(--fg); width: min(560px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop { background: rgba(0,0,0,.6); }
+    .modal {
+      padding: 1.25rem 1.25rem 1rem;
+    }
+    .modal h2 {
+      margin: 0 0 .25rem 0; font-weight: 700; font-size: 1.2rem;
+    }
+    .modal p { margin: 0 0 1rem 0; color: var(--muted); }
+    .grid-5 {
+      display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: .5rem;
+    }
+    .btn-mid {
+      padding: .8rem .4rem; font-size: 1.05rem; border-radius: .6rem;
+    }
+
+    /* UPDATED: allow full URL to wrap nicely in the rating modal */
+    .url-line {
+      display: block;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-overflow: clip;
+    }
+  </style>
+
+  <script>
+    /************ Constants ************/
+    const DB_NAME = 'urlProbDB';
+    const DB_STORE = 'urls';
+    const DB_VER = 1;
+
+    // 2%: send to the edit link; 98%: weighted pick from DB/JSON
+    const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
+    const RANDOM_PDF_MAX = 27;
+
+    // How often to ask for a rating on page load (0..1)
+    const RATING_PROBABILITY_ON_LOAD = 0.25;
+
+    // Five rating choices
+    const RATING_CHOICES = [-3, -1, 0, +1, +3];
+
+    /************ IndexedDB helpers (promise-wrapped) ************/
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            const store = db.createObjectStore(DB_STORE, { keyPath: 'url' });
+            store.createIndex('by_effective', 'effectiveWeight', { unique: false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function txStore(db, mode='readonly') {
+      const tx = db.transaction(DB_STORE, mode);
+      return [tx, tx.objectStore(DB_STORE)];
+    }
+
+    function getAll(db) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getOne(db, key) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function putMany(db, records) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db, 'readwrite');
+        records.forEach(rec => store.put(rec));
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    /************ Utilities ************/
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      // 1 / 2^32
+      return r[0] / 4294967296;
+    }
+
+    function chooseWeighted(items) {
+      // items: [{ url, baseWeight, delta, effectiveWeight }]
+      let total = 0;
+      for (const it of items) {
+        const w = Math.max(0, Number(it.baseWeight || 0) + Number(it.delta || 0));
+        it.effectiveWeight = w;
+        total += w;
+      }
+      if (total <= 0) {
+        // fallback: if all zero, use baseWeight sum
+        total = items.reduce((s, it) => s + (Number(it.baseWeight || 0)), 0) || 1;
+        const threshold = Math.floor(secureRandomFloat01() * total);
+        let acc = 0;
+        for (const it of items) {
+          acc += Number(it.baseWeight || 0);
+          if (threshold < acc) return it;
+        }
+        return items[0];
+      }
+      const threshold = Math.floor(secureRandomFloat01() * total);
+      let acc = 0;
+      for (const it of items) {
+        acc += it.effectiveWeight;
+        if (threshold < acc) return it;
+      }
+      return items[0];
+    }
+
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function fmtDateStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+
+    /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
+    async function bootstrapDB(db) {
+      const seed = JSON.parse(document.getElementById('urlProbability').textContent);
+      const seedMap = new Map(seed.items.map(it => [it.url, it.probabilityWeight]));
+
+      const existing = await getAll(db);
+      const existingMap = new Map(existing.map(r => [r.url, r]));
+
+      // Merge: keep existing delta; update baseWeight from seed when present; add missing
+      const toPut = [];
+      for (const [url, baseWeight] of seedMap.entries()) {
+        const rec = existingMap.get(url);
+        if (rec) {
+          const updated = {
+            ...rec,
+            baseWeight: Number(baseWeight) || 0,
+            effectiveWeight: Math.max(0, (Number(baseWeight) || 0) + Number(rec.delta || 0))
+          };
+          toPut.push(updated);
+        } else {
+          toPut.push({
+            url,
+            baseWeight: Number(baseWeight) || 0,
+            delta: 0,
+            effectiveWeight: Number(baseWeight) || 0,
+            lastRatedAt: 0
+          });
+        }
+      }
+
+      // Optionally keep records that are in DB but no longer in seed (we keep them)
+      for (const rec of existing) {
+        if (!seedMap.has(rec.url)) {
+          // Keep as-is
+          toPut.push(rec);
+        }
+      }
+
+      await putMany(db, toPut);
+      return toPut;
+    }
+
+    /************ Rating modal ************/
+    function showRatingModal(targetUrl, onPick, onSkip) {
+      const dlg = document.getElementById('ratingDialog');
+      const urlEl = document.getElementById('ratingUrl');
+      const btnsWrap = document.getElementById('ratingButtons');
+      const skipBtn = document.getElementById('skipRatingBtn');
+
+      urlEl.textContent = targetUrl;
+
+      // Clean old listeners
+      btnsWrap.innerHTML = '';
+      for (const val of RATING_CHOICES) {
+        const b = document.createElement('button');
+        b.className = 'btn btn-mid';
+        b.textContent = (val > 0 ? `+${val}` : `${val}`);
+        b.addEventListener('click', () => {
+          dlg.close();
+          onPick(val);
+        }, { once: true });
+        btnsWrap.appendChild(b);
+      }
+      skipBtn.onclick = () => {
+        dlg.close();
+        onSkip && onSkip();
+      };
+
+      try { dlg.showModal(); } catch { dlg.show(); } // Fallback if <dialog> not fully supported
+    }
+
+    /************ Main flow ************/
+    async function main() {
+      const db = await openDB();
+      const records = await bootstrapDB(db);
+
+      // Controls toolbar (download button)
+      document.getElementById('downloadBtn').addEventListener('click', async () => {
+        const all = await getAll(db);
+        const items = all.map(r => ({
+          probabilityWeight: Math.max(0, Math.round((Number(r.baseWeight) || 0) + (Number(r.delta) || 0))),
+          url: r.url
+        }));
+        downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
+      });
+
+      // Decide path bucket: EDIT (2%), PDF block (next 10%), otherwise weighted pick from IndexedDB
+      const u = secureRandomFloat01();
+      if (u < 0.02) {
+        // 2% direct redirect
+        window.location.replace(EDIT_URL);
+        return;
+      } else if (u < 0.12) {
+        // Optionally send to allrecent100 half of the time
+        if (Math.random() < 0.5) {
+          window.location.replace(`https://sktoushi.github.io/su/allrecent100.html`);
+          return;
+        }
+        // 10% bucket: random PDF viewer
+        const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
+        const pdfUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+        window.location.replace(pdfUrl);
+        return;
+      }
+
+      // Weighted pick based on (baseWeight + delta) from IndexedDB
+      const chosen = chooseWeighted(records);
+
+      // With some probability, ask for a rating BEFORE redirect
+      if (secureRandomFloat01() < RATING_PROBABILITY_ON_LOAD) {
+        // Choose a random URL to rate (could be the chosen one or any other)
+        const idx = Math.floor(secureRandomFloat01() * records.length);
+        const toRate = records[idx];
+
+        showRatingModal(
+          toRate.url,
+          async (val) => {
+            // Apply rating delta and persist
+            const rec = await getOne(db, toRate.url);
+            const newDelta = Number(rec?.delta || 0) + Number(val || 0);
+            const updated = {
+              ...(rec || { url: toRate.url }),
+              baseWeight: Number(rec?.baseWeight ?? toRate.baseWeight ?? 0),
+              delta: newDelta,
+              effectiveWeight: Math.max(0, Number(rec?.baseWeight ?? toRate.baseWeight ?? 0) + newDelta),
+              lastRatedAt: Date.now()
+            };
+            await putMany(db, [updated]);
+
+            // Update UI note
+            const lastRatingNote = document.getElementById('lastRatingNote');
+            lastRatingNote.textContent = `Last rating: ${val > 0 ? `+${val}` : val} for ${toRate.url}`;
+            lastRatingNote.classList.remove('hidden');
+
+            // Proceed to redirect to the originally chosen URL
+            window.location.replace(chosen.url);
+          },
+          () => {
+            // Skip -> proceed to redirect
+            window.location.replace(chosen.url);
+          }
+        );
+      } else {
+        // No rating this time — redirect immediately
+        window.location.replace(chosen.url);
+      }
+    }
+
+    // Start after DOM is ready so modal/controls exist
+    document.addEventListener('DOMContentLoaded', main);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <div class="badge">Random Redirect</div>
+    </div>
+    <div class="small">Using <span class="mono">IndexedDB</span> to learn your weights over time.</div>
+    <div class="toolbar">
+      <button id="downloadBtn" class="btn btn-accent">Download updated <span class="mono">items</span> JSON</button>
+      <span id="lastRatingNote" class="small hidden"></span>
+    </div>
+    <div class="small">You might be asked to rate a URL occasionally (-3, -1, 0, +1, +3).</div>
+  </div>
+
+  <!-- Rating modal -->
+  <dialog id="ratingDialog">
+    <div class="modal">
+      <h2>How would you rate the probability weight for this URL?</h2>
+      <p class="url-line mono" id="ratingUrl"></p>
+      <div id="ratingButtons" class="grid-5" style="margin: .75rem 0 1rem;"></div>
+      <div class="toolbar" style="justify-content: space-between; width: 100%;">
+        <button class="btn btn-danger" id="skipRatingBtn" title="Continue without rating">Skip</button>
+        <span class="small">Choices: -3, -1, 0, +1, +3</span>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- No-JS fallback -->
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://instagram.com/reels" />
+    <style>
+      body { font-family: sans-serif; padding: 2rem; }
+    </style>
+    <p>If you’re seeing this, JavaScript is disabled. You’ll be sent to Instagram Reels in a moment.</p>
+  </noscript>
+</body>
+</html>
