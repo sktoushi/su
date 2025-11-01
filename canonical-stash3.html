@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random URL Redirector</title>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const urls = [
+        "https://github.com/mdr19ganseki95cf/log/issues/112",
+        "https://github.com/mdr19ganseki95cf/log/issues/108",
+        "https://github.com/mdr19ganseki95cf/log/issues/103",
+        "https://github.com/mdr19ganseki95cf/log/issues/102",
+        "https://github.com/mdr19ganseki95cf/log/issues/98",
+        "https://github.com/mdr19ganseki95cf/log/issues/97",
+        "https://github.com/mdr19ganseki95cf/log/issues/96",
+        "https://github.com/mdr19ganseki95cf/log/issues/91",
+        "https://github.com/mdr19ganseki95cf/log/issues/90",
+        "https://github.com/mdr19ganseki95cf/log/issues/89",
+        "https://github.com/mdr19ganseki95cf/log/issues/88",
+        "https://github.com/mdr19ganseki95cf/log/issues/86",
+        "https://github.com/mdr19ganseki95cf/log/issues/84",
+        "https://github.com/mdr19ganseki95cf/log/issues/82",
+        "https://github.com/mdr19ganseki95cf/log/issues/79",
+        "https://github.com/mdr19ganseki95cf/log/issues/78",
+        "https://github.com/mdr19ganseki95cf/log/issues/75",
+        "https://github.com/mdr19ganseki95cf/log/issues/74",
+        "https://github.com/mdr19ganseki95cf/log/issues/70",
+        "https://github.com/mdr19ganseki95cf/log/issues/68",
+        "https://github.com/mdr19ganseki95cf/log/issues/67",
+        "https://github.com/mdr19ganseki95cf/log/issues/65",
+        "https://github.com/mdr19ganseki95cf/log/issues/62",
+        "https://github.com/mdr19ganseki95cf/log/issues/58",
+        "https://github.com/mdr19ganseki95cf/log/issues/52",
+        "https://github.com/mdr19ganseki95cf/log/issues/52",
+        "https://github.com/mdr19ganseki95cf/log/issues/42",
+        "https://github.com/mdr19ganseki95cf/log/issues/39",
+        "https://github.com/mdr19ganseki95cf/log/issues/38",
+        "https://github.com/mdr19ganseki95cf/log/issues/37",
+        "https://github.com/mdr19ganseki95cf/log/issues/36",
+        "https://github.com/mdr19ganseki95cf/log/issues/35",
+        "https://github.com/mdr19ganseki95cf/log/issues/33",
+        "https://github.com/mdr19ganseki95cf/log/issues/31",
+        "https://github.com/mdr19ganseki95cf/log/issues/30",
+        "https://github.com/mdr19ganseki95cf/log/issues/28",
+        "https://github.com/mdr19ganseki95cf/log/issues/26",
+        "https://github.com/mdr19ganseki95cf/log/issues/23",
+        "https://github.com/mdr19ganseki95cf/log/issues/20",
+        "https://github.com/mdr19ganseki95cf/log/issues/19",
+        "https://github.com/mdr19ganseki95cf/stash/issues/1517",
+        "https://github.com/mdr19ganseki95cf/stash/issues/1480",
+        "https://github.com/mdr19ganseki95cf/stash/issues/1072",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3577",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3546",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3545",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3544",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3372",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3353",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3309",
+        "https://github.com/mdr19ganseki95cf/stash/issues/3060",
+        "https://github.com/mdr19ganseki95cf/stash/issues/2748",
+        "https://github.com/mdr19ganseki95cf/stash/issues/2297",
+        "https://github.com/mdr19ganseki95cf/stash/issues/2058",
+        "https://github.com/mdr19ganseki95cf/stash/issues/1889",
+        "https://github.com/mdr19ganseki95cf/stash/issues/1516",
+        "https://github.com/sktoushi/stash2/issues/1410",
+        "https://github.com/sktoushi/stash2/issues/2696",
+        "https://github.com/sktoushi/stash2/issues/2696",
+        "https://github.com/sktoushi/stash2/issues/2696",
+        "https://github.com/sktoushi/stash2/issues/2419",
+        "https://github.com/sktoushi/stash2/issues/2419",
+        "https://github.com/sktoushi/stash2/issues/2419",
+        "https://github.com/sktoushi/stash2/issues/2059",
+        "https://github.com/sktoushi/stash2/issues/2058",
+        "https://github.com/sktoushi/stash2/issues/1867",
+        "https://github.com/sktoushi/stash2/issues/1730",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/4231",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/3982",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/3465",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/3483",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/3465",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/2187",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/1812",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/1756",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/1671",
+        "https://github.com/mdr19ganseki95cf/stash3/issues/1331"
+      ];
+
+      // Pick a random index
+      const randomIndex = Math.floor(Math.random() * urls.length);
+      const selected = urls[randomIndex];
+      
+      // Redirect
+      window.location.href = selected;
+    });
+  </script>
+</head>
+<body>
+  <p>Redirecting you to a random item… If you are not redirected automatically, <a id="fallback" href="#">click here</a>.</p>
+  <script>
+    document.getElementById("fallback").href = (() => {
+      const urls = [
+        /* same array again or reuse above variable */
+      ];
+      return urls[Math.floor(Math.random() * urls.length)];
+    })();
+  </script>
+</body>
+</html>
