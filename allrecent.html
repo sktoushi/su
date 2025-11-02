@@ -128,29 +128,12 @@
 </dialog>
 
 <script>
-/* ========= NAMESPACING (collision-proof for reuse) =========
-   We derive a short, deterministic namespace from the current
-   origin+path so multiple copies of this file (or forks) won't
-   collide in IndexedDB or localStorage.
-*/
-function fnv1aHex(str) {
-  let h = 0x811c9dc5 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return ('00000000' + (h >>> 0).toString(16)).slice(-8);
-}
-const NS = (() => {
-  const base = 'rrx_v5';
-  const scope = `${location.origin}${location.pathname}`;
-  return `${base}_${fnv1aHex(scope)}`;
-})();
-
 /* ========= HARDENING FOR GITHUB PAGES =========
    1) Provide a local fallback for getSecureRandomNumber()
    2) Slightly more robust config fetch path + assertive error surface
 */
+const NS = 'rrx_v4_3e2f9b7a';
+
 const DB_NAME = `${NS}_db`;
 const DB_VERSION = 1;
 const STORE_CONFIG = `${NS}_cfg`;
@@ -223,15 +206,15 @@ const FORMULAS_CANON = [
 const DEFAULT_MIX = {
   random: 1,
   leftLeaning: 1,
-  rightLeaning1: 3,
-  recent20Percent: 3,
-  recent5Percent: 3,
+  rightLeaning1: 2,
+  recent20Percent: 1,
+  recent5Percent: 1,
   middleBell: 1,
   oldest10Percent: 1,
-  recent10Percent: 3,
+  recent10Percent: 1,
   zigZag: 1,
   primeBoost: 1,
-  primacyRecency: 2,
+  primacyRecency: 1,
   pyramidMiddle: 1,
   triPeak: 1,
   sinusoidal: 1,
@@ -615,7 +598,7 @@ function applyFormulaWeights(formulaParam, n) {
   return weights;
 }
 
-/* === noisePatch (localStorage is namespaced) === */
+/* === noisePatch (unchanged) === */
 function noisePatch(weights, issues) {
   function cryptoRandom() {
     const buf = new Uint32Array(1);
