@@ -225,11 +225,15 @@
     }
 
     /************ Rating modal ************/
-    function showRatingModal(targetUrl, onPick, onSkip) {
+    // CHANGED: added currentWeights param and disable any choice that would make effective <= 0
+    function showRatingModal(targetUrl, currentWeights, onPick, onSkip) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
       const btnsWrap = document.getElementById('ratingButtons');
       const skipBtn = document.getElementById('skipRatingBtn');
+
+      const base = Number(currentWeights?.baseWeight ?? 0) || 0;
+      const delta = Number(currentWeights?.delta ?? 0) || 0;
 
       urlEl.textContent = targetUrl;
       btnsWrap.innerHTML = '';
@@ -238,10 +242,20 @@
         const b = document.createElement('button');
         b.className = 'btn btn-mid';
         b.textContent = (val > 0 ? `+${val}` : `${val}`);
+
+        // Disable if this choice would reduce probability to zero or negative
+        const projected = base + delta + val;
+        if (projected <= 0) {
+          b.disabled = true;
+          b.title = 'Disabled: would reduce probability to zero or negative';
+        }
+
         b.addEventListener('click', () => {
+          if (b.disabled) return;
           try { dlg.close(); } catch {}
           onPick(val);
         }, { once: true });
+
         btnsWrap.appendChild(b);
       }
       skipBtn.onclick = () => {
@@ -301,6 +315,7 @@
 
           showRatingModal(
             toRate.url,
+            toRate, // CHANGED: pass current weights so disabling logic can evaluate projected value
             async (val) => {
               try {
                 const rec = await getOne(db, toRate.url);
