@@ -76,6 +76,14 @@
       border-radius:10px; padding:1rem; color:#dfe1e6; overflow:auto;
     }
     code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
+
+    /* New: small helpers for ±5 min frequency control */
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{
+      padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      min-width:7ch; text-align:center;
+    }
   </style>
 </head>
 <body>
@@ -99,6 +107,18 @@
     </div>
 
     <div id="mixRows" class="mix-rows"></div>
+
+    <!-- ▼ New: modal frequency controls (±5m, floor 5m), placed right before the buttons -->
+    <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
+      <label class="small">Modal frequency</label>
+      <div class="freqrow">
+        <button id="freqDec" type="button" class="btn btn-small" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-small" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+    </div>
+    <div class="small" style="margin:.25rem 0 .5rem 0;">We’ll still show this at least once every 15 minutes.</div>
+    <!-- ▲ End new controls -->
 
     <div class="toolbar" style="margin-top:1rem;">
       <button class="btn btn-small" id="resetDefaultsBtn" title="Reset to built-in defaults">Reset</button>
@@ -170,9 +190,13 @@ const DEFAULT_MIX = {
   recent5Percent: 1
 };
 
-/* Modal timing: independent of mix */
-const MODAL_MIN_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const MODAL_SHOW_PROBABILITY = 0.15;          // 15%
+/* Modal timing (updated to include forced 15m + user-configurable ±5m) */
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee: show at least once every 15 minutes
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default target interval when user hasn't chosen
+const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts between forced intervals
+const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+const USER_MIN_FREQ_MINUTES = 5;                // floor 5 minutes
+const STEP_MINUTES = 5;                         // increment/decrement step
 
 /* ============================================================
    Utilities
@@ -201,6 +225,10 @@ function weightedChoiceFromMix(mix, fallbackList) {
   }
   return entries[entries.length - 1][0];
 }
+function roundToStep(valueMinutes) {
+  const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+  return v;
+}
 
 /* ============================================================
    Modal UI (dialog-based)
@@ -213,7 +241,13 @@ const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
 const zeroAllBtn = document.getElementById('zeroAllBtn');
 const saveAndGoBtn = document.getElementById('saveAndGoBtn');
 
+/* New: frequency UI elements */
+const freqDecBtn = document.getElementById('freqDec');
+const freqIncBtn = document.getElementById('freqInc');
+const freqValueEl = document.getElementById('freqValue');
+
 let currentMix = { ...DEFAULT_MIX };
+let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
 
 function openModal() {
   try { mixDialog.showModal(); } catch { mixDialog.show(); }
@@ -298,10 +332,17 @@ function updateTotalsAndButtons() {
     const minusBtn = row.querySelector('.btn.btn-small');
     if (minusBtn) minusBtn.disabled = !nextMinusAllowed(name);
   });
+
+  // Update frequency badge text
+  if (freqValueEl) freqValueEl.textContent = `${currentFreqMinutes} min`;
 }
 
 /* Wire modal buttons */
-closeModalBtn.addEventListener('click', closeModal);
+closeModalBtn.addEventListener('click', async () => {
+  // Persist current frequency choice on close (non-destructive to other behavior)
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
+  closeModal();
+});
 resetDefaultsBtn.addEventListener('click', async () => {
   currentMix = { ...DEFAULT_MIX };
   await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
@@ -321,6 +362,7 @@ saveAndGoBtn.addEventListener('click', async () => {
     currentMix['random'] = 1;
   }
   await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
   await idbSet(STORE_META, 'lastModalShown', Date.now());
   closeModal();
   proceedAfterMixSaved().catch(err => {
@@ -328,6 +370,19 @@ saveAndGoBtn.addEventListener('click', async () => {
     document.querySelector('pre.diag').textContent = String(err && err.message || err);
   });
 });
+
+/* New: frequency +/- controls */
+function wireFrequencyControls() {
+  if (!freqDecBtn || !freqIncBtn || !freqValueEl) return;
+  freqDecBtn.onclick = () => {
+    currentFreqMinutes = Math.max(USER_MIN_FREQ_MINUTES, currentFreqMinutes - STEP_MINUTES);
+    updateTotalsAndButtons();
+  };
+  freqIncBtn.onclick = () => {
+    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES; // no hard max
+    updateTotalsAndButtons();
+  };
+}
 
 /* ============================================================
    Base implementation + noise patch (original logic preserved)
@@ -484,6 +539,14 @@ function noisePatch(weights, issues) {
     }
     currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
 
+    // Ensure a user modal frequency (in minutes) exists; clamp to 5-min steps with 5-min floor
+    let storedFreq = await idbGet(STORE_SETTINGS, KEY_FREQ_MINUTES);
+    if (typeof storedFreq !== 'number' || !Number.isFinite(storedFreq) || storedFreq <= 0) {
+      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000; // 10 min
+    }
+    currentFreqMinutes = roundToStep(storedFreq);
+    await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
+
     // Config: fetch once then cache in IDB; afterwards read from IDB
     let cfg = await idbGet(STORE_CONFIG, 'all');
     if (!cfg) {
@@ -506,18 +569,26 @@ function noisePatch(weights, issues) {
     }
     const n = issues.length;
 
-    // Modal timing: independent of mix; throttled + probabilistic
+    // Modal timing: forced guarantee + probabilistic user interval
     const lastShown = await idbGet(STORE_META, 'lastModalShown');
     const now = Date.now();
-    const enoughTimePassed = !lastShown || (now - Number(lastShown)) >= MODAL_MIN_INTERVAL_MS;
-    const wantShow = enoughTimePassed && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
+    const elapsed = lastShown ? (now - Number(lastShown)) : Infinity;
 
-    // Prepare modal UI
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // hard guarantee
+    const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+    const wantsSoftShow = eligibleByUser && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
+    const wantShow = mustShow || wantsSoftShow;
+
+    // Prepare modal UI (rows + frequency control)
     renderMixRows();
+    wireFrequencyControls();
+    updateTotalsAndButtons();
 
     if (wantShow) {
+      // Record "shown" moment immediately to respect the 15-min guarantee (even if user closes)
+      await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
-      // Wait for Save & Continue
+      // Wait for Save & Continue (existing behavior preserved)
       return;
     }
 
