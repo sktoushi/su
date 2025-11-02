@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend + Mix Modal)</title>
+
+  <!-- (Optional) Keep this include if you really need it elsewhere.
+       But the code now has a safe local fallback so a 404 won't break the app. -->
   <script src="common/random-utils.js"></script>
+
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* === Copied modal theme (and base UI tokens) from your reference) === */
     :root {
       --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
       --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
@@ -46,7 +49,6 @@
     .modal p{margin:0 0 .9rem 0; color:var(--muted);}
     .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
 
-    /* === Minimal extras for the mix UI === */
     .mix-summary{
       display:flex; align-items:center; justify-content:space-between;
       margin:.25rem 0 0.75rem 0; color:var(--muted);
@@ -77,11 +79,10 @@
     }
     code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
 
-    /* New: small helpers for ±5 min frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:#fg; font-variant-numeric:tabular-nums;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
       min-width:7ch; text-align:center;
     }
   </style>
@@ -89,7 +90,6 @@
 <body>
 <main id="app"></main>
 
-<!-- Mix Modal (theme copied from your reference) -->
 <dialog id="mixDialog" aria-labelledby="mixTitle">
   <div class="modal">
     <div class="modal-header">
@@ -108,7 +108,6 @@
 
     <div id="mixRows" class="mix-rows"></div>
 
-    <!-- ▼ New: modal frequency controls (±5m, floor 5m), placed right before the buttons -->
     <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
       <label class="small">Modal frequency</label>
       <div class="freqrow">
@@ -118,7 +117,6 @@
       </div>
     </div>
     <div class="small" style="margin:.25rem 0 .5rem 0;">We’ll still show this at least once every 15 minutes.</div>
-    <!-- ▲ End new controls -->
 
     <div class="toolbar" style="margin-top:1rem;">
       <button class="btn btn-small" id="resetDefaultsBtn" title="Reset to built-in defaults">Reset</button>
@@ -130,14 +128,17 @@
 </dialog>
 
 <script>
-/* ============================================================
-   IndexedDB helpers
-   ============================================================ */
-const DB_NAME = 'repoRandomizerDB';
+/* ========= HARDENING FOR GITHUB PAGES =========
+   1) Provide a local fallback for getSecureRandomNumber()
+   2) Slightly more robust config fetch path + assertive error surface
+*/
+const NS = 'rrx_v4_3e2f9b7a';
+
+const DB_NAME = `${NS}_db`;
 const DB_VERSION = 1;
-const STORE_CONFIG = 'config';
-const STORE_SETTINGS = 'settings';
-const STORE_META = 'meta';
+const STORE_CONFIG = `${NS}_cfg`;
+const STORE_SETTINGS = `${NS}_settings`;
+const STORE_META = `${NS}_meta`;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -171,41 +172,84 @@ function idbSet(store, key, value) {
   }));
 }
 
-/* ============================================================
-   Defaults (seeded to IDB on first run)
-   ============================================================ */
+/* ================== Defaults ================== */
 const FORMULAS_CANON = [
   'random',
   'leftLeaning',
   'rightLeaning1',
   'recent20Percent',
-  'recent5Percent'
+  'recent5Percent',
+  // Existing new ones
+  'middleBell',
+  'oldest10Percent',
+  'recent10Percent',
+  'zigZag',
+  'primeBoost',
+  // ▼ Cognition-oriented additions
+  'primacyRecency',
+  'pyramidMiddle',
+  'triPeak',
+  'sinusoidal',
+  'interleaved3',
+  'chunkedBlocks',
+  'expandingSpaced',
+  'fixedSpaced',
+  'forgettingCurve',
+  'reviewWindow7pct',
+  'quadraticRamp',
+  'easyThenHard',
+  'contrastBlocks',
+  'antiZigZag',
+  'noveltyWave'
 ];
 
 const DEFAULT_MIX = {
-  random: 0,
-  leftLeaning: 0,
-  rightLeaning1: 0,
+  random: 1,
+  leftLeaning: 1,
+  rightLeaning1: 2,
   recent20Percent: 1,
-  recent5Percent: 1
+  recent5Percent: 1,
+  middleBell: 1,
+  oldest10Percent: 1,
+  recent10Percent: 1,
+  zigZag: 1,
+  primeBoost: 1,
+  primacyRecency: 1,
+  pyramidMiddle: 1,
+  triPeak: 1,
+  sinusoidal: 1,
+  interleaved3: 1,
+  chunkedBlocks: 1,
+  expandingSpaced: 1,
+  fixedSpaced: 1,
+  forgettingCurve: 1,
+  reviewWindow7pct: 1,
+  quadraticRamp: 1,
+  easyThenHard: 1,
+  contrastBlocks: 1,
+  antiZigZag: 1,
+  noveltyWave: 1
 };
 
-/* Modal timing (updated to include forced 15m + user-configurable ±5m) */
-const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee: show at least once every 15 minutes
-const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default target interval when user hasn't chosen
-const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts between forced intervals
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+const MODAL_SHOW_PROBABILITY = 0.15;
 const KEY_FREQ_MINUTES = 'modalFreqMinutes';
-const USER_MIN_FREQ_MINUTES = 5;                // floor 5 minutes
-const STEP_MINUTES = 5;                         // increment/decrement step
+const USER_MIN_FREQ_MINUTES = 5;
+const STEP_MINUTES = 5;
 
-/* ============================================================
-   Utilities
-   ============================================================ */
+/* ================== Utilities ================== */
 function getSecureRandom01() {
   const u = new Uint32Array(1);
   crypto.getRandomValues(u);
   return u[0] / 0xffffffff;
 }
+
+/* --- NEW: local fallback so GH Pages 404s won't break you --- */
+if (typeof window.getSecureRandomNumber !== 'function') {
+  window.getSecureRandomNumber = function () { return getSecureRandom01(); };
+}
+
 function sumMix(mix) {
   return Object.values(mix).reduce((a,b) => a + (Number(b)||0), 0);
 }
@@ -230,9 +274,7 @@ function roundToStep(valueMinutes) {
   return v;
 }
 
-/* ============================================================
-   Modal UI (dialog-based)
-   ============================================================ */
+/* ================== Modal UI ================== */
 const mixDialog = document.getElementById('mixDialog');
 const mixRowsContainer = document.getElementById('mixRows');
 const totalCountPill = document.getElementById('totalCountPill');
@@ -241,7 +283,6 @@ const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
 const zeroAllBtn = document.getElementById('zeroAllBtn');
 const saveAndGoBtn = document.getElementById('saveAndGoBtn');
 
-/* New: frequency UI elements */
 const freqDecBtn = document.getElementById('freqDec');
 const freqIncBtn = document.getElementById('freqInc');
 const freqValueEl = document.getElementById('freqValue');
@@ -249,17 +290,11 @@ const freqValueEl = document.getElementById('freqValue');
 let currentMix = { ...DEFAULT_MIX };
 let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
 
-/* >>> NEW: 30s auto-dismiss timer handle for the modal */
 let modalTimeoutId = null;
 
-function openModal() {
-  try { mixDialog.showModal(); } catch { mixDialog.show(); }
-}
-function closeModal() {
-  try { mixDialog.close(); } catch { mixDialog.open = false; }
-}
+function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); } }
+function closeModal() { try { mixDialog.close(); } catch { mixDialog.open = false; } }
 
-/* Constraint helpers: prevent all-zero; at least one stays at 1+ */
 function isLastNonZero(name) {
   let nonZeroNames = FORMULAS_CANON.filter(k => (Number(currentMix[k])||0) > 0);
   if (nonZeroNames.length > 1) return false;
@@ -328,24 +363,18 @@ function updateTotalsAndButtons() {
     if (el) el.textContent = String(Number(currentMix[name]) || 0);
   });
   totalCountPill.textContent = String(sumMix(currentMix));
-  // Update minus buttons based on constraint
   const rows = mixRowsContainer.querySelectorAll('.mix-row');
   rows.forEach((row, idx) => {
     const name = FORMULAS_CANON[idx];
     const minusBtn = row.querySelector('.btn.btn-small');
     if (minusBtn) minusBtn.disabled = !nextMinusAllowed(name);
   });
-
-  // Update frequency badge text
   if (freqValueEl) freqValueEl.textContent = `${currentFreqMinutes} min`;
 }
 
-/* Wire modal buttons */
 closeModalBtn.addEventListener('click', async () => {
-  // Persist current frequency choice on close (non-destructive to other behavior)
   await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
   closeModal();
-  // (Intentionally do NOT clear the auto-dismiss timer here)
 });
 resetDefaultsBtn.addEventListener('click', async () => {
   currentMix = { ...DEFAULT_MIX };
@@ -361,10 +390,7 @@ zeroAllBtn.addEventListener('click', async () => {
   renderMixRows();
 });
 saveAndGoBtn.addEventListener('click', async () => {
-  /* >>> NEW: cancel the 30s auto-dismiss if user explicitly saves */
   if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
-
-  // Final guard
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
     currentMix['random'] = 1;
   }
@@ -378,7 +404,6 @@ saveAndGoBtn.addEventListener('click', async () => {
   });
 });
 
-/* New: frequency +/- controls */
 function wireFrequencyControls() {
   if (!freqDecBtn || !freqIncBtn || !freqValueEl) return;
   freqDecBtn.onclick = () => {
@@ -386,24 +411,24 @@ function wireFrequencyControls() {
     updateTotalsAndButtons();
   };
   freqIncBtn.onclick = () => {
-    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES; // no hard max
+    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES;
     updateTotalsAndButtons();
   };
 }
 
-/* ============================================================
-   Base implementation + noise patch (original logic preserved)
-   ============================================================ */
+/* ============= Weights: cognition-oriented shapes ============= */
 function applyFormulaWeights(formulaParam, n) {
   const weights = new Array(n).fill(1);
+
+  // existing
   if (formulaParam === 'leftLeaning') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
       weights[i] = (n - i) * noise;
     }
   } else if (formulaParam === 'rightLeaning1') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
       weights[i] = (i + 1) * noise;
     }
   } else if (formulaParam === 'recent20Percent') {
@@ -412,11 +437,168 @@ function applyFormulaWeights(formulaParam, n) {
   } else if (formulaParam === 'recent5Percent') {
     const startIdx = Math.floor(n * 0.95);
     for (let i = startIdx; i < n; i++) weights[i] = 20;
-  } // 'random' (or unknown) stays uniform
+
+  } else if (formulaParam === 'middleBell') {
+    const mu = (n - 1) / 2;
+    const sigma = Math.max(1, n / 6);
+    for (let i = 0; i < n; i++) {
+      const z = (i - mu) / sigma;
+      const bell = Math.exp(-0.5 * z * z);
+      weights[i] = 1 + 9 * bell;
+    }
+  } else if (formulaParam === 'oldest10Percent') {
+    const endIdx = Math.max(0, Math.floor(n * 0.10) - 1);
+    for (let i = 0; i < n; i++) weights[i] = (i <= endIdx) ? 12 : 1;
+  } else if (formulaParam === 'recent10Percent') {
+    const startIdx = Math.floor(n * 0.90);
+    for (let i = startIdx; i < n; i++) weights[i] = 12;
+  } else if (formulaParam === 'zigZag') {
+    for (let i = 0; i < n; i++) {
+      const alt = (i % 2 === 0) ? 1.15 : 0.85;
+      const slope = 1 + (i / Math.max(1, n - 1)) * 0.5;
+      weights[i] = alt * slope;
+    }
+  } else if (formulaParam === 'primeBoost') {
+    function isPrimeOneIndexed(pos) {
+      if (pos < 2) return false;
+      if (pos % 2 === 0) return pos === 2;
+      const r = Math.floor(Math.sqrt(pos));
+      for (let f = 3; f <= r; f += 2) if (pos % f === 0) return false;
+      return true;
+    }
+    for (let i = 0; i < n; i++) {
+      const pos = i + 1;
+      weights[i] = isPrimeOneIndexed(pos) ? 6 : 1;
+    }
+
+  /* ---------- Cognition patterns ---------- */
+
+  } else if (formulaParam === 'primacyRecency') {
+    const c = (n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const norm = Math.abs(i - c) / (c || 1);
+      weights[i] = 1 + 4 * norm;
+    }
+
+  } else if (formulaParam === 'pyramidMiddle') {
+    const c = (n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const norm = 1 - Math.abs(i - c) / (c || 1);
+      weights[i] = 1 + 4 * Math.max(0, norm);
+    }
+
+  } else if (formulaParam === 'triPeak') {
+    const centers = [0.25, 0.5, 0.75].map(p => Math.floor(p * (n - 1)));
+    const sigma = Math.max(1, n / 20);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (const c of centers) {
+        const z = (i - c) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 3 * s;
+    }
+
+  } else if (formulaParam === 'sinusoidal') {
+    for (let i = 0; i < n; i++) {
+      const phase = 2 * Math.PI * i / Math.max(1, n - 1);
+      const wave = 0.5 * (1 + Math.sin(phase));
+      weights[i] = 1 + 3 * wave;
+    }
+
+  } else if (formulaParam === 'interleaved3') {
+    for (let i = 0; i < n; i++) {
+      const r = i % 3;
+      weights[i] = r === 0 ? 2.6 : (r === 1 ? 1.6 : 1.0);
+    }
+
+  } else if (formulaParam === 'chunkedBlocks') {
+    const size = Math.max(2, Math.floor(Math.sqrt(n)));
+    for (let i = 0; i < n; i++) {
+      const pos = i % size;
+      const edge = (pos === 0 || pos === size - 1);
+      weights[i] = edge ? 3 : 1.2;
+    }
+
+  } else if (formulaParam === 'expandingSpaced') {
+    const anchorsPct = [0.0, 0.5, 0.75, 0.875, 0.9375];
+    const anchors = anchorsPct.map(p => Math.floor(p * (n - 1)));
+    const sigma = Math.max(1, n / 40);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (const a of anchors) {
+        const z = (i - a) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 5 * s;
+    }
+
+  } else if (formulaParam === 'fixedSpaced') {
+    const k = Math.max(3, Math.round(n / 12));
+    for (let i = 0; i < n; i++) {
+      weights[i] = (i % k === 0) ? 4 : 1;
+    }
+
+  } else if (formulaParam === 'forgettingCurve') {
+    const ages = [0.02, 0.05, 0.12, 0.25];
+    const t = (idx) => (n - 1 - idx) / Math.max(1, n - 1);
+    const sigma = 0.04;
+    for (let i = 0; i < n; i++) {
+      const age = t(i);
+      let s = 0;
+      for (const a of ages) {
+        const z = (age - a) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 8 * s;
+    }
+
+  } else if (formulaParam === 'reviewWindow7pct') {
+    const startIdx = Math.floor(n * 0.93);
+    for (let i = startIdx; i < n; i++) weights[i] = 14;
+
+  } else if (formulaParam === 'quadraticRamp') {
+    for (let i = 0; i < n; i++) {
+      const x = i / Math.max(1, n - 1);
+      weights[i] = 1 + 5 * (x * x);
+    }
+
+  } else if (formulaParam === 'easyThenHard') {
+    for (let i = 0; i < n; i++) {
+      const x = i / Math.max(1, n - 1);
+      const phase1 = Math.max(0, 0.6 - x) * 2.0;
+      const phase2 = Math.max(0, x - 0.4) * 3.0;
+      weights[i] = 1 + phase1 + phase2;
+    }
+
+  } else if (formulaParam === 'contrastBlocks') {
+    const size = Math.max(4, Math.round(n / 10));
+    for (let i = 0; i < n; i++) {
+      const block = Math.floor(i / size);
+      weights[i] = (block % 2 === 0) ? 3.2 : 1.0;
+    }
+
+  } else if (formulaParam === 'antiZigZag') {
+    for (let i = 0; i < n; i++) {
+      const alt = (i % 2 === 0) ? 0.85 : 1.15;
+      const slope = 1 + (i / Math.max(1, n - 1)) * 0.2;
+      weights[i] = alt * slope;
+    }
+
+  } else if (formulaParam === 'noveltyWave') {
+    const c = (n - 1) / 2;
+    const sigma = Math.max(1, n / 5);
+    for (let i = 0; i < n; i++) {
+      const wave = 0.5 * (1 + Math.sin(4 * Math.PI * i / Math.max(1, n - 1)));
+      const mid = Math.exp(-0.5 * Math.pow((i - c) / sigma, 2));
+      weights[i] = 1 + 2.5 * wave + 2.5 * mid;
+    }
+  }
+
   return weights;
 }
 
-/* === noisePatch from your code (unchanged) === */
+/* === noisePatch (unchanged) === */
 function noisePatch(weights, issues) {
   function cryptoRandom() {
     const buf = new Uint32Array(1);
@@ -441,7 +623,7 @@ function noisePatch(weights, issues) {
     return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
   }
 
-  const key = "repo_randomizer_memory_v2";
+  const key = `${NS}_noise_mem_v1`;
   let mem = JSON.parse(localStorage.getItem(key) || "{}");
   let history = mem.history || new Array(weights.length).fill(0);
   let lastSeen = mem.lastSeen || {};
@@ -534,36 +716,33 @@ function noisePatch(weights, issues) {
   return { index: chosenIdx, erratic, adjusted, daysPassed };
 }
 
-/* ============================================================
-   Boot: seed IDB once, then always read from IDB
-   ============================================================ */
+/* ================== Boot ================== */
 (async () => {
   try {
-    // Ensure defaults exist in IDB
     const existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');
     if (!existingMix) {
       await idbSet(STORE_SETTINGS, 'formulaMix', { ...DEFAULT_MIX });
     }
     currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
 
-    // Ensure a user modal frequency (in minutes) exists; clamp to 5-min steps with 5-min floor
     let storedFreq = await idbGet(STORE_SETTINGS, KEY_FREQ_MINUTES);
     if (typeof storedFreq !== 'number' || !Number.isFinite(storedFreq) || storedFreq <= 0) {
-      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000; // 10 min
+      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000;
     }
     currentFreqMinutes = roundToStep(storedFreq);
     await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
 
-    // Config: fetch once then cache in IDB; afterwards read from IDB
+    /* --- safer relative fetch under GH Pages subpaths --- */
+    const configUrl = new URL('./config/all.json', window.location.href).toString();
+
     let cfg = await idbGet(STORE_CONFIG, 'all');
     if (!cfg) {
-      const res = await fetch('config/all.json', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to load config');
+      const res = await fetch(configUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to load config (${res.status})`);
       cfg = await res.json();
       await idbSet(STORE_CONFIG, 'all', cfg);
     }
 
-    // Build issues from cached config
     const repos = cfg.repositories || {};
     const issues = [];
     for (const [repo, info] of Object.entries(repos)) {
@@ -576,39 +755,30 @@ function noisePatch(weights, issues) {
     }
     const n = issues.length;
 
-    // Modal timing: forced guarantee + probabilistic user interval
     const lastShown = await idbGet(STORE_META, 'lastModalShown');
     const now = Date.now();
     const elapsed = lastShown ? (now - Number(lastShown)) : Infinity;
 
-    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // hard guarantee
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
     const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
     const wantsSoftShow = eligibleByUser && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
     const wantShow = mustShow || wantsSoftShow;
 
-    // Prepare modal UI (rows + frequency control)
     renderMixRows();
     wireFrequencyControls();
     updateTotalsAndButtons();
 
     if (wantShow) {
-      // Record "shown" moment immediately to respect the 15-min guarantee (even if user closes)
       await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
-
-      /* >>> NEW: Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
-         Proceed with the usual implementation (choose and redirect) without saving. */
       modalTimeoutId = setTimeout(() => {
-        closeModal(); // hide modal if it's still open
+        closeModal();
         const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
         proceedWithFormula(chosenFormula, n, issues);
       }, 30_000);
-
-      // Wait for Save & Continue (existing behavior preserved)
       return;
     }
 
-    // Proceed immediately
     const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
     await proceedWithFormula(chosenFormula, n, issues);
 
@@ -618,7 +788,6 @@ function noisePatch(weights, issues) {
   }
 })();
 
-/* Continue after modal save */
 async function proceedAfterMixSaved() {
   currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
@@ -647,10 +816,8 @@ async function proceedWithFormula(formulaParam, n, issues) {
   const noisy = noisePatch(weights, issues);
   const chosen = issues[noisy.index];
 
-  // Redirect
   location.href = chosen;
 
-  // Fallback diagnostics if redirect blocked
   document.addEventListener('DOMContentLoaded', () => {
     const pre = document.createElement('pre');
     pre.className = 'diag';
