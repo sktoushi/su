@@ -254,6 +254,9 @@ const freqValueEl = document.getElementById('freqValue');
 let currentMix = { ...DEFAULT_MIX };
 let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
 
+/* NEW: 30s auto-dismiss timer handle for the modal */
+let modalTimeoutId = null;
+
 function openModal() {
   try { mixDialog.showModal(); } catch { mixDialog.show(); }
 }
@@ -362,6 +365,9 @@ zeroAllBtn.addEventListener('click', async () => {
   renderMixRows();
 });
 saveAndGoBtn.addEventListener('click', async () => {
+  // >>> NEW: cancel the 30s auto-dismiss if user explicitly saves
+  if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+
   // Final guard
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
     currentMix['random'] = 1;
@@ -593,6 +599,15 @@ function noisePatch(weights, issues) {
       // Record "shown" moment immediately to respect the 15-min guarantee (even if user closes)
       await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
+
+      // >>> NEW: Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
+      // Proceed with the usual implementation (choose and redirect) without saving.
+      modalTimeoutId = setTimeout(() => {
+        closeModal(); // hide modal if it's still open
+        const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
+        proceedWithFormula(chosenFormula, n, issues);
+      }, 30_000);
+
       // Wait for Save & Continue (existing behavior preserved)
       return;
     }
