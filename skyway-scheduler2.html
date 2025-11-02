@@ -99,6 +99,10 @@
     const USER_MIN_FREQ_MINUTES = 5;
     const STEP_MINUTES = 5;
 
+    /* ▼▼ NEW: delay before closing modal & redirecting after a user action (rate/skip) */
+    const MODAL_ACTION_DELAY_MS = 30_000;
+    /* ▲▲ NEW */
+
     /************ IndexedDB helpers (promise-wrapped) ************/
     function openDB() {
       return new Promise((resolve, reject) => {
@@ -335,6 +339,11 @@
       let freqMinutes = currentFreqMinutes;
       let timeoutId = null;
 
+      /* NEW: helper to wait 30s before proceeding on user actions */
+      function delayProceed(fn) {
+        setTimeout(fn, MODAL_ACTION_DELAY_MS);
+      }
+
       function updateFreqUI() {
         if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
       }
@@ -378,8 +387,10 @@
         }
         b.addEventListener('click', () => {
           if (b.disabled) return;
-          clearTimer();
-          maybePersistWildcardThen(() => persistAndClose(() => onPick(val)));
+          clearTimer(); // cancel idle auto-dismiss now that user acted
+          delayProceed(() => {
+            maybePersistWildcardThen(() => persistAndClose(() => onPick(val)));
+          });
         }, { once: true });
         btnsWrap.appendChild(b);
       }
@@ -398,12 +409,15 @@
       updateFreqUI();
 
       skipBtn.onclick = () => {
-        clearTimer();
-        maybePersistWildcardThen(() => persistAndClose(onSkip));
+        clearTimer(); // cancel idle auto-dismiss; we'll handle timing
+        delayProceed(() => {
+          maybePersistWildcardThen(() => persistAndClose(onSkip));
+        });
       };
 
       try { dlg.showModal(); } catch { dlg.show(); }
 
+      /* Keep the existing auto-dismiss after 30s of inactivity */
       timeoutId = setTimeout(() => {
         maybePersistWildcardThen(() => persistAndClose(onSkip));
       }, 30_000);
