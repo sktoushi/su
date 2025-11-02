@@ -49,37 +49,11 @@
     /* New: small helpers for ±5 min frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
+      background:#0f1519; color:#cfd8dc; font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
   </style>
 
   <script>
-    /************ Constants ************/
-    // Bump DB name + store + version to avoid collisions with any prior schema.
-    const DB_NAME  = 'urlProbDBScheduler1_v2';
-    const DB_STORE = 'urls_v2';
-    const DB_VER   = 2;
-
-    // 2%: send to the edit link; 98%: weighted pick from DB/JSON
-    const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html"; // branch 'main' assumed
-    const RANDOM_PDF_MAX = 27;
-
-    // Kept for reference; timing logic below governs the modal.
-    const RATING_PROBABILITY_ON_LOAD = 0.25;
-
-    // Five rating choices
-    const RATING_CHOICES = [-3, -1, 0, +1, +3];
-
-    // Last-ditch fallback target if anything blows up before redirect logic completes:
-    const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
-
-    /* ===== Modal timing & frequency (ported) ===== */
-    const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee: at least once every 15 minutes
-    const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default target interval
-    const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts between forced intervals
-    const USER_MIN_FREQ_MINUTES = 5;                // floor
-    const STEP_MINUTES = 5;                         // +/- step
-
-    /* ===== Deterministic namespace (obfuscated) for meta store ===== */
+    /************ Deterministic namespace + obfuscation helpers ************/
     function fnv1aHex(str) {
       let h = 0x811c9dc5 >>> 0;
       for (let i = 0; i < str.length; i++) {
@@ -88,8 +62,49 @@
       }
       return ('00000000' + h.toString(16)).slice(-8);
     }
+    // Global namespace derived from origin + path
     const NS = fnv1aHex(location.origin + '|' + location.pathname);
-    const META_STORE = `m_${NS}`; // simple KV store; keys are 'f' (freq minutes), 'l' (last shown ms)
+
+    // Obfuscated key builder: scope + name + NS + minor salt
+    function obf(scope, name) {
+      return `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
+    }
+
+    /************ Constants (all obfuscated to avoid collisions) ************/
+    // DB, store, index names obfuscated
+    const DB_NAME  = obf('db',   'scheduler1_v2');
+    const DB_STORE = obf('st',   'urls_v2');
+    const DB_VER   = 2;
+
+    // Index name (not stored in data, but obfuscate for consistency)
+    const IDX_EFFECTIVE = obf('idx', 'effectiveWeight');
+
+    // Meta store name (namespaced)
+    const META_STORE = obf('meta', 'kvs');
+
+    // Meta keys (obfuscated)
+    const KEY_FREQ_MINUTES = obf('k', 'freq_minutes'); // previously 'f'
+    const KEY_LAST_SHOWN   = obf('k', 'last_shown_ms'); // previously 'l'
+
+    // Optional LocalStorage keys (none used previously). Provide helpers for future use.
+    function lsKey(name) { return obf('ls', name); }
+    const LS_WATCHDOG = lsKey('watchdog'); // not required, reserved for future use
+
+    // Redirect tuning
+    const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
+    const RANDOM_PDF_MAX = 27;
+    const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
+
+    // Rating choices and modal cadence
+    const RATING_PROBABILITY_ON_LOAD = 0.25; // informational
+    const RATING_CHOICES = [-3, -1, 0, +1, +3];
+
+    // Modal timing & frequency (unchanged behavior)
+    const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+    const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+    const MODAL_SHOW_PROBABILITY = 0.15;
+    const USER_MIN_FREQ_MINUTES = 5;
+    const STEP_MINUTES = 5;
 
     /************ IndexedDB helpers (promise-wrapped) ************/
     function openDB() {
@@ -98,11 +113,13 @@
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains(DB_STORE)) {
-            const store = db.createObjectStore(DB_STORE, { keyPath: 'url' }); // keep keyPath 'url'
-            store.createIndex('by_effective', 'effectiveWeight', { unique: false });
+            const store = db.createObjectStore(DB_STORE, { keyPath: 'url' });
+            if (![...store.indexNames].includes(IDX_EFFECTIVE)) {
+              store.createIndex(IDX_EFFECTIVE, 'effectiveWeight', { unique: false });
+            }
           }
           if (!db.objectStoreNames.contains(META_STORE)) {
-            db.createObjectStore(META_STORE); // namespaced meta store
+            db.createObjectStore(META_STORE); // simple KV: key -> value
           }
         };
         req.onsuccess = () => resolve(req.result);
@@ -142,7 +159,7 @@
       });
     }
 
-    /* ===== Meta store helpers (obfuscated keys) ===== */
+    /* ===== Meta store helpers (using obfuscated keys) ===== */
     function metaGet(db, key) {
       return new Promise((resolve, reject) => {
         const tx = db.transaction(META_STORE, 'readonly');
@@ -240,21 +257,21 @@
       );
     }
     async function getStoredFreqMinutes(db) {
-      const val = await metaGet(db, 'f'); // 'f' = frequency minutes
+      const val = await metaGet(db, KEY_FREQ_MINUTES);
       const n = Number(val);
       const mins = (!Number.isFinite(n) || n <= 0) ? (DEFAULT_USER_INTERVAL_MS / 60000) : n;
       return roundToStep(mins);
     }
     async function setStoredFreqMinutes(db, mins) {
-      return metaSet(db, 'f', roundToStep(mins));
+      return metaSet(db, KEY_FREQ_MINUTES, roundToStep(mins));
     }
     async function getLastShownMs(db) {
-      const v = await metaGet(db, 'l'); // 'l' = last shown timestamp (ms)
+      const v = await metaGet(db, KEY_LAST_SHOWN);
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
     }
     async function markJustShown(db, nowMs = Date.now()) {
-      return metaSet(db, 'l', Number(nowMs));
+      return metaSet(db, KEY_LAST_SHOWN, Number(nowMs));
     }
 
     /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
@@ -294,8 +311,8 @@
       return toPut;
     }
 
-    /************ Rating modal (now with frequency controls) ************/
-    // Still disables choices that would make effective <= 0 (unchanged behavior)
+    /************ Rating modal (frequency controls + 30s auto-dismiss) ************/
+    // Disables choices that would make effective <= 0 (existing behavior preserved)
     function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
@@ -309,8 +326,17 @@
 
       let freqMinutes = currentFreqMinutes;
 
+      // Auto-dismiss timer handle
+      let timeoutId = null;
+
       function updateFreqUI() {
         if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
+      }
+      function clearTimer() {
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
       }
       function persistAndClose(cb) {
         try { onPersistFreq && onPersistFreq(freqMinutes); } catch {}
@@ -337,6 +363,8 @@
 
         b.addEventListener('click', () => {
           if (b.disabled) return;
+          // User chose a rating (definitive "save"): cancel timer, persist, and continue
+          clearTimer();
           persistAndClose(() => onPick(val));
         }, { once: true });
 
@@ -358,16 +386,23 @@
       }
       updateFreqUI();
 
+      // Skip -> redirect immediately (also cancels timer)
       skipBtn.onclick = () => {
+        clearTimer();
         persistAndClose(onSkip);
       };
 
       try { dlg.showModal(); } catch { dlg.show(); }
+
+      // Auto-dismiss after 30 seconds if no definitive rating chosen
+      timeoutId = setTimeout(() => {
+        persistAndClose(onSkip);
+      }, 30_000);
     }
 
     /************ Main flow ************/
     async function main() {
-      // safety: if nothing happens in 5s, bail out to a known page
+      // safety watchdog: if nothing happens in 5s, bail out to a known page
       const watchdog = setTimeout(() => {
         try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
       }, 5000);
@@ -493,7 +528,7 @@
       <h2>How would you rate the probability weight for this URL?</h2>
       <p class="url-line mono" id="ratingUrl"></p>
 
-      <!-- ▼ New: modal frequency controls (±5m, floor 5m) -->
+      <!-- ▼ Modal frequency controls (±5m, floor 5m) -->
       <div class="small" style="margin:.5rem 0 .35rem;">Modal frequency</div>
       <div class="freqrow" style="margin-bottom:.35rem;">
         <button id="freqDec" type="button" class="btn btn-mid" aria-label="Decrease by 5 minutes">−5m</button>
