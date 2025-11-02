@@ -281,48 +281,6 @@
       return true;
     }
 
-    /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
-    async function bootstrapDB(db) {
-      const seed = safeParseSeed();
-      const seedMap = new Map((seed.items || []).map(it => [it.url, it.probabilityWeight]));
-
-      const existing = await getAll(db);
-      const existingMap = new Map(existing.map(r => [r.url, r]));
-
-      const toPut = [];
-      for (const [url, baseWeight] of seedMap.entries()) {
-        const rec = existingMap.get(url);
-        if (rec) {
-          const bw = Number(baseWeight) || 0;
-          const dl = Number(rec.delta || 0);
-          toPut.push({
-            ...rec,
-            baseWeight: bw,
-            effectiveWeight: Math.max(0, bw + dl)
-          });
-        } else {
-          const bw = Number(baseWeight) || 0;
-          toPut.push({
-            url,
-            baseWeight: bw,
-            delta: 0,
-            effectiveWeight: bw,
-            lastRatedAt: 0
-          });
-        }
-      }
-      for (const rec of existing) {
-        if (!seedMap.has(rec.url)) toPut.push(rec);
-      }
-      await putMany(db, toPut);
-
-      /* Ensure wildcard list key exists (initialize empty array exactly once) */
-      const wild = await metaGet(db, KEY_WILDCARD_LIST);
-      if (!Array.isArray(wild)) await metaSet(db, KEY_WILDCARD_LIST, []);
-
-      return toPut;
-    }
-
     /************ Rating modal (frequency controls + wildcard input + 30s auto-dismiss) ************/
     function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq, onAddWildcard) {
       const dlg = document.getElementById('ratingDialog');
@@ -426,6 +384,7 @@
 
     /************ Main flow ************/
     async function main() {
+      // Short safety watchdog for non-modal path only
       const watchdog = setTimeout(() => {
         try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
       }, 5000);
@@ -477,7 +436,8 @@
         const elapsed = lastShown ? (now - lastShown) : Infinity;
         const currentFreqMinutes = await getStoredFreqMinutes(db);
 
-        const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // 15m guarantee
+        // Modified: don't force-show on the very first run (when lastShown === null)
+        const mustShow = (lastShown !== null) && (elapsed >= FORCED_MIN_INTERVAL_MS); // 15m guarantee after first recorded show
         const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
         const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
         const wantShow = mustShow || wantsSoftShow;
@@ -488,6 +448,12 @@
 
         if (wantShow && toRate) {
           await markJustShown(db, now);
+
+          // NEW: prevent 5s watchdog from firing under the modal; start a modal-specific watchdog
+          clearTimeout(watchdog);
+          const modalWatchdog = setTimeout(() => {
+            try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
+          }, MODAL_ACTION_DELAY_MS + 5000); // e.g., 35s
 
           showRatingModal(
             toRate.url,
@@ -512,12 +478,12 @@
                   lastRatingNote.classList.remove('hidden');
                 }
               } finally {
-                clearTimeout(watchdog);
+                clearTimeout(modalWatchdog);
                 window.location.replace(nextUrl);
               }
             },
             () => {
-              clearTimeout(watchdog);
+              clearTimeout(modalWatchdog);
               window.location.replace(nextUrl);
             },
             async (mins) => { await setStoredFreqMinutes(db, mins); },
