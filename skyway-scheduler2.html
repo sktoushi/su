@@ -45,6 +45,11 @@
     .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
     .btn-mid{padding:.8rem .4rem; font-size:1.05rem; border-radius:.6rem;}
     .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
+
+    /* New: small helpers for ±5 min frequency control */
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
   </style>
 
   <script>
@@ -58,7 +63,7 @@
     const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html"; // branch 'main' assumed
     const RANDOM_PDF_MAX = 27;
 
-    // How often to ask for a rating on page load (0..1)
+    // Kept for reference; timing logic below governs the modal.
     const RATING_PROBABILITY_ON_LOAD = 0.25;
 
     // Five rating choices
@@ -66,6 +71,25 @@
 
     // Last-ditch fallback target if anything blows up before redirect logic completes:
     const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
+
+    /* ===== Modal timing & frequency (ported) ===== */
+    const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee: at least once every 15 minutes
+    const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default target interval
+    const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts between forced intervals
+    const USER_MIN_FREQ_MINUTES = 5;                // floor
+    const STEP_MINUTES = 5;                         // +/- step
+
+    /* ===== Deterministic namespace (obfuscated) for meta store ===== */
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    const NS = fnv1aHex(location.origin + '|' + location.pathname);
+    const META_STORE = `m_${NS}`; // simple KV store; keys are 'f' (freq minutes), 'l' (last shown ms)
 
     /************ IndexedDB helpers (promise-wrapped) ************/
     function openDB() {
@@ -76,6 +100,9 @@
           if (!db.objectStoreNames.contains(DB_STORE)) {
             const store = db.createObjectStore(DB_STORE, { keyPath: 'url' }); // keep keyPath 'url'
             store.createIndex('by_effective', 'effectiveWeight', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(META_STORE)) {
+            db.createObjectStore(META_STORE); // namespaced meta store
           }
         };
         req.onsuccess = () => resolve(req.result);
@@ -112,6 +139,26 @@
         records.forEach(rec => store.put(rec));
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    /* ===== Meta store helpers (obfuscated keys) ===== */
+    function metaGet(db, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readonly');
+        const st = tx.objectStore(META_STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    function metaSet(db, key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readwrite');
+        const st = tx.objectStore(META_STORE);
+        const r = st.put(value, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
       });
     }
 
@@ -173,10 +220,9 @@
       try {
         return JSON.parse(raw);
       } catch (e) {
-        // Try a minimal cleanup for trailing commas
         const cleaned = raw
-          .replace(/,\s*([\]}])/g, '$1') // remove trailing commas before ] or }
-          .replace(/\/\/.*$/gm, '');     // strip // comments if any
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/\/\/.*$/gm, '');
         try {
           return JSON.parse(cleaned);
         } catch (e2) {
@@ -184,6 +230,31 @@
           return { items: [] };
         }
       }
+    }
+
+    /************ Frequency helpers (use meta store) ************/
+    function roundToStep(valueMinutes) {
+      return Math.max(
+        USER_MIN_FREQ_MINUTES,
+        Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES
+      );
+    }
+    async function getStoredFreqMinutes(db) {
+      const val = await metaGet(db, 'f'); // 'f' = frequency minutes
+      const n = Number(val);
+      const mins = (!Number.isFinite(n) || n <= 0) ? (DEFAULT_USER_INTERVAL_MS / 60000) : n;
+      return roundToStep(mins);
+    }
+    async function setStoredFreqMinutes(db, mins) {
+      return metaSet(db, 'f', roundToStep(mins));
+    }
+    async function getLastShownMs(db) {
+      const v = await metaGet(db, 'l'); // 'l' = last shown timestamp (ms)
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    async function markJustShown(db, nowMs = Date.now()) {
+      return metaSet(db, 'l', Number(nowMs));
     }
 
     /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
@@ -216,7 +287,6 @@
           });
         }
       }
-      // Keep any records in DB but not in seed
       for (const rec of existing) {
         if (!seedMap.has(rec.url)) toPut.push(rec);
       }
@@ -224,13 +294,29 @@
       return toPut;
     }
 
-    /************ Rating modal ************/
-    // CHANGED: added currentWeights param and disable any choice that would make effective <= 0
-    function showRatingModal(targetUrl, currentWeights, onPick, onSkip) {
+    /************ Rating modal (now with frequency controls) ************/
+    // Still disables choices that would make effective <= 0 (unchanged behavior)
+    function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
       const btnsWrap = document.getElementById('ratingButtons');
       const skipBtn = document.getElementById('skipRatingBtn');
+
+      // Frequency controls
+      const freqDecBtn = document.getElementById('freqDec');
+      const freqIncBtn = document.getElementById('freqInc');
+      const freqValueEl = document.getElementById('freqValue');
+
+      let freqMinutes = currentFreqMinutes;
+
+      function updateFreqUI() {
+        if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
+      }
+      function persistAndClose(cb) {
+        try { onPersistFreq && onPersistFreq(freqMinutes); } catch {}
+        try { dlg.close(); } catch { dlg.open = false; }
+        cb && cb();
+      }
 
       const base = Number(currentWeights?.baseWeight ?? 0) || 0;
       const delta = Number(currentWeights?.delta ?? 0) || 0;
@@ -243,7 +329,6 @@
         b.className = 'btn btn-mid';
         b.textContent = (val > 0 ? `+${val}` : `${val}`);
 
-        // Disable if this choice would reduce probability to zero or negative
         const projected = base + delta + val;
         if (projected <= 0) {
           b.disabled = true;
@@ -252,15 +337,29 @@
 
         b.addEventListener('click', () => {
           if (b.disabled) return;
-          try { dlg.close(); } catch {}
-          onPick(val);
+          persistAndClose(() => onPick(val));
         }, { once: true });
 
         btnsWrap.appendChild(b);
       }
+
+      // Wire frequency +/- buttons
+      if (freqDecBtn) {
+        freqDecBtn.onclick = () => {
+          freqMinutes = Math.max(USER_MIN_FREQ_MINUTES, freqMinutes - STEP_MINUTES);
+          updateFreqUI();
+        };
+      }
+      if (freqIncBtn) {
+        freqIncBtn.onclick = () => {
+          freqMinutes = freqMinutes + STEP_MINUTES;
+          updateFreqUI();
+        };
+      }
+      updateFreqUI();
+
       skipBtn.onclick = () => {
-        try { dlg.close(); } catch {}
-        onSkip && onSkip();
+        persistAndClose(onSkip);
       };
 
       try { dlg.showModal(); } catch { dlg.show(); }
@@ -287,35 +386,50 @@
           downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
         });
 
-        // Decide path bucket: EDIT (2%), PDF block (next 10%), otherwise weighted pick from IndexedDB
+        // ===== Decide next URL first (no redirect yet) =====
+        let nextUrl = null;
         const u = secureRandomFloat01();
         if (u < 0.02) {
-          clearTimeout(watchdog);
-          window.location.replace(EDIT_URL);
-          return;
+          nextUrl = EDIT_URL;
         } else if (u < 0.12) {
-          clearTimeout(watchdog);
           if (secureRandomFloat01() < 0.5) {
-            window.location.replace(`https://sktoushi.github.io/su/allrecent100.html`);
-            return;
+            nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
+          } else {
+            const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+            nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
           }
-          const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
-          const pdfUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-          window.location.replace(pdfUrl);
-          return;
+        } else {
+          const chosen = chooseWeighted(records.length ? records : (safeParseSeed().items || []).map(it => ({
+            url: it.url, baseWeight: it.probabilityWeight, delta: 0
+          })));
+          nextUrl = chosen.url;
         }
 
-        const chosen = chooseWeighted(records.length ? records : (safeParseSeed().items || []).map(it => ({
-          url: it.url, baseWeight: it.probabilityWeight, delta: 0
-        })));
+        // ===== Modal timing decision (from meta store) =====
+        const now = Date.now();
+        const lastShown = await getLastShownMs(db);
+        const elapsed = lastShown ? (now - lastShown) : Infinity;
+        const currentFreqMinutes = await getStoredFreqMinutes(db);
 
-        if (secureRandomFloat01() < RATING_PROBABILITY_ON_LOAD && records.length) {
-          const idx = Math.floor(secureRandomFloat01() * records.length);
-          const toRate = records[idx];
+        const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // 15m guarantee
+        const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+        const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
+        const wantShow = mustShow || wantsSoftShow;
+
+        // Pick a record to rate (independent of where we redirect)
+        const toRate = records.length
+          ? records[Math.floor(secureRandomFloat01() * records.length)]
+          : null;
+
+        if (wantShow && toRate) {
+          // Record immediately to enforce the 15m guarantee even if closed
+          await markJustShown(db, now);
 
           showRatingModal(
             toRate.url,
-            toRate, // CHANGED: pass current weights so disabling logic can evaluate projected value
+            toRate,
+            currentFreqMinutes,
+            // onPick
             async (val) => {
               try {
                 const rec = await getOne(db, toRate.url);
@@ -336,21 +450,25 @@
                 }
               } finally {
                 clearTimeout(watchdog);
-                window.location.replace(chosen.url);
+                window.location.replace(nextUrl);
               }
             },
+            // onSkip
             () => {
               clearTimeout(watchdog);
-              window.location.replace(chosen.url);
+              window.location.replace(nextUrl);
+            },
+            // onPersistFreq
+            async (mins) => {
+              await setStoredFreqMinutes(db, mins);
             }
           );
         } else {
           clearTimeout(watchdog);
-          window.location.replace(chosen.url);
+          window.location.replace(nextUrl);
         }
       } catch (err) {
         console.error('Redirect flow failed:', err);
-        // safety fallback
         window.location.assign(SAFETY_FALLBACK_URL);
       }
     }
@@ -374,6 +492,17 @@
     <div class="modal">
       <h2>How would you rate the probability weight for this URL?</h2>
       <p class="url-line mono" id="ratingUrl"></p>
+
+      <!-- ▼ New: modal frequency controls (±5m, floor 5m) -->
+      <div class="small" style="margin:.5rem 0 .35rem;">Modal frequency</div>
+      <div class="freqrow" style="margin-bottom:.35rem;">
+        <button id="freqDec" type="button" class="btn btn-mid" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-mid" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+      <div class="small" style="margin:.1rem 0 .9rem;">We’ll still show this at least once every 15 minutes.</div>
+      <!-- ▲ End controls -->
+
       <div id="ratingButtons" class="grid-5" style="margin:.75rem 0 1rem;"></div>
       <div class="toolbar" style="justify-content:space-between; width:100%;">
         <button class="btn btn-danger" id="skipRatingBtn" title="Continue without rating">Skip</button>
