@@ -2,20 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Adaptive Weighted Redirect (Crypto RNG + Memory Drift + Dynamic Blend)</title>
+  <title>Adaptive Weighted Redirect (Crypto RNG + IndexedDB + Unique Keys)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
     code { background: #f2f2f2; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    .mono { font-variant-numeric: tabular-nums; }
   </style>
   <script>
-    (function () {
-      // --- Crypto RNG helpers
+    (async function () {
+      // -------------------- Config --------------------
+      const urls = [
+        "https://sktoushi.github.io/su/all-classic2025.html",
+        "https://sktoushi.github.io/su/all.html",         // 0.25
+        "https://sktoushi.github.io/su/allrecent.html",   // 0.30
+        "https://sktoushi.github.io/su/allrecent100.html" // 0.20
+      ];
+      const baseWeights = [0.25, 0.25, 0.30, 0.20];
+
+      const N = baseWeights.length;
+      if (urls.length !== N) throw new Error("urls.length must match baseWeights.length");
+
+      // -------------------- Crypto RNG --------------------
       function cryptoRandom() {
         const buf = new Uint32Array(1);
         window.crypto.getRandomValues(buf);
-        return buf[0] / 0xffffffff;
+        return buf[0] / 0xffffffff; // [0,1)
       }
       function cryptoNormal(mean = 0, stdDev = 1) {
         let u1 = 0, u2 = 0;
@@ -25,129 +38,197 @@
         return z0 * stdDev + mean;
       }
 
-      // --- Core configuration (unchanged)
-      const urls = [
-        "https://sktoushi.github.io/su/all-classic2025.html", 
-        "https://sktoushi.github.io/su/all.html",          // base 50%
-        "https://sktoushi.github.io/su/allrecent.html",    // base 30%
-        "https://sktoushi.github.io/su/allrecent100.html"  // base 20%
-      ];
-      const baseWeights = [0.25, 0.25, 0.3, 0.2];
+      // -------------------- IndexedDB (exclusive) --------------------
+      // DB name + version
+      const DB_NAME = "redirect_db_v2";
+      const STORE = "stats"; // keyPath = 'key' (the URL string)
 
-      // --- Load past stats
-      const memoryKey = "redirect_memory_v1";
-      let history = JSON.parse(localStorage.getItem(memoryKey) || "{}");
-      let counts = history.counts || [0, 0, 0];
-      // add per-index lastSeen support (preserves existing storage)
-      let lastSeen = history.lastSeen || {}; // { 0: ts, 1: ts, 2: ts }
-      let totalVisits = counts.reduce((a, b) => a + b, 0);
-
-      // --- Compute adaptive bias (favor under-visited links)
-      let bias = [0, 0, 0];
-      if (totalVisits > 0) {
-        const avg = totalVisits / counts.length;
-        bias = counts.map(c => (avg - c) / avg * 0.1); // up to ±10% adaptive bias
+      function openDB() {
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME, 1);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE)) {
+              const store = db.createObjectStore(STORE, { keyPath: "key" }); // unique keys
+              store.createIndex("byLastSeen", "lastSeen");
+              store.createIndex("byCount", "count");
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror  = () => reject(req.error || new Error("IndexedDB open failed"));
+        });
       }
 
-      // --- Determine noise volatility
-      const erratic = cryptoRandom() < 0.1; // 10% chance for erratic mode
+      function idbGet(db, key) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE, "readonly");
+          const store = tx.objectStore(STORE);
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror  = () => reject(req.error || new Error("get failed"));
+        });
+      }
+
+      function idbPut(db, value) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE, "readwrite");
+          const store = tx.objectStore(STORE);
+          const req = store.put(value);
+          req.onsuccess = () => {
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error || new Error("tx error"));
+          };
+          req.onerror = () => reject(req.error || new Error("put failed"));
+        });
+      }
+
+      async function ensureRecords(db, keys) {
+        const now = Date.now();
+        const recs = [];
+        for (const key of keys) {
+          let rec = await idbGet(db, key);
+          if (!rec) {
+            rec = { key, count: 0, lastSeen: 0, createdAt: now };
+            await idbPut(db, rec);
+          }
+          recs.push(rec);
+        }
+        return recs;
+      }
+
+      // -------------------- Load / ensure stats --------------------
+      let db;
+      try {
+        db = await openDB();
+      } catch (e) {
+        // If DB fails, we still proceed in-memory with zeros (still "exclusively" means no localStorage fallback).
+        console.warn("IndexedDB unavailable; proceeding without persistence", e);
+      }
+
+      let records = [];
+      if (db) {
+        records = await ensureRecords(db, urls);
+      } else {
+        const now = Date.now();
+        records = urls.map(u => ({ key: u, count: 0, lastSeen: 0, createdAt: now }));
+      }
+
+      const counts = records.map(r => r.count || 0);
+      const lastSeen = records.map(r => (typeof r.lastSeen === "number" ? r.lastSeen : 0));
+      const totalVisits = counts.reduce((a, b) => a + b, 0);
+
+      // -------------------- Adaptive weights --------------------
+      // Bias toward under-visited links (±10%)
+      let bias = new Array(N).fill(0);
+      if (totalVisits > 0) {
+        const avg = totalVisits / N;
+        bias = counts.map(c => (avg - c) / avg * 0.10);
+      }
+
+      // Noise regime
+      const erratic = cryptoRandom() < 0.10;
       const noiseStdDev = erratic ? 0.25 : 0.05;
 
-      // --- Apply crypto noise and bias (BASE)
+      // Base with noise + bias
       const base = baseWeights.map((w, i) => {
         const noise = cryptoNormal(0, noiseStdDev) * w;
         const adaptive = bias[i] || 0;
-        return Math.max(0, w + noise + adaptive);
+        return Math.max(1e-12, w + noise + adaptive);
       });
 
-      // --- Dynamic blend: deja gate + entropy-based beta (base always dominates)
+      // Deja gate + multipliers
       function dejaGate(nowMs) {
         const d = new Date(nowMs);
-        const hour = d.getHours() + d.getMinutes()/60; // 0..24
-        const day  = d.getDay();                       // 0..6
-        const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
-        const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
+        const hour = d.getHours() + d.getMinutes() / 60;
+        const day = d.getDay();
+        const daily  = 0.5 * (1 + Math.sin((2 * Math.PI) * (hour / 24 - 0.25)));
+        const weekly = 0.5 * (1 + Math.cos((2 * Math.PI) * ((day + 0.5) / 7)));
         const u = new Uint32Array(1); window.crypto.getRandomValues(u);
-        const jitter = (u[0] / 0xffffffff) * 0.2;
-        const g = 0.45*daily + 0.35*weekly + jitter;
+        const jitter = (u[0] / 0xffffffff) * 0.20;
+        const g = 0.45 * daily + 0.35 * weekly + jitter;
         return Math.min(1, Math.max(0, g));
       }
 
       const now = Date.now();
+      const seenDeltas = lastSeen.filter(ts => ts > 0).map(ts => now - ts);
+      const meanDelta = seenDeltas.length ? (seenDeltas.reduce((a, b) => a + b, 0) / seenDeltas.length) : null;
 
-      // Cohort mean gap for deja targeting
-      const seenDeltas = [0,1,2]
-        .map(i => lastSeen[i])
-        .filter(ts => typeof ts === 'number')
-        .map(ts => now - ts);
-      const meanDelta = seenDeltas.length
-        ? (seenDeltas.reduce((a,b)=>a+b,0) / seenDeltas.length)
-        : null;
-
-      // Per-option deja multiplier (soft Gaussian around cohort mean gap)
-      const dejaMults = [0,1,2].map(i => {
+      const dejaMults = new Array(N).fill(1).map((_, i) => {
         const ts = lastSeen[i];
-        if (typeof ts !== 'number' || meanDelta == null || meanDelta <= 0) return 1;
+        if (!(ts > 0) || meanDelta == null || meanDelta <= 0) return 1;
         const delta = now - ts;
-        const sigma = meanDelta;                  // broad width from cohort itself
+        const sigma = meanDelta;
         const x = (delta - meanDelta) / (sigma || 1);
-        const due = Math.exp(-(x * x));          // 0..1
-        return 1 + due;                           // ∈ [1, 2]
+        const due = Math.exp(-(x * x)); // 0..1
+        return 1 + due;                 // 1..2
       });
 
-      // Base distribution entropy (normalized 0..1)
-      const baseSum = base.reduce((a,b)=>a+b, 0) || 1;
+      // Entropy & dynamic beta (keep base dominant)
+      const baseSum = base.reduce((a, b) => a + b, 0) || 1;
       const p = base.map(v => v / baseSum);
-      let H = 0; for (let i=0;i<p.length;i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
+      let H = 0;
+      for (let i = 0; i < p.length; i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
       const Hnorm = (p.length > 1) ? (H / Math.log(p.length)) : 0;
 
-      // Dynamic beta in (0, 0.5) so base dominates without a fixed cap exposed
       let beta;
       {
-        const g = dejaGate(now); // 0..1
+        const g = dejaGate(now);
         const u = new Uint32Array(1); window.crypto.getRandomValues(u);
-        const j = (u[0] / 0xffffffff); // 0..1 jitter
-        beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
+        const j = (u[0] / 0xffffffff);
+        beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25 * j);
         if (beta >= 0.5) beta = 0.499;
         if (beta < 0) beta = 0;
       }
 
-      // --- Blend base with deja multipliers (convex combo; base stays dominant)
-      let blended = base.map((b, i) => Math.max(1e-12, b * ((1 - beta) + beta * (dejaMults[i] || 1))));
-
-      // --- Normalize to sum = 1
+      const blended = base.map((b, i) => Math.max(1e-12, b * ((1 - beta) + beta * (dejaMults[i] || 1))));
       const sum = blended.reduce((a, b) => a + b, 0) || 1;
-      const noisyWeights = blended.map(w => w / sum);
+      const weights = blended.map(w => w / sum);
 
-      // --- Choose target with crypto RNG
-      const thresholds = [noisyWeights[0], noisyWeights[0] + noisyWeights[1], 1.0];
-      const r = cryptoRandom();
-      let chosenIndex;
-      if (r < thresholds[0]) chosenIndex = 0;
-      else if (r < thresholds[1]) chosenIndex = 1;
-      else chosenIndex = 2;
+      // Picker (CDF)
+      function pickIndex(weights) {
+        const r = cryptoRandom();
+        let acc = 0;
+        for (let i = 0; i < weights.length; i++) {
+          acc += weights[i];
+          if (r < acc) return i;
+        }
+        return weights.length - 1;
+      }
 
+      const chosenIndex = pickIndex(weights);
       const target = urls[chosenIndex];
 
-      // --- Update and persist memory (counts + lastSeen)
-      counts[chosenIndex] = (counts[chosenIndex] || 0) + 1;
-      lastSeen[chosenIndex] = now;
-      localStorage.setItem(memoryKey, JSON.stringify({ counts, lastSeen }));
+      // -------------------- Persist choice to IndexedDB --------------------
+      try {
+        const rec = records[chosenIndex];
+        rec.count = (rec.count || 0) + 1;
+        rec.lastSeen = now;
+        if (db) await idbPut(db, rec);
+      } catch (e) {
+        console.warn("IndexedDB write failed (continuing to redirect)", e);
+      }
 
-      // --- Redirect immediately
+      // -------------------- Redirect --------------------
       window.location.replace(target);
 
-      // --- Display diagnostic info if JS visible
+      // -------------------- Diagnostics (if visible) --------------------
       document.addEventListener("DOMContentLoaded", function () {
         const a = document.getElementById("target-link");
         if (a) a.href = target;
+
         const pre = document.getElementById("picked");
         if (pre) {
-          const info =
-            `weights: ${noisyWeights.map(w => (w * 100).toFixed(1) + "%").join(" / ")} | ` +
-            (erratic ? "⚡ erratic mode" : "⤵ stable mode") +
-            ` | visits: [${counts.join(", ")}]`;
+          const pct = weights.map(w => (w * 100).toFixed(1) + "%").join(" / ");
+          const basePct = baseWeights.map(w => (w * 100).toFixed(1) + "%").join(" / ");
+          const info = [
+            `base: ${basePct}`,
+            `final: ${pct}`,
+            erratic ? "⚡ erratic mode" : "⤵ stable mode",
+            `beta=${beta.toFixed(3)}`,
+            `visits=[${records.map(r => r.count || 0).join(", ")}]`
+          ].join(" | ");
           pre.textContent = target + " (" + info + ")";
+          pre.classList.add("mono");
         }
       });
     })();
