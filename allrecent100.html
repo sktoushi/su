@@ -19,7 +19,7 @@
     }
     a { word-break: break-all; }
 
-    /* ===== Themed modal (copied/adapted from your reference) ===== */
+    /* ===== Themed modal (kept) ===== */
     :root {
       --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
       --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
@@ -59,6 +59,14 @@
       background:#0f1519; color:var(--fg); font-size:1rem;
     }
     .hint{margin-top:-.6rem; margin-bottom:.9rem;}
+
+    /* New: tiny layout helper for +/- frequency control */
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{
+      padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      min-width:7ch; text-align:center;
+    }
   </style>
 </head>
 <body>
@@ -75,6 +83,18 @@
     </div>
     <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
     <div class="hint small">If you skip, we’ll continue using the current stored value (seeded from the config on first run).</div>
+
+    <!-- ▼ Updated: frequency controls (±5 minutes, min 5), placed right before the buttons -->
+    <div class="field">
+      <label class="small">Modal frequency</label>
+      <div class="freqrow">
+        <button id="freqDec" type="button" class="btn btn-small" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-small" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+    </div>
+    <div class="small hint">We’ll still show this at least once every 15 minutes.</div>
+    <!-- ▲ End new controls -->
 
     <div class="toolbar" style="margin-top:.6rem;">
       <button class="btn btn-small btn-danger" id="skipEndBtn">Skip</button>
@@ -129,7 +149,7 @@
     return min + (x % range);
   }
 
-  // >>> Modified to pick the LAST repository object <<<
+  // >>> pick the LAST repository object <<<
   function extractFinalRepo(repositories) {
     if (!repositories || typeof repositories !== 'object') {
       throw new Error('Invalid repositories structure in config.');
@@ -161,12 +181,13 @@
     };
   }
 
-  /* ================= IndexedDB (new DB + keys) ================= */
+  /* ================= IndexedDB (same DB + keys) ================= */
   const IDB_NAME = 'issueEndOverrideDB_v1';
   const IDB_VER = 1;
   const STORE_SETTINGS = 'settings';
   const KEY_END = 'overrideIssueEndNumber';
   const KEY_LAST_MODAL = 'lastEndModalShown';
+  const KEY_FREQ_MINUTES = 'modalFreqMinutes';
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -199,10 +220,19 @@
   }
 
   /* ===== Modal helpers (timing: occasional + throttled) ===== */
-  const MODAL_MIN_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-  const MODAL_SHOW_PROBABILITY = 0.15;
+  const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee
+  const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default 10min
+  const MODAL_SHOW_PROBABILITY = 0.15; // soft attempts between forced intervals
+  const USER_MIN_FREQ_MINUTES = 5; // floor: 5 minutes
+  const STEP_MINUTES = 5; // increment/decrement step
 
-  function maybeShowEndModal(prefill, onSave, onSkip) {
+  function roundToStep(valueMinutes) {
+    // Round to nearest 5, with floor at 5
+    const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+    return v;
+  }
+
+  function maybeShowEndModal(prefill, freqMinutes, onSave, onSkip) {
     const dlg = document.getElementById('endDialog');
     const input = document.getElementById('endInput');
     const err = document.getElementById('endError');
@@ -210,8 +240,28 @@
     const btnSkip = document.getElementById('skipEndBtn');
     const btnReset = document.getElementById('resetEndBtn');
 
+    // New freq controls
+    const freqDec = document.getElementById('freqDec');
+    const freqInc = document.getElementById('freqInc');
+    const freqValue = document.getElementById('freqValue');
+
     input.value = String(prefill || 1);
     err.classList.add('hidden');
+
+    let currentFreq = roundToStep(Number(freqMinutes) || (DEFAULT_USER_INTERVAL_MS / 60000));
+    function renderFreq() {
+      freqValue.textContent = `${currentFreq} min`;
+    }
+    renderFreq();
+
+    freqDec.onclick = () => {
+      currentFreq = Math.max(USER_MIN_FREQ_MINUTES, currentFreq - STEP_MINUTES);
+      renderFreq();
+    };
+    freqInc.onclick = () => {
+      currentFreq = currentFreq + STEP_MINUTES; // no explicit max
+      renderFreq();
+    };
 
     const validate = () => {
       const v = Number(input.value);
@@ -227,13 +277,17 @@
       const v = validate();
       if (v == null) return;
       try { dlg.close(); } catch {}
-      onSave(v);
+      onSave(v, currentFreq);
     };
     btnSkip.onclick = () => {
       try { dlg.close(); } catch {}
-      onSkip && onSkip();
+      onSkip && onSkip(currentFreq);
     };
-    btnReset.onclick = () => { input.value = String(prefill || 1); err.classList.add('hidden'); };
+    btnReset.onclick = () => {
+      input.value = String(prefill || 1);
+      err.classList.add('hidden');
+      // do not change frequency on reset; it's only for issueEndNumber
+    };
 
     try { dlg.showModal(); } catch { dlg.show(); }
   }
@@ -253,27 +307,50 @@
       endOverride = Number(finalRepo.issueEndNumber);
     }
 
-    // Decide if we should ask the user to recalibrate (non-blocking if skipped)
+    // Load (or seed) user frequency in minutes; clamp to 5-min steps with 5-min floor
+    let freqMinutes = await idbGet(KEY_FREQ_MINUTES);
+    if (typeof freqMinutes !== 'number' || !Number.isFinite(freqMinutes) || freqMinutes <= 0) {
+      freqMinutes = DEFAULT_USER_INTERVAL_MS / 60000; // default 10
+    }
+    freqMinutes = roundToStep(freqMinutes);
+    await idbSet(KEY_FREQ_MINUTES, freqMinutes);
+
     const lastShown = await idbGet(KEY_LAST_MODAL);
     const now = Date.now();
-    const enoughTimePassed = !lastShown || (now - Number(lastShown)) >= MODAL_MIN_INTERVAL_MS;
-    const wantShow = enoughTimePassed && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+    const elapsed = lastShown ? now - Number(lastShown) : Infinity;
 
-    // If we'll show the modal, wire it — if user ignores/skips, proceed with current IDB value
+    // Hard guarantee: if ≥15 min since last shown, force show
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
+
+    // Otherwise, soft rule: if ≥ user interval, maybe show based on probability
+    const userIntervalMs = Number(freqMinutes) * 60 * 1000;
+    const eligibleByUser = elapsed >= userIntervalMs;
+    const wantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+
+    const wantShow = mustShow || wantsSoftShow;
+
     if (wantShow) {
+      // Record "shown" time immediately to uphold the 15-min guarantee even if skipped
+      await idbSet(KEY_LAST_MODAL, now);
+
       maybeShowEndModal(
         endOverride,
-        async (picked) => {
-          await idbSet(KEY_END, Number(picked));
+        freqMinutes,
+        async (pickedEnd, pickedFreqMinutes) => {
+          await idbSet(KEY_END, Number(pickedEnd));
+          await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           await idbSet(KEY_LAST_MODAL, Date.now());
-          proceed(Number(picked), finalRepo);
+          proceed(Number(pickedEnd), finalRepo);
         },
-        () => {
-          // Skip: proceed with current override
+        async (pickedFreqMinutes) => {
+          // If user changed frequency then skipped, persist that choice too
+          if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
+            await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
+          }
           proceed(Number(endOverride), finalRepo);
         }
       );
-      return; // pause here until modal action calls proceed(...)
+      return; // Wait for modal interaction to call proceed(...)
     }
 
     // No modal: proceed immediately using stored override
