@@ -232,6 +232,9 @@
     return v;
   }
 
+  // >>> NEW: 30s auto-dismiss timer handle
+  let modalTimeoutId = null;
+
   function maybeShowEndModal(prefill, freqMinutes, onSave, onSkip) {
     const dlg = document.getElementById('endDialog');
     const input = document.getElementById('endInput');
@@ -276,20 +279,29 @@
     btnSave.onclick = () => {
       const v = validate();
       if (v == null) return;
+      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; } // NEW: cancel auto-dismiss
       try { dlg.close(); } catch {}
       onSave(v, currentFreq);
     };
     btnSkip.onclick = () => {
+      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; } // NEW: prevent double proceed
       try { dlg.close(); } catch {}
       onSkip && onSkip(currentFreq);
     };
     btnReset.onclick = () => {
       input.value = String(prefill || 1);
       err.classList.add('hidden');
-      // do not change frequency on reset; it's only for issueEndNumber
+      // no change to frequency on reset
     };
 
     try { dlg.showModal(); } catch { dlg.show(); }
+
+    // >>> NEW: Auto-dismiss after 30s if user neither saves nor skips
+    modalTimeoutId = setTimeout(() => {
+      try { dlg.close(); } catch {}
+      // proceed with onSkip semantics, using whatever frequency badge shows
+      onSkip && onSkip(currentFreq);
+    }, 30_000);
   }
 
   async function main() {
@@ -325,12 +337,12 @@
     // Otherwise, soft rule: if ≥ user interval, maybe show based on probability
     const userIntervalMs = Number(freqMinutes) * 60 * 1000;
     const eligibleByUser = elapsed >= userIntervalMs;
-    const wantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+    theWantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
 
-    const wantShow = mustShow || wantsSoftShow;
+    const wantShow = mustShow || theWantsSoftShow;
 
     if (wantShow) {
-      // Record "shown" time immediately to uphold the 15-min guarantee even if skipped
+      // Record "shown" time immediately to uphold the 15-min guarantee even if skipped/auto-dismissed
       await idbSet(KEY_LAST_MODAL, now);
 
       maybeShowEndModal(
@@ -343,7 +355,7 @@
           proceed(Number(pickedEnd), finalRepo);
         },
         async (pickedFreqMinutes) => {
-          // If user changed frequency then skipped, persist that choice too
+          // If user changed frequency (or auto-dismiss kept current), persist that choice too
           if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
             await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           }
