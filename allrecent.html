@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* === Copied modal theme (and base UI tokens) from your reference === */
+    /* === Copied modal theme (and base UI tokens) from your reference) === */
     :root {
       --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
       --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
@@ -81,7 +81,7 @@
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      background:#0f1519; color:#fg; font-variant-numeric:tabular-nums;
       min-width:7ch; text-align:center;
     }
   </style>
@@ -249,6 +249,9 @@ const freqValueEl = document.getElementById('freqValue');
 let currentMix = { ...DEFAULT_MIX };
 let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
 
+/* >>> NEW: 30s auto-dismiss timer handle for the modal */
+let modalTimeoutId = null;
+
 function openModal() {
   try { mixDialog.showModal(); } catch { mixDialog.show(); }
 }
@@ -342,6 +345,7 @@ closeModalBtn.addEventListener('click', async () => {
   // Persist current frequency choice on close (non-destructive to other behavior)
   await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
   closeModal();
+  // (Intentionally do NOT clear the auto-dismiss timer here)
 });
 resetDefaultsBtn.addEventListener('click', async () => {
   currentMix = { ...DEFAULT_MIX };
@@ -357,6 +361,9 @@ zeroAllBtn.addEventListener('click', async () => {
   renderMixRows();
 });
 saveAndGoBtn.addEventListener('click', async () => {
+  /* >>> NEW: cancel the 30s auto-dismiss if user explicitly saves */
+  if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+
   // Final guard
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
     currentMix['random'] = 1;
@@ -588,6 +595,15 @@ function noisePatch(weights, issues) {
       // Record "shown" moment immediately to respect the 15-min guarantee (even if user closes)
       await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
+
+      /* >>> NEW: Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
+         Proceed with the usual implementation (choose and redirect) without saving. */
+      modalTimeoutId = setTimeout(() => {
+        closeModal(); // hide modal if it's still open
+        const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
+        proceedWithFormula(chosenFormula, n, issues);
+      }, 30_000);
+
       // Wait for Save & Continue (existing behavior preserved)
       return;
     }
