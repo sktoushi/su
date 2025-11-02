@@ -60,7 +60,7 @@
     }
     .hint{margin-top:-.6rem; margin-bottom:.9rem;}
 
-    /* New: tiny layout helper for +/- frequency control */
+    /* Modal frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
@@ -68,7 +68,7 @@
       min-width:7ch; text-align:center;
     }
 
-    /* New: mix controls */
+    /* Mix controls */
     .mixwrap{border-top:1px solid rgba(255,255,255,.08); padding-top:.75rem; margin-top:.5rem;}
     .mixrow{display:flex; align-items:center; gap:.5rem; margin:.35rem 0;}
     .mixrow label{flex:1; color:var(--fg); font-size:.95rem;}
@@ -92,7 +92,7 @@
     <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
     <div class="hint small">If you skip, we’ll continue using the current stored value (seeded from the config on first run).</div>
 
-    <!-- Modal show frequency (kept) -->
+    <!-- Modal show frequency -->
     <div class="field">
       <label class="small">Modal frequency</label>
       <div class="freqrow">
@@ -103,21 +103,21 @@
     </div>
     <div class="small hint">We’ll still show this at least once every 15 minutes.</div>
 
-    <!-- NEW: Randomization frequency mix -->
+    <!-- Randomization frequency mix -->
     <div class="mixwrap">
       <h3 class="small" style="margin:.25rem 0 .5rem;">Randomization frequency mix (must sum to 100%)</h3>
       <div id="mixContainer" class="mixgrid">
         <!-- rows injected by JS -->
       </div>
-      <div class="small hint">Default: **Recent 100 items = 60%**, remaining 40% increases smoothly from Recent 5% up to Recent 90%.</div>
+      <div class="small hint">Default is right-tilted: <em>Recent 100 items = 60%</em>, remaining 40% rises smoothly from Recent 5% → 90%.</div>
     </div>
 
     <div class="toolbar" style="margin-top:.6rem;">
       <button class="btn btn-small btn-danger" id="skipEndBtn" title="Enabled after 30s">Skip</button>
       <span id="skipCountdown" class="small countdown" aria-live="polite"></span>
       <div style="flex:1"></div>
-      <button class="btn btn-small" id="resetEndBtn" title="Reset issueEndNumber to config value; keeps your mix unless you press Reset Mix">Reset</button>
-      <button class="btn btn-small" id="resetMixBtn" title="Restore smooth default: 60% to Recent 100 items">Reset Mix</button>
+      <button class="btn btn-small" id="resetEndBtn" title="Reset issueEndNumber to config value">Reset</button>
+      <button class="btn btn-small" id="resetMixBtn" title="Restore right-tilted default mix">Reset Mix</button>
       <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
     </div>
   </div>
@@ -125,10 +125,15 @@
 
 <script>
 /* ============================================================
-   Crypto-secure randomness (no Math.random)
-   Now supports a weighted mix of ranges:
-   - Recent 90%, 80%, ... 10%, 5%
-   - Recent 100 items (kept)
+   Crypto-secure randomness only (no Math.random)
+
+   Enhancements:
+   - Weighted mix of ranges:
+       Recent 90%, 80%, 70%, …, 10%, 5%
+       Recent 100 items (kept, defaults to 60% weight)
+   - Modal stays visible ≥30s unless user presses Save (then proceed).
+   - Skip is disabled for the first 30s; after that user can Skip.
+   - Mix, end number, and modal frequency persisted in IndexedDB.
    ============================================================ */
 
 (function () {
@@ -171,7 +176,7 @@
       throw new Error('Invalid repositories structure in config.');
     }
 
-    // Case A: single final object
+    // Case A: already a single final object
     if ('repo' in repositories && 'username' in repositories && 'issueEndNumber' in repositories) {
       return {
         repo: String(repositories.repo),
@@ -180,11 +185,11 @@
       };
     }
 
-    // Case B: mapping of repoName -> info. Pick last in insertion order.
+    // Case B: mapping of repoName -> info. Pick the LAST entry (in insertion order).
     const entries = Object.entries(repositories);
     if (entries.length === 0) throw new Error('No repositories configured.');
 
-    const [repoName, info] = entries[entries.length - 1]; // last
+    const [repoName, info] = entries[entries.length - 1]; // last one
 
     if (!info || typeof info !== 'object') throw new Error('Malformed repository info.');
     if (!info.username) throw new Error('Missing "username" in repository info.');
@@ -197,7 +202,7 @@
     };
   }
 
-  /* ================= IndexedDB (same DB + keys) ================= */
+  /* ================= IndexedDB (same DB + keys + new mix key) ================= */
   const IDB_NAME = 'issueEndOverrideDB_v1';
   const IDB_VER = 1;
   const STORE_SETTINGS = 'settings';
@@ -249,7 +254,7 @@
   }
 
   // ====== Mix model ======
-  // Define rows (order of display: 90,80,...,10,5, then 100 items)
+  // Order of display: 90,80,...,10,5, then 100 items
   const MIX_DEF = [
     { id:'p90', label:'Recent 90%', kind:'percent', p:90 },
     { id:'p80', label:'Recent 80%', kind:'percent', p:80 },
@@ -264,23 +269,29 @@
     { id:'n100', label:'Recent 100 items', kind:'fixed', n:100 }
   ];
 
-  // Smooth default points: 60% to n100, remaining 40% linear increasing across percent rows
+  // Right-tilted default.
+  // Increase weight nonlinearly toward the right (newer buckets).
+  // Stronger tilt? Raise TILT_POWER to 3.
+  const TILT_POWER = 2;
+
   function defaultMixPoints() {
-    // percent rows ascending ranks 1..10 by recency (5% -> rank1, 90% -> rank10)
+    // Left → right: older → newer percent buckets
     const percentRows = ['p5','p10','p20','p30','p40','p50','p60','p70','p80','p90'];
     const points = {};
     let sumPercent = 0;
+
     percentRows.forEach((id, idx) => {
-      const rank = idx + 1; // 1..10
-      points[id] = rank; // linear ramp
-      sumPercent += rank;
+      const rank = idx + 1;                 // p5=1 … p90=10
+      const w = Math.pow(rank, TILT_POWER); // right-tilt growth
+      points[id] = w;
+      sumPercent += w;
     });
-    // Choose n100 points so that n100 / (n100 + sumPercent) ≈ 0.60
-    const n100pts = Math.round( (0.60/0.40) * sumPercent ); // ~1.5 * 55 = 82.5 => 83
+
+    // Make "Recent 100 items" ≈ 60% of total
+    const n100pts = Math.round((0.60 / 0.40) * sumPercent);
     points['n100'] = n100pts;
-    // Fill for the missing 90..10 which we inserted ascending; we need all ids
-    // Add also any not included (none extra)
-    return points; // integer points, normalized later
+
+    return points; // integer points; UI normalizes to 100%
   }
 
   function normalizePointsToPerc(points) {
@@ -288,7 +299,6 @@
     let total = 0;
     ids.forEach(id => total += Math.max(0, points[id] || 0));
     if (total <= 0) {
-      // fallback to default
       points = defaultMixPoints();
       total = Object.values(points).reduce((a,b)=>a+b,0);
     }
@@ -301,7 +311,6 @@
   }
 
   function weightedPickId(percMap) {
-    // Build cumulative 0..100
     let acc = 0;
     const ranges = MIX_DEF.map(row => {
       const start = acc;
@@ -312,8 +321,7 @@
     for (const it of ranges) {
       if (r >= it.start && r < it.end) return it.id;
     }
-    // numeric errors: fallback to last
-    return MIX_DEF[MIX_DEF.length - 1].id;
+    return MIX_DEF[MIX_DEF.length - 1].id; // safety: last bucket
   }
 
   // Compute [lo,hi] inclusive for a chosen bucket at given end
@@ -329,7 +337,7 @@
       const hi = endInt;
       return [lo, hi];
     }
-    // percent
+    // percent buckets cover the most recent p% of [1..end]
     const p = row.p;
     const lo = Math.max(1, Math.floor(endInt * (1 - (p/100))) + 1);
     const hi = endInt;
@@ -390,7 +398,7 @@
     };
   }
 
-  // ===== NEW: 30s min-display timer handle =====
+  // ===== 30s min-display timer handles =====
   let modalTimeoutId = null;
   let skipEnableTimerId = null;
 
@@ -445,7 +453,7 @@
       mixUI.setPoints(defaultMixPoints());
     };
 
-    // Save (can happen before 30s)
+    // Save can end sooner than 30s
     btnSave.onclick = () => {
       const v = validateEnd();
       if (v == null) return;
@@ -486,7 +494,7 @@
     // Show the modal
     try { dlg.showModal(); } catch { dlg.show(); }
 
-    // Auto-proceed AFTER 30s if user neither saves nor presses Skip (Skip is enabled at 30s)
+    // Auto-proceed AFTER 30s if user neither saves nor presses Skip
     modalTimeoutId = setTimeout(() => {
       try { dlg.close(); } catch {}
       // Auto proceed with current on-screen mix (not persisted), keep existing end
@@ -541,7 +549,7 @@
     const wantShow = mustShow || wantsSoftShow;
 
     if (wantShow) {
-      // Stamp "shown" time now to uphold the 15-min guarantee
+      // Stamp "shown" time to uphold the 15-min guarantee
       await idbSet(KEY_LAST_MODAL, now);
 
       maybeShowEndModal(
@@ -556,7 +564,7 @@
           await idbSet(KEY_LAST_MODAL, Date.now());
           proceed(Number(pickedEnd), finalRepo, pickedPerc);
         },
-        // onAutoOrSkip (after 30s or user presses Skip after 30s):
+        // onAutoOrSkip (after 30s or user presses Skip after 30s)
         async (pickedFreqMinutes, percOnScreen) => {
           if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
             await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
@@ -565,7 +573,7 @@
           proceed(Number(endOverride), finalRepo, percOnScreen);
         }
       );
-      return; // Wait for modal interaction
+      return; // wait for modal interaction
     }
 
     // No modal: proceed immediately using stored override and stored mix
