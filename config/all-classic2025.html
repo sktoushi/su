@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repository Issue Randomizer (with Noise Patch + Session Decay)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #fafafa;
+      margin: 2rem;
+    }
+    code {
+      background: #eee;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/* ============================================================
+   BASE IMPLEMENTATION — preserved exactly as the guiding logic
+   ============================================================ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories || {};
+    const issues = [];
+
+    // --- Gather all issue URLs
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+
+    const n = issues.length;
+    let formulaParam = 'random';
+    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
+    if (formulas.length > 0) {
+      const idx = Math.floor(getSecureRandomNumber() * formulas.length);
+      formulaParam = formulas[idx];
+    }
+
+    const weights = new Array(n).fill(1);
+    if (formulaParam === 'leftLeaning') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (n - i) * noise;
+      }
+    } else if (formulaParam === 'rightLeaning1') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (i + 1) * noise;
+      }
+    } else if (formulaParam === 'recent20Percent') {
+      const startIdx = Math.floor(n * 0.8);
+      for (let i = startIdx; i < n; i++) weights[i] = 5;
+    } else if (formulaParam === 'recent5Percent') {
+      const startIdx = Math.floor(n * 0.95);
+      for (let i = startIdx; i < n; i++) weights[i] = 20;
+    }
+
+    /* ============================================================
+       NOISE PATCH — adaptive volatility + erratic randomness + session decay
+       ============================================================ */
+    function noisePatch(weights, issues) {
+      // --- Secure RNG
+      function cryptoRandom() {
+        const buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      }
+
+      function cryptoNormal(mean = 0, stdDev = 1) {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      }
+
+      // --- Retrieve memory drift from localStorage
+      const key = "repo_randomizer_memory_v2";
+      let mem = JSON.parse(localStorage.getItem(key) || "{}");
+      let history = mem.history || new Array(weights.length).fill(0);
+      let lastTs = mem.lastTs || Date.now();
+      const now = Date.now();
+
+      // --- Session decay (exponential decay)
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const daysPassed = Math.max(0, (now - lastTs) / msPerDay);
+      const decayRate = 0.15; // per day — 15% exponential decay
+      if (daysPassed > 0.1) {
+        const decayFactor = Math.exp(-decayRate * daysPassed);
+        history = history.map(v => v * decayFactor);
+      }
+
+      let total = history.reduce((a, b) => a + b, 0);
+
+      // --- Adaptive bias (favor under-visited)
+      let bias = new Array(weights.length).fill(0);
+      if (total > 0) {
+        const avg = total / history.length;
+        bias = history.map(c => (avg - c) / avg * 0.05); // ±5% correction
+      }
+
+      // --- Erratic mode probability
+      const erratic = cryptoRandom() < 0.08; // 8% chance
+      const stdDev = erratic ? 0.35 : 0.08;
+
+      // --- Apply noise and bias to weights
+      let adjusted = weights.map((w, i) => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        const drift = bias[i] || 0;
+        const noisy = Math.max(0.0001, w + w * noise + w * drift);
+        return noisy;
+      });
+
+      // --- Normalize to sum = 1
+      const sum = adjusted.reduce((a, b) => a + b, 0);
+      adjusted = adjusted.map(w => w / sum);
+
+      // --- Choose index using adjusted probabilities
+      const r = cryptoRandom();
+      let cumulative = 0;
+      let chosenIdx = adjusted.length - 1;
+      for (let i = 0; i < adjusted.length; i++) {
+        cumulative += adjusted[i];
+        if (r < cumulative) {
+          chosenIdx = i;
+          break;
+        }
+      }
+
+      // --- Memory update
+      history[chosenIdx] = (history[chosenIdx] || 0) + 1;
+      localStorage.setItem(key, JSON.stringify({
+        history,
+        lastTs: now
+      }));
+
+      return { index: chosenIdx, erratic, adjusted, daysPassed };
+    }
+
+    // --- Execute noise patch
+    const noisy = noisePatch(weights, issues);
+    const chosen = issues[noisy.index];
+
+    // --- Redirect
+    location.href = chosen;
+
+    // --- Fallback: show diagnostic info if redirect blocked
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Selected: ${chosen}\n` +
+        `Erratic mode: ${noisy.erratic ? "⚡ yes" : "⤵ stable"}\n` +
+        `Days since last session: ${noisy.daysPassed.toFixed(2)}\n` +
+        `Weights (top 5): ${noisy.adjusted.slice(0,5).map(w => w.toFixed(4)).join(', ')}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>
