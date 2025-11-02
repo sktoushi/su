@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Randomizer</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body { display:flex; min-height:100svh; align-items:center; justify-content:center; margin:0; background:#0f0f12; color:#e9e9ee; }
+    .card { max-width:680px; width:min(92vw, 680px); background:#17171c; border:1px solid #2b2b31; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+    h1 { font-size:1.3rem; margin:0 0 10px; letter-spacing:.2px; }
+    p { opacity:.85; line-height:1.5; }
+    code { background:#111116; border:1px solid #2b2b31; padding:.15rem .35rem; border-radius:6px; }
+    .row { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+    button, a.btn {
+      cursor:pointer; border:none; border-radius:12px; padding:12px 16px; font-weight:600; font-size:0.95rem;
+      background:#3a6df0; color:white; text-decoration:none;
+    }
+    button.secondary { background:#2b2b31; color:#e9e9ee; }
+    .url { margin-top:12px; word-break:break-all; font-size:.95rem; }
+    .hint { font-size:.85rem; opacity:.75; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Random PDF Redirect</h1>
+    <p>Click the button to jump to a random PDF between <code>28.pdf</code> and <code>38.pdf</code> (excluding <code>32.pdf</code>).</p>
+    <div class="row">
+      <button id="go">Open Random PDF</button>
+      <button id="copy" class="secondary">Copy Link</button>
+      <a id="openLink" class="btn secondary" href="#" target="_blank" rel="noopener" style="display:none">Open in New Tab</a>
+    </div>
+    <div class="url" id="chosen"></div>
+    <div class="hint">Auto-redirect can be enabled with <code>?auto=1</code> in the URL.</div>
+  </div>
+
+<script>
+(function() {
+  const base = "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=";
+  const files = [28,29,30,31,33,34,35,36,37,38].map(n => `${n}.pdf`);
+
+  function pickRandom() {
+    // Uniform selection
+    const idx = Math.floor(Math.random() * files.length);
+    return base + files[idx];
+  }
+
+  function setChosen(url) {
+    const el = document.getElementById('chosen');
+    el.textContent = url;
+    const open = document.getElementById('openLink');
+    open.href = url;
+    open.style.display = 'inline-block';
+  }
+
+  function goNow(url) {
+    window.location.href = url;
+  }
+
+  // Wire up buttons
+  document.getElementById('go').addEventListener('click', () => {
+    const url = pickRandom();
+    setChosen(url);
+    goNow(url);
+  });
+
+  document.getElementById('copy').addEventListener('click', async () => {
+    const url = document.getElementById('chosen').textContent || pickRandom();
+    setChosen(url);
+    try {
+      await navigator.clipboard.writeText(url);
+      document.getElementById('copy').textContent = "Copied ✓";
+      setTimeout(() => (document.getElementById('copy').textContent = "Copy Link"), 1200);
+    } catch(e) {
+      alert("Copy failed. Manually copy the link shown.");
+    }
+  });
+
+  // Support auto=1 for instant redirect on page load
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('auto') === '1') {
+    const url = pickRandom();
+    setChosen(url);
+    goNow(url);
+  } else {
+    // Pre-pick and display for convenience
+    setChosen(pickRandom());
+  }
+})();
+</script>
+
+<noscript>
+  <p style="color:#e9e9ee; text-align:center">JavaScript is required. Here are the possible links:</p>
+  <ul>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=28.pdf">28.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=29.pdf">29.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=30.pdf">30.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=31.pdf">31.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=33.pdf">33.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=34.pdf">34.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=35.pdf">35.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=36.pdf">36.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=37.pdf">37.pdf</a></li>
+    <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=38.pdf">38.pdf</a></li>
+  </ul>
+</noscript>
+</body>
+</html>
