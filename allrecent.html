@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend + Mix Modal)</title>
-  <!-- Keep your external helper; we add a local fallback below so GH Pages path issues don't break things -->
+
+  <!-- Ensure relative URLs resolve correctly on GitHub Pages project subpaths -->
+  <base href="./">
+
+  <!-- External helper (optional). We now have a robust local/global fallback. -->
   <script src="common/random-utils.js"></script>
+
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* === Copied modal theme (and base UI tokens) from your reference) === */
+    /* === Theme tokens === */
     :root {
       --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
       --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
@@ -47,7 +52,7 @@
     .modal p{margin:0 0 .9rem 0; color:var(--muted);}
     .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
 
-    /* === Minimal extras for the mix UI === */
+    /* === Mix UI === */
     .mix-summary{
       display:flex; align-items:center; justify-content:space-between;
       margin:.25rem 0 0.75rem 0; color:var(--muted);
@@ -78,11 +83,11 @@
     }
     code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
 
-    /* New: small helpers for ±5 min frequency control */
+    /* Frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums; /* fixed var */
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
       min-width:7ch; text-align:center;
     }
   </style>
@@ -90,7 +95,7 @@
 <body>
 <main id="app"></main>
 
-<!-- Mix Modal (theme copied from your reference) -->
+<!-- Mix Modal -->
 <dialog id="mixDialog" aria-labelledby="mixTitle">
   <div class="modal">
     <div class="modal-header">
@@ -109,7 +114,7 @@
 
     <div id="mixRows" class="mix-rows"></div>
 
-    <!-- ▼ New: modal frequency controls (±5m, floor 5m), placed right before the buttons -->
+    <!-- Frequency controls -->
     <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
       <label class="small">Modal frequency</label>
       <div class="freqrow">
@@ -119,7 +124,6 @@
       </div>
     </div>
     <div class="small" style="margin:.25rem 0 .5rem 0;">We’ll still show this at least once every 15 minutes.</div>
-    <!-- ▲ End new controls -->
 
     <div class="toolbar" style="margin-top:1rem;">
       <button class="btn btn-small" id="resetDefaultsBtn" title="Reset to built-in defaults">Reset</button>
@@ -132,20 +136,26 @@
 
 <script>
 /* ============================================================
-   Hardened randomness helpers (fix GH Pages ReferenceErrors)
+   GLOBAL randomness fallback (robust on GH Pages)
    ============================================================ */
-/* If the external helper defined it, use that; otherwise, provide a secure fallback */
-const getSecureRandomNumber = (typeof window.getSecureRandomNumber === 'function')
-  ? window.getSecureRandomNumber
-  : function getSecureRandomNumberFallback() {
-      const u = new Uint32Array(1);
-      crypto.getRandomValues(u);
-      return u[0] / 0xffffffff;
-    };
-/* Kept your local helper from earlier too */
+if (typeof window.getSecureRandomNumber !== 'function') {
+  window.getSecureRandomNumber = function () {
+    const u = new Uint32Array(1);
+    window.crypto.getRandomValues(u);
+    return u[0] / 0xffffffff;
+  };
+}
+const getSecureRandomNumber =
+  typeof window.getSecureRandomNumber === 'function'
+    ? window.getSecureRandomNumber
+    : function () {
+        const u = new Uint32Array(1);
+        window.crypto.getRandomValues(u);
+        return u[0] / 0xffffffff;
+      };
 function getSecureRandom01() {
   const u = new Uint32Array(1);
-  crypto.getRandomValues(u);
+  window.crypto.getRandomValues(u);
   return u[0] / 0xffffffff;
 }
 
@@ -191,7 +201,7 @@ function idbSet(store, key, value) {
 }
 
 /* ============================================================
-   Defaults (seeded to IDB on first run)
+   Defaults
    ============================================================ */
 const FORMULAS_CANON = [
   'random',
@@ -199,7 +209,6 @@ const FORMULAS_CANON = [
   'rightLeaning1',
   'recent20Percent',
   'recent5Percent',
-  // ▼ Cognition-oriented additions (and a few utility patterns)
   'middleBell',
   'oldest10Percent',
   'recent10Percent',
@@ -223,13 +232,11 @@ const FORMULAS_CANON = [
 ];
 
 const DEFAULT_MIX = {
-  /* keep your original defaults */
   random: 0,
   leftLeaning: 0,
   rightLeaning1: 0,
   recent20Percent: 1,
   recent5Percent: 1,
-  /* new formulas enabled by default so they show in modal */
   middleBell: 1,
   oldest10Percent: 1,
   recent10Percent: 1,
@@ -252,13 +259,13 @@ const DEFAULT_MIX = {
   noveltyWave: 1
 };
 
-/* Modal timing (updated to include forced 15m + user-configurable ±5m) */
-const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee
-const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default interval
-const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts
+/* Modal timing */
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+const MODAL_SHOW_PROBABILITY = 0.15;
 const KEY_FREQ_MINUTES = 'modalFreqMinutes';
-const USER_MIN_FREQ_MINUTES = 5;                // floor 5 minutes
-const STEP_MINUTES = 5;                         // increment/decrement step
+const USER_MIN_FREQ_MINUTES = 5;
+const STEP_MINUTES = 5;
 
 /* ============================================================
    Utilities
@@ -283,12 +290,11 @@ function weightedChoiceFromMix(mix, fallbackList) {
   return entries[entries.length - 1][0];
 }
 function roundToStep(valueMinutes) {
-  const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
-  return v;
+  return Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
 }
 
 /* ============================================================
-   Modal UI (dialog-based)
+   Modal UI
    ============================================================ */
 const mixDialog = document.getElementById('mixDialog');
 const mixRowsContainer = document.getElementById('mixRows');
@@ -298,25 +304,17 @@ const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
 const zeroAllBtn = document.getElementById('zeroAllBtn');
 const saveAndGoBtn = document.getElementById('saveAndGoBtn');
 
-/* New: frequency UI elements */
 const freqDecBtn = document.getElementById('freqDec');
 const freqIncBtn = document.getElementById('freqInc');
 const freqValueEl = document.getElementById('freqValue');
 
 let currentMix = { ...DEFAULT_MIX };
 let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
-
-/* >>> NEW: 30s auto-dismiss timer handle for the modal */
 let modalTimeoutId = null;
 
-function openModal() {
-  try { mixDialog.showModal(); } catch { mixDialog.show(); }
-}
-function closeModal() {
-  try { mixDialog.close(); } catch { mixDialog.open = false; }
-}
+function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); } }
+function closeModal() { try { mixDialog.close(); } catch { mixDialog.open = false; } }
 
-/* Constraint helpers: prevent all-zero; at least one stays at 1+ */
 function isLastNonZero(name) {
   let nonZeroNames = FORMULAS_CANON.filter(k => (Number(currentMix[k])||0) > 0);
   if (nonZeroNames.length > 1) return false;
@@ -385,24 +383,18 @@ function updateTotalsAndButtons() {
     if (el) el.textContent = String(Number(currentMix[name]) || 0);
   });
   totalCountPill.textContent = String(sumMix(currentMix));
-  // Update minus buttons based on constraint
   const rows = mixRowsContainer.querySelectorAll('.mix-row');
   rows.forEach((row, idx) => {
     const name = FORMULAS_CANON[idx];
     const minusBtn = row.querySelector('.btn.btn-small');
     if (minusBtn) minusBtn.disabled = !nextMinusAllowed(name);
   });
-
-  // Update frequency badge text
   if (freqValueEl) freqValueEl.textContent = `${currentFreqMinutes} min`;
 }
 
-/* Wire modal buttons */
 closeModalBtn.addEventListener('click', async () => {
-  // Persist current frequency choice on close (non-destructive to other behavior)
   await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
   closeModal();
-  // (Intentionally do NOT clear the auto-dismiss timer here)
 });
 resetDefaultsBtn.addEventListener('click', async () => {
   currentMix = { ...DEFAULT_MIX };
@@ -418,10 +410,7 @@ zeroAllBtn.addEventListener('click', async () => {
   renderMixRows();
 });
 saveAndGoBtn.addEventListener('click', async () => {
-  /* >>> NEW: cancel the 30s auto-dismiss if user explicitly saves */
   if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
-
-  // Final guard
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
     currentMix['random'] = 1;
   }
@@ -435,7 +424,6 @@ saveAndGoBtn.addEventListener('click', async () => {
   });
 });
 
-/* New: frequency +/- controls */
 function wireFrequencyControls() {
   if (!freqDecBtn || !freqIncBtn || !freqValueEl) return;
   freqDecBtn.onclick = () => {
@@ -443,16 +431,15 @@ function wireFrequencyControls() {
     updateTotalsAndButtons();
   };
   freqIncBtn.onclick = () => {
-    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES; // no hard max
+    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES;
     updateTotalsAndButtons();
   };
 }
 
 /* ============================================================
-   Formulas (with recency bias on the right)
+   Formulas (with gentle recency bias to the right where appropriate)
    ============================================================ */
 function recencyMultiplier(i, n, alpha = 0.6) {
-  // Monotonic right-leaning factor in [1, 1+alpha]
   if (n <= 1) return 1;
   const x = i / (n - 1);
   return 1 + alpha * x;
@@ -461,25 +448,23 @@ function recencyMultiplier(i, n, alpha = 0.6) {
 function applyFormulaWeights(formulaParam, n) {
   const weights = new Array(n).fill(1);
 
-  // Existing formulas (unchanged semantics)
   if (formulaParam === 'leftLeaning') {
     for (let i = 0; i < n; i++) {
       const noise = 0.5 + getSecureRandomNumber();
-      weights[i] = (n - i) * noise; // intentionally left-biased; do NOT add recency
+      weights[i] = (n - i) * noise;
     }
   } else if (formulaParam === 'rightLeaning1') {
     for (let i = 0; i < n; i++) {
       const noise = 0.5 + getSecureRandomNumber();
-      weights[i] = (i + 1) * noise; // already right-biased
+      weights[i] = (i + 1) * noise;
     }
   } else if (formulaParam === 'recent20Percent') {
     const startIdx = Math.floor(n * 0.8);
     for (let i = startIdx; i < n; i++) weights[i] = 5;
+
   } else if (formulaParam === 'recent5Percent') {
     const startIdx = Math.floor(n * 0.95);
     for (let i = startIdx; i < n; i++) weights[i] = 20;
-
-  /* ---------- Cognition-oriented patterns with gentle recency tilt ---------- */
 
   } else if (formulaParam === 'middleBell') {
     const mu = (n - 1) / 2;
@@ -530,7 +515,7 @@ function applyFormulaWeights(formulaParam, n) {
     const c = (n - 1) / 2;
     for (let i = 0; i < n; i++) {
       const norm = Math.abs(i - c) / (c || 1);
-      const base = 1 + 4 * norm; // U-shape
+      const base = 1 + 4 * norm;
       weights[i] = base * recencyMultiplier(i, n, 0.5);
     }
 
@@ -626,7 +611,7 @@ function applyFormulaWeights(formulaParam, n) {
     for (let i = 0; i < n; i++) {
       const x = i / Math.max(1, n - 1);
       const base = 1 + 5 * (x * x);
-      weights[i] = base; // already strongly right-leaning
+      weights[i] = base;
     }
 
   } else if (formulaParam === 'easyThenHard') {
@@ -635,7 +620,7 @@ function applyFormulaWeights(formulaParam, n) {
       const phase1 = Math.max(0, 0.6 - x) * 2.0;
       const phase2 = Math.max(0, x - 0.4) * 3.0;
       const base = 1 + phase1 + phase2;
-      weights[i] = base; // already right-leaning via phase2
+      weights[i] = base;
     }
 
   } else if (formulaParam === 'contrastBlocks') {
@@ -664,11 +649,12 @@ function applyFormulaWeights(formulaParam, n) {
       weights[i] = base * recencyMultiplier(i, n, 0.45);
     }
   }
-  // 'random' (or unknown) stays uniform
   return weights;
 }
 
-/* === noisePatch from your code (unchanged) === */
+/* ============================================================
+   noisePatch (fixed implicit global + consistent window.crypto)
+   ============================================================ */
 function noisePatch(weights, issues) {
   function cryptoRandom() {
     const buf = new Uint32Array(1);
@@ -685,9 +671,9 @@ function noisePatch(weights, issues) {
   function dejaGate(nowMs) {
     const d = new Date(nowMs);
     const hour = d.getHours() + d.getMinutes()/60;
-    theDay = d.getDay();
+    const day  = d.getDay(); // FIX: declare variable instead of implicit global
     const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
-    const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((theDay+0.5)/7)));
+    const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
     const u = new Uint32Array(1); window.crypto.getRandomValues(u);
     const jitter = (u[0] / 0xffffffff) * 0.2;
     return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
@@ -787,41 +773,38 @@ function noisePatch(weights, issues) {
 }
 
 /* ============================================================
-   Boot: seed IDB once, then always read from IDB
+   Boot
    ============================================================ */
 (async () => {
   try {
-    // Ensure defaults exist in IDB
     const existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');
     if (!existingMix) {
       await idbSet(STORE_SETTINGS, 'formulaMix', { ...DEFAULT_MIX });
     }
     currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
 
-    // Ensure a user modal frequency (in minutes) exists; clamp to 5-min steps with 5-min floor
     let storedFreq = await idbGet(STORE_SETTINGS, KEY_FREQ_MINUTES);
     if (typeof storedFreq !== 'number' || !Number.isFinite(storedFreq) || storedFreq <= 0) {
-      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000; // 10 min
+      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000;
     }
     currentFreqMinutes = roundToStep(storedFreq);
     await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
 
-    // Config: fetch once then cache in IDB; afterwards read from IDB
-    // Be robust to GH Pages paths; use a URL relative to the current document.
+    /* Robust config fetch for GH Pages subpaths (+ soft bust) */
     let cfg = await idbGet(STORE_CONFIG, 'all');
     if (!cfg) {
-      const configUrl = new URL('config/all.json', document.baseURI).href;
-      let res = await fetch(configUrl, { cache: 'no-store' }).catch(() => null);
+      const bust = `?v=${Date.now()}`;
+      const primary = new URL('./config/all.json' + bust, window.location.href).toString();
+      let res = await fetch(primary, { cache: 'no-store' }).catch(() => null);
       if (!res || !res.ok) {
-        // Try a strictly relative fallback
-        res = await fetch('./config/all.json', { cache: 'no-store' }).catch(() => null);
+        const fallback = './config/all.json' + bust;
+        res = await fetch(fallback, { cache: 'no-store' }).catch(() => null);
       }
       if (!res || !res.ok) throw new Error('Failed to load config (config/all.json not found)');
       cfg = await res.json();
       await idbSet(STORE_CONFIG, 'all', cfg);
     }
 
-    // Build issues from cached config
     const repos = cfg.repositories || {};
     const issues = [];
     for (const [repo, info] of Object.entries(repos)) {
@@ -835,39 +818,30 @@ function noisePatch(weights, issues) {
     const n = issues.length;
     if (!n) throw new Error('No issues generated from config. Check config/all.json contents.');
 
-    // Modal timing: forced guarantee + probabilistic user interval
     const lastShown = await idbGet(STORE_META, 'lastModalShown');
     const now = Date.now();
     const elapsed = lastShown ? (now - Number(lastShown)) : Infinity;
 
-    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // hard guarantee
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
     const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
     const wantsSoftShow = eligibleByUser && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
     const wantShow = mustShow || wantsSoftShow;
 
-    // Prepare modal UI (rows + frequency control)
     renderMixRows();
     wireFrequencyControls();
     updateTotalsAndButtons();
 
     if (wantShow) {
-      // Record "shown" moment immediately to respect the 15-min guarantee (even if user closes)
       await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
-
-      /* >>> Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
-         Proceed with the usual implementation (choose and redirect) without saving. */
       modalTimeoutId = setTimeout(() => {
-        closeModal(); // hide modal if it's still open
+        closeModal();
         const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
         proceedWithFormula(chosenFormula, n, issues);
       }, 30_000);
-
-      // Wait for Save & Continue (existing behavior preserved)
       return;
     }
 
-    // Proceed immediately
     const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
     await proceedWithFormula(chosenFormula, n, issues);
 
@@ -877,7 +851,6 @@ function noisePatch(weights, issues) {
   }
 })();
 
-/* Continue after modal save */
 async function proceedAfterMixSaved() {
   currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
   if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
