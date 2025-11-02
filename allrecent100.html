@@ -67,6 +67,14 @@
       background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
       min-width:7ch; text-align:center;
     }
+
+    /* New: mix controls */
+    .mixwrap{border-top:1px solid rgba(255,255,255,.08); padding-top:.75rem; margin-top:.5rem;}
+    .mixrow{display:flex; align-items:center; gap:.5rem; margin:.35rem 0;}
+    .mixrow label{flex:1; color:var(--fg); font-size:.95rem;}
+    .mixvalue{min-width:6ch; text-align:right; font-variant-numeric:tabular-nums;}
+    .mixgrid{display:grid; grid-template-columns:1fr auto auto auto; gap:.5rem; align-items:center;}
+    .countdown{font-variant-numeric:tabular-nums;}
   </style>
 </head>
 <body>
@@ -84,7 +92,7 @@
     <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
     <div class="hint small">If you skip, we’ll continue using the current stored value (seeded from the config on first run).</div>
 
-    <!-- ▼ Updated: frequency controls (±5 minutes, min 5), placed right before the buttons -->
+    <!-- Modal show frequency (kept) -->
     <div class="field">
       <label class="small">Modal frequency</label>
       <div class="freqrow">
@@ -94,12 +102,22 @@
       </div>
     </div>
     <div class="small hint">We’ll still show this at least once every 15 minutes.</div>
-    <!-- ▲ End new controls -->
+
+    <!-- NEW: Randomization frequency mix -->
+    <div class="mixwrap">
+      <h3 class="small" style="margin:.25rem 0 .5rem;">Randomization frequency mix (must sum to 100%)</h3>
+      <div id="mixContainer" class="mixgrid">
+        <!-- rows injected by JS -->
+      </div>
+      <div class="small hint">Default: **Recent 100 items = 60%**, remaining 40% increases smoothly from Recent 5% up to Recent 90%.</div>
+    </div>
 
     <div class="toolbar" style="margin-top:.6rem;">
-      <button class="btn btn-small btn-danger" id="skipEndBtn">Skip</button>
+      <button class="btn btn-small btn-danger" id="skipEndBtn" title="Enabled after 30s">Skip</button>
+      <span id="skipCountdown" class="small countdown" aria-live="polite"></span>
       <div style="flex:1"></div>
-      <button class="btn btn-small" id="resetEndBtn" title="Reset to config value">Reset</button>
+      <button class="btn btn-small" id="resetEndBtn" title="Reset issueEndNumber to config value; keeps your mix unless you press Reset Mix">Reset</button>
+      <button class="btn btn-small" id="resetMixBtn" title="Restore smooth default: 60% to Recent 100 items">Reset Mix</button>
       <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
     </div>
   </div>
@@ -107,12 +125,10 @@
 
 <script>
 /* ============================================================
-   Crypto-secure randomness only (no Math.random)
-   Steps:
-   1) Load config/all.json
-   2) Extract the LAST repository entry (in insertion order)
-   3) Pick a random issue in [Math.max(1, end - 100), end] using crypto RNG
-   4) Redirect immediately to the chosen issue URL
+   Crypto-secure randomness (no Math.random)
+   Now supports a weighted mix of ranges:
+   - Recent 90%, 80%, ... 10%, 5%
+   - Recent 100 items (kept)
    ============================================================ */
 
 (function () {
@@ -132,14 +148,14 @@
     return buf[0] / TWO32;
   }
 
-  // Uniform integer in [min, max] without modulo bias (rejection sampling)
+  // Uniform integer in [min, max] inclusive, no modulo bias (rejection sampling)
   function cryptoRandomInt(min, max) {
     assertCrypto();
     if (!Number.isInteger(min) || !Number.isInteger(max) || max < min) {
       throw new Error('Invalid range for cryptoRandomInt.');
     }
     const range = max - min + 1;
-    const limit = TWO32 - (TWO32 % range); // Largest multiple of range less than 2^32
+    const limit = TWO32 - (TWO32 % range);
     const buf = new Uint32Array(1);
     let x;
     do {
@@ -155,7 +171,7 @@
       throw new Error('Invalid repositories structure in config.');
     }
 
-    // Case A: already a single final object: { repo, username, issueEndNumber }
+    // Case A: single final object
     if ('repo' in repositories && 'username' in repositories && 'issueEndNumber' in repositories) {
       return {
         repo: String(repositories.repo),
@@ -164,11 +180,11 @@
       };
     }
 
-    // Case B: mapping of repoName -> info. Pick the LAST entry (in insertion order).
+    // Case B: mapping of repoName -> info. Pick last in insertion order.
     const entries = Object.entries(repositories);
     if (entries.length === 0) throw new Error('No repositories configured.');
 
-    const [repoName, info] = entries[entries.length - 1]; // last one
+    const [repoName, info] = entries[entries.length - 1]; // last
 
     if (!info || typeof info !== 'object') throw new Error('Malformed repository info.');
     if (!info.username) throw new Error('Missing "username" in repository info.');
@@ -188,6 +204,7 @@
   const KEY_END = 'overrideIssueEndNumber';
   const KEY_LAST_MODAL = 'lastEndModalShown';
   const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+  const KEY_MIX_POINTS = 'rangeWeightsPointsV1'; // integer points -> normalized to 100%
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -227,28 +244,175 @@
   const STEP_MINUTES = 5; // increment/decrement step
 
   function roundToStep(valueMinutes) {
-    // Round to nearest 5, with floor at 5
     const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
     return v;
   }
 
-  // >>> NEW: 30s auto-dismiss timer handle
-  let modalTimeoutId = null;
+  // ====== Mix model ======
+  // Define rows (order of display: 90,80,...,10,5, then 100 items)
+  const MIX_DEF = [
+    { id:'p90', label:'Recent 90%', kind:'percent', p:90 },
+    { id:'p80', label:'Recent 80%', kind:'percent', p:80 },
+    { id:'p70', label:'Recent 70%', kind:'percent', p:70 },
+    { id:'p60', label:'Recent 60%', kind:'percent', p:60 },
+    { id:'p50', label:'Recent 50%', kind:'percent', p:50 },
+    { id:'p40', label:'Recent 40%', kind:'percent', p:40 },
+    { id:'p30', label:'Recent 30%', kind:'percent', p:30 },
+    { id:'p20', label:'Recent 20%', kind:'percent', p:20 },
+    { id:'p10', label:'Recent 10%', kind:'percent', p:10 },
+    { id:'p5',  label:'Recent 5%',  kind:'percent', p:5  },
+    { id:'n100', label:'Recent 100 items', kind:'fixed', n:100 }
+  ];
 
-  function maybeShowEndModal(prefill, freqMinutes, onSave, onSkip) {
+  // Smooth default points: 60% to n100, remaining 40% linear increasing across percent rows
+  function defaultMixPoints() {
+    // percent rows ascending ranks 1..10 by recency (5% -> rank1, 90% -> rank10)
+    const percentRows = ['p5','p10','p20','p30','p40','p50','p60','p70','p80','p90'];
+    const points = {};
+    let sumPercent = 0;
+    percentRows.forEach((id, idx) => {
+      const rank = idx + 1; // 1..10
+      points[id] = rank; // linear ramp
+      sumPercent += rank;
+    });
+    // Choose n100 points so that n100 / (n100 + sumPercent) ≈ 0.60
+    const n100pts = Math.round( (0.60/0.40) * sumPercent ); // ~1.5 * 55 = 82.5 => 83
+    points['n100'] = n100pts;
+    // Fill for the missing 90..10 which we inserted ascending; we need all ids
+    // Add also any not included (none extra)
+    return points; // integer points, normalized later
+  }
+
+  function normalizePointsToPerc(points) {
+    const ids = MIX_DEF.map(r => r.id);
+    let total = 0;
+    ids.forEach(id => total += Math.max(0, points[id] || 0));
+    if (total <= 0) {
+      // fallback to default
+      points = defaultMixPoints();
+      total = Object.values(points).reduce((a,b)=>a+b,0);
+    }
+    const perc = {};
+    ids.forEach(id => {
+      const share = (Math.max(0, points[id] || 0) / total) * 100;
+      perc[id] = share;
+    });
+    return perc; // floating %
+  }
+
+  function weightedPickId(percMap) {
+    // Build cumulative 0..100
+    let acc = 0;
+    const ranges = MIX_DEF.map(row => {
+      const start = acc;
+      acc += (percMap[row.id] || 0);
+      return { id: row.id, start, end: acc };
+    });
+    const r = cryptoRandomFloat() * 100;
+    for (const it of ranges) {
+      if (r >= it.start && r < it.end) return it.id;
+    }
+    // numeric errors: fallback to last
+    return MIX_DEF[MIX_DEF.length - 1].id;
+  }
+
+  // Compute [lo,hi] inclusive for a chosen bucket at given end
+  function resolveRangeForBucket(end, bucketId) {
+    const endInt = Number(end);
+    if (!Number.isFinite(endInt) || endInt < 1) throw new Error('Invalid end for range resolution.');
+    const row = MIX_DEF.find(r => r.id === bucketId);
+    if (!row) throw new Error('Unknown bucket: ' + bucketId);
+
+    if (row.kind === 'fixed') {
+      const n = row.n || 100;
+      const lo = Math.max(1, endInt - n + 1);
+      const hi = endInt;
+      return [lo, hi];
+    }
+    // percent
+    const p = row.p;
+    const lo = Math.max(1, Math.floor(endInt * (1 - (p/100))) + 1);
+    const hi = endInt;
+    return [lo, hi];
+  }
+
+  // ===== UI: build rows, manage points in-memory =====
+  function buildMixUI(container, points, onChange) {
+    container.innerHTML = '';
+    const ids = MIX_DEF.map(r => r.id);
+    const localPoints = {};
+    ids.forEach(id => localPoints[id] = Math.max(0, Math.round(points[id] || 0)));
+
+    function render() {
+      container.innerHTML = '';
+      const perc = normalizePointsToPerc(localPoints);
+      MIX_DEF.forEach(row => {
+        const wrap = document.createElement('div');
+        wrap.className = 'mixrow';
+        const label = document.createElement('label');
+        label.textContent = row.label;
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.className = 'btn btn-small';
+        minus.textContent = '−';
+        minus.setAttribute('aria-label', `Decrease ${row.label}`);
+        const val = document.createElement('span');
+        val.className = 'mixvalue small';
+        val.textContent = `${perc[row.id].toFixed(1)}%`;
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.className = 'btn btn-small';
+        plus.textContent = '+';
+        plus.setAttribute('aria-label', `Increase ${row.label}`);
+
+        minus.onclick = () => {
+          if (localPoints[row.id] > 0) { localPoints[row.id] -= 1; render(); onChange && onChange(localPoints); }
+        };
+        plus.onclick = () => {
+          localPoints[row.id] += 1;
+          render();
+          onChange && onChange(localPoints);
+        };
+
+        wrap.appendChild(label);
+        wrap.appendChild(minus);
+        wrap.appendChild(val);
+        wrap.appendChild(plus);
+        container.appendChild(wrap);
+      });
+    }
+    render();
+
+    return {
+      getPoints: () => ({ ...localPoints }),
+      setPoints: (p) => { Object.keys(localPoints).forEach(k => localPoints[k] = Math.max(0, Math.round(p[k] || 0))); render(); },
+      getPerc: () => normalizePointsToPerc(localPoints)
+    };
+  }
+
+  // ===== NEW: 30s min-display timer handle =====
+  let modalTimeoutId = null;
+  let skipEnableTimerId = null;
+
+  function maybeShowEndModal(prefillEnd, freqMinutes, mixPoints, onSave, onAutoOrSkip) {
     const dlg = document.getElementById('endDialog');
     const input = document.getElementById('endInput');
     const err = document.getElementById('endError');
     const btnSave = document.getElementById('saveEndBtn');
     const btnSkip = document.getElementById('skipEndBtn');
     const btnReset = document.getElementById('resetEndBtn');
+    const btnResetMix = document.getElementById('resetMixBtn');
 
-    // New freq controls
+    // Modal frequency controls
     const freqDec = document.getElementById('freqDec');
     const freqInc = document.getElementById('freqInc');
     const freqValue = document.getElementById('freqValue');
 
-    input.value = String(prefill || 1);
+    // Mix container
+    const mixContainer = document.getElementById('mixContainer');
+    const countdown = document.getElementById('skipCountdown');
+
+    input.value = String(prefillEnd || 1);
     err.classList.add('hidden');
 
     let currentFreq = roundToStep(Number(freqMinutes) || (DEFAULT_USER_INTERVAL_MS / 60000));
@@ -257,16 +421,13 @@
     }
     renderFreq();
 
-    freqDec.onclick = () => {
-      currentFreq = Math.max(USER_MIN_FREQ_MINUTES, currentFreq - STEP_MINUTES);
-      renderFreq();
-    };
-    freqInc.onclick = () => {
-      currentFreq = currentFreq + STEP_MINUTES; // no explicit max
-      renderFreq();
-    };
+    freqDec.onclick = () => { currentFreq = Math.max(USER_MIN_FREQ_MINUTES, currentFreq - STEP_MINUTES); renderFreq(); };
+    freqInc.onclick = () => { currentFreq = currentFreq + STEP_MINUTES; renderFreq(); };
 
-    const validate = () => {
+    // Build mix UI
+    const mixUI = buildMixUI(mixContainer, mixPoints, () => { /* live updates only */ });
+
+    const validateEnd = () => {
       const v = Number(input.value);
       if (!Number.isInteger(v) || v < 1) {
         err.classList.remove('hidden');
@@ -276,31 +437,62 @@
       return v;
     };
 
-    btnSave.onclick = () => {
-      const v = validate();
-      if (v == null) return;
-      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; } // NEW: cancel auto-dismiss
-      try { dlg.close(); } catch {}
-      onSave(v, currentFreq);
-    };
-    btnSkip.onclick = () => {
-      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; } // NEW: prevent double proceed
-      try { dlg.close(); } catch {}
-      onSkip && onSkip(currentFreq);
-    };
     btnReset.onclick = () => {
-      input.value = String(prefill || 1);
+      input.value = String(prefillEnd || 1);
       err.classList.add('hidden');
-      // no change to frequency on reset
+    };
+    btnResetMix.onclick = () => {
+      mixUI.setPoints(defaultMixPoints());
     };
 
+    // Save (can happen before 30s)
+    btnSave.onclick = () => {
+      const v = validateEnd();
+      if (v == null) return;
+      clearTimers();
+      try { dlg.close(); } catch {}
+      onSave(v, currentFreq, mixUI.getPoints(), mixUI.getPerc());
+    };
+
+    // Skip: disabled until 30s have elapsed
+    btnSkip.disabled = true;
+    let remain = 30;
+    countdown.textContent = `Skip enabled in ${remain}s`;
+    skipEnableTimerId = setInterval(() => {
+      remain -= 1;
+      if (remain <= 0) {
+        clearInterval(skipEnableTimerId);
+        skipEnableTimerId = null;
+        btnSkip.disabled = false;
+        countdown.textContent = '';
+      } else {
+        countdown.textContent = `Skip enabled in ${remain}s`;
+      }
+    }, 1000);
+
+    btnSkip.onclick = () => {
+      if (btnSkip.disabled) return;
+      clearTimers();
+      try { dlg.close(); } catch {}
+      // proceed with current on-screen mix (not persisted), keep existing end
+      onAutoOrSkip(currentFreq, mixUI.getPerc());
+    };
+
+    function clearTimers() {
+      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+      if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
+    }
+
+    // Show the modal
     try { dlg.showModal(); } catch { dlg.show(); }
 
-    // >>> NEW: Auto-dismiss after 30s if user neither saves nor skips
+    // Auto-proceed AFTER 30s if user neither saves nor presses Skip (Skip is enabled at 30s)
     modalTimeoutId = setTimeout(() => {
       try { dlg.close(); } catch {}
-      // proceed with onSkip semantics, using whatever frequency badge shows
-      onSkip && onSkip(currentFreq);
+      // Auto proceed with current on-screen mix (not persisted), keep existing end
+      onAutoOrSkip(currentFreq, mixUI.getPerc());
+      modalTimeoutId = null;
+      if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
     }, 30_000);
   }
 
@@ -319,13 +511,20 @@
       endOverride = Number(finalRepo.issueEndNumber);
     }
 
-    // Load (or seed) user frequency in minutes; clamp to 5-min steps with 5-min floor
+    // Load (or seed) modal frequency
     let freqMinutes = await idbGet(KEY_FREQ_MINUTES);
     if (typeof freqMinutes !== 'number' || !Number.isFinite(freqMinutes) || freqMinutes <= 0) {
       freqMinutes = DEFAULT_USER_INTERVAL_MS / 60000; // default 10
     }
     freqMinutes = roundToStep(freqMinutes);
     await idbSet(KEY_FREQ_MINUTES, freqMinutes);
+
+    // Load (or seed) mix points
+    let mixPoints = await idbGet(KEY_MIX_POINTS);
+    if (!mixPoints || typeof mixPoints !== 'object') {
+      mixPoints = defaultMixPoints();
+      await idbSet(KEY_MIX_POINTS, mixPoints);
+    }
 
     const lastShown = await idbGet(KEY_LAST_MODAL);
     const now = Date.now();
@@ -337,44 +536,52 @@
     // Otherwise, soft rule: if ≥ user interval, maybe show based on probability
     const userIntervalMs = Number(freqMinutes) * 60 * 1000;
     const eligibleByUser = elapsed >= userIntervalMs;
-    theWantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+    const wantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
 
-    const wantShow = mustShow || theWantsSoftShow;
+    const wantShow = mustShow || wantsSoftShow;
 
     if (wantShow) {
-      // Record "shown" time immediately to uphold the 15-min guarantee even if skipped/auto-dismissed
+      // Stamp "shown" time now to uphold the 15-min guarantee
       await idbSet(KEY_LAST_MODAL, now);
 
       maybeShowEndModal(
         endOverride,
         freqMinutes,
-        async (pickedEnd, pickedFreqMinutes) => {
+        mixPoints,
+        // onSave
+        async (pickedEnd, pickedFreqMinutes, pickedPoints, pickedPerc) => {
           await idbSet(KEY_END, Number(pickedEnd));
           await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
+          await idbSet(KEY_MIX_POINTS, pickedPoints);
           await idbSet(KEY_LAST_MODAL, Date.now());
-          proceed(Number(pickedEnd), finalRepo);
+          proceed(Number(pickedEnd), finalRepo, pickedPerc);
         },
-        async (pickedFreqMinutes) => {
-          // If user changed frequency (or auto-dismiss kept current), persist that choice too
+        // onAutoOrSkip (after 30s or user presses Skip after 30s):
+        async (pickedFreqMinutes, percOnScreen) => {
           if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
             await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           }
-          proceed(Number(endOverride), finalRepo);
+          // Use stored endOverride, and on-screen mix perc (not persisted)
+          proceed(Number(endOverride), finalRepo, percOnScreen);
         }
       );
-      return; // Wait for modal interaction to call proceed(...)
+      return; // Wait for modal interaction
     }
 
-    // No modal: proceed immediately using stored override
-    proceed(Number(endOverride), finalRepo);
+    // No modal: proceed immediately using stored override and stored mix
+    const storedPerc = normalizePointsToPerc(mixPoints);
+    proceed(Number(endOverride), finalRepo, storedPerc);
   }
 
-  function proceed(endValue, finalRepo) {
+  function proceed(endValue, finalRepo, percMap) {
     const end = Number(endValue);
     if (!Number.isFinite(end) || end < 1) throw new Error('Invalid issueEndNumber.');
 
-    const lowerBound = Math.max(1, end - 100);
-    const randomChosenNumber = cryptoRandomInt(lowerBound, end);
+    // Pick a bucket by weighted mix
+    const bucketId = weightedPickId(percMap || normalizePointsToPerc(defaultMixPoints()));
+    const [lo, hi] = resolveRangeForBucket(end, bucketId);
+
+    const randomChosenNumber = cryptoRandomInt(lo, hi);
 
     const user = finalRepo.username;
     const repo = finalRepo.repo;
@@ -389,7 +596,8 @@
       const h = document.createElement('h2');
       h.textContent = 'Redirecting to a random issue…';
       const p = document.createElement('p');
-      p.innerHTML = `Selected range: <code>[${lowerBound}, ${end}]</code><br/>
+      p.innerHTML = `Selected bucket: <code>${bucketId}</code><br/>
+                     Selected range: <code>[${lo}, ${hi}]</code><br/>
                      Chosen issue: <code>#${randomChosenNumber}</code><br/>
                      Repository: <code>${user}/${repo}</code><br/>
                      Link: <a href="${chosenUrl}">${chosenUrl}</a>`;
