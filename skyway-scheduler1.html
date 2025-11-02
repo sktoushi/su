@@ -349,7 +349,7 @@
       return toPut;
     }
 
-    /************ Rating modal (with frequency controls) ************/
+    /************ Rating modal (with 30s auto-dismiss + frequency controls) ************/
     function showRatingModal(targetUrl, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
@@ -363,8 +363,18 @@
 
       let freqMinutes = currentFreqMinutes;
 
+      // NEW: auto-dismiss timer handle
+      let timeoutId = null;
+
       function updateFreqUI() {
         if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
+      }
+
+      function clearTimer() {
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
       }
 
       function persistAndClose(cb) {
@@ -382,6 +392,8 @@
         b.className = 'btn btn-mid';
         b.textContent = (val > 0 ? `+${val}` : `${val}`);
         b.addEventListener('click', () => {
+          // User made a definitive "save" (rating) -> cancel timer, persist, redirect
+          clearTimer();
           persistAndClose(() => onPick(val));
         }, { once: true });
         btnsWrap.appendChild(b);
@@ -402,12 +414,19 @@
       }
       updateFreqUI();
 
-      // Skip
+      // Skip -> redirect immediately (also cancels timer)
       skipBtn.onclick = () => {
+        clearTimer();
         persistAndClose(onSkip);
       };
 
       try { dlg.showModal(); } catch { dlg.show(); } // Fallback
+
+      // NEW: Auto-dismiss after 30 seconds if the user didn't click a rating
+      timeoutId = setTimeout(() => {
+        // Proceed with the usual implementation (same as Skip)
+        persistAndClose(onSkip);
+      }, 30_000);
     }
 
     /************ Main flow ************/
