@@ -82,7 +82,7 @@
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      background:#0f1519; color:#fff; font-variant-numeric:tabular-nums;
       min-width:7ch; text-align:center;
     }
   </style>
@@ -128,12 +128,31 @@
 </dialog>
 
 <script>
+/* ========= COLLISION-PROOF NAMESPACE (GitHub Pages-friendly) =========
+   We derive a deterministic namespace from origin + pathname,
+   so copies deployed under different GH Pages paths don't collide.
+   You can also override with ?ns=yourKey in the URL.
+*/
+function fnv1aHex(str) {
+  let h = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+}
+const NS = (() => {
+  const params = new URLSearchParams(location.search);
+  const override = params.get('ns');
+  if (override && /^[a-z0-9_\-]{2,40}$/i.test(override)) return `rrx_v6_${override}`;
+  const scope = `${location.origin}${location.pathname}`; // includes GH Pages subpath (/username/repo/)
+  return `rrx_v6_${fnv1aHex(scope)}`;
+})();
+
 /* ========= HARDENING FOR GITHUB PAGES =========
    1) Provide a local fallback for getSecureRandomNumber()
-   2) Slightly more robust config fetch path + assertive error surface
+   2) Robust relative config path
 */
-const NS = 'rrx_v4_3e2f9b7a';
-
 const DB_NAME = `${NS}_db`;
 const DB_VERSION = 1;
 const STORE_CONFIG = `${NS}_cfg`;
@@ -174,67 +193,27 @@ function idbSet(store, key, value) {
 
 /* ================== Defaults ================== */
 const FORMULAS_CANON = [
-  'random',
-  'leftLeaning',
-  'rightLeaning1',
-  'recent20Percent',
-  'recent5Percent',
-  // Existing new ones
-  'middleBell',
-  'oldest10Percent',
-  'recent10Percent',
-  'zigZag',
-  'primeBoost',
-  // ▼ Cognition-oriented additions
-  'primacyRecency',
-  'pyramidMiddle',
-  'triPeak',
-  'sinusoidal',
-  'interleaved3',
-  'chunkedBlocks',
-  'expandingSpaced',
-  'fixedSpaced',
-  'forgettingCurve',
-  'reviewWindow7pct',
-  'quadraticRamp',
-  'easyThenHard',
-  'contrastBlocks',
-  'antiZigZag',
-  'noveltyWave'
+  'random','leftLeaning','rightLeaning1','recent20Percent','recent5Percent',
+  'middleBell','oldest10Percent','recent10Percent','zigZag','primeBoost',
+  'primacyRecency','pyramidMiddle','triPeak','sinusoidal','interleaved3',
+  'chunkedBlocks','expandingSpaced','fixedSpaced','forgettingCurve',
+  'reviewWindow7pct','quadraticRamp','easyThenHard','contrastBlocks',
+  'antiZigZag','noveltyWave'
 ];
 
 const DEFAULT_MIX = {
-  random: 1,
-  leftLeaning: 1,
-  rightLeaning1: 2,
-  recent20Percent: 1,
-  recent5Percent: 1,
-  middleBell: 1,
-  oldest10Percent: 1,
-  recent10Percent: 1,
-  zigZag: 1,
-  primeBoost: 1,
-  primacyRecency: 1,
-  pyramidMiddle: 1,
-  triPeak: 1,
-  sinusoidal: 1,
-  interleaved3: 1,
-  chunkedBlocks: 1,
-  expandingSpaced: 1,
-  fixedSpaced: 1,
-  forgettingCurve: 1,
-  reviewWindow7pct: 1,
-  quadraticRamp: 1,
-  easyThenHard: 1,
-  contrastBlocks: 1,
-  antiZigZag: 1,
-  noveltyWave: 1
+  random:1,leftLeaning:1,rightLeaning1:3,recent20Percent:3,recent5Percent:3,
+  middleBell:1,oldest10Percent:1,recent10Percent:3,zigZag:1,primeBoost:1,
+  primacyRecency:2,pyramidMiddle:1,triPeak:1,sinusoidal:1,interleaved3:1,
+  chunkedBlocks:1,expandingSpaced:1,fixedSpaced:1,forgettingCurve:1,
+  reviewWindow7pct:1,quadraticRamp:1,easyThenHard:1,contrastBlocks:1,
+  antiZigZag:1,noveltyWave:1
 };
 
 const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
 const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
 const MODAL_SHOW_PROBABILITY = 0.15;
-const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+const KEY_FREQ_MINUTES = `${NS}_modalFreqMinutes`; // namespaced local setting key
 const USER_MIN_FREQ_MINUTES = 5;
 const STEP_MINUTES = 5;
 
@@ -245,7 +224,7 @@ function getSecureRandom01() {
   return u[0] / 0xffffffff;
 }
 
-/* --- NEW: local fallback so GH Pages 404s won't break you --- */
+/* --- Local fallback so GH Pages 404s won't break you --- */
 if (typeof window.getSecureRandomNumber !== 'function') {
   window.getSecureRandomNumber = function () { return getSecureRandom01(); };
 }
@@ -270,8 +249,7 @@ function weightedChoiceFromMix(mix, fallbackList) {
   return entries[entries.length - 1][0];
 }
 function roundToStep(valueMinutes) {
-  const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
-  return v;
+  return Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
 }
 
 /* ================== Modal UI ================== */
@@ -296,8 +274,7 @@ function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); 
 function closeModal() { try { mixDialog.close(); } catch { mixDialog.open = false; } }
 
 function isLastNonZero(name) {
-  let nonZeroNames = FORMULAS_CANON.filter(k => (Number(currentMix[k])||0) > 0);
-  if (nonZeroNames.length > 1) return false;
+  const nonZeroNames = FORMULAS_CANON.filter(k => (Number(currentMix[k])||0) > 0);
   return nonZeroNames.length === 1 && nonZeroNames[0] === name;
 }
 function nextMinusAllowed(name) {
@@ -423,12 +400,12 @@ function applyFormulaWeights(formulaParam, n) {
   // existing
   if (formulaParam === 'leftLeaning') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
+      const noise = 0.5 + getSecureRandomNumber();
       weights[i] = (n - i) * noise;
     }
   } else if (formulaParam === 'rightLeaning1') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
+      const noise = 0.5 + getSecureRandomNumber();
       weights[i] = (i + 1) * noise;
     }
   } else if (formulaParam === 'recent20Percent') {
@@ -598,7 +575,7 @@ function applyFormulaWeights(formulaParam, n) {
   return weights;
 }
 
-/* === noisePatch (unchanged) === */
+/* === noisePatch (localStorage keys are namespaced, too) === */
 function noisePatch(weights, issues) {
   function cryptoRandom() {
     const buf = new Uint32Array(1);
@@ -732,7 +709,7 @@ function noisePatch(weights, issues) {
     currentFreqMinutes = roundToStep(storedFreq);
     await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
 
-    /* --- safer relative fetch under GH Pages subpaths --- */
+    /* --- robust relative fetch under GH Pages subpaths --- */
     const configUrl = new URL('./config/all.json', window.location.href).toString();
 
     let cfg = await idbGet(STORE_CONFIG, 'all');
