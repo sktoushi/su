@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <title>Repository Issue Randomizer (Crypto RNG, No Loop)</title>
   <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    /* Original styles (kept) */
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background: #fafafa;
@@ -16,9 +18,72 @@
       border-radius: 4px;
     }
     a { word-break: break-all; }
+
+    /* ===== Themed modal (copied/adapted from your reference) ===== */
+    :root {
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+    }
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;
+    }
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+
+    dialog{
+      border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg);
+      width:min(560px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.25rem 1.25rem 1rem;}
+    .modal h2{margin:0 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 1rem 0; color:var(--muted);}
+
+    .field{
+      display:grid; grid-template-columns:1fr auto; gap:.75rem; align-items:center;
+      margin:.75rem 0 1rem 0;
+    }
+    .numinput{
+      width:12ch; padding:.6rem .75rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.08);
+      background:#0f1519; color:var(--fg); font-size:1rem;
+    }
+    .hint{margin-top:-.6rem; margin-bottom:.9rem;}
   </style>
 </head>
 <body>
+
+<!-- Themed modal asking for issueEndNumber -->
+<dialog id="endDialog" aria-labelledby="endDialogTitle">
+  <div class="modal">
+    <h2 id="endDialogTitle">Set <code>issueEndNumber</code></h2>
+    <p>Enter the highest issue number to use when picking a random issue. This value is saved in <code>IndexedDB</code> and used from now on.</p>
+
+    <div class="field">
+      <label for="endInput" class="small">issueEndNumber</label>
+      <input id="endInput" class="numinput" type="number" min="1" step="1" inputmode="numeric" pattern="[0-9]*" />
+    </div>
+    <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
+    <div class="hint small">If you skip, we’ll continue using the current stored value (seeded from the config on first run).</div>
+
+    <div class="toolbar" style="margin-top:.6rem;">
+      <button class="btn btn-small btn-danger" id="skipEndBtn">Skip</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-small" id="resetEndBtn" title="Reset to config value">Reset</button>
+      <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
+    </div>
+  </div>
+</dialog>
 
 <script>
 /* ============================================================
@@ -54,8 +119,7 @@
       throw new Error('Invalid range for cryptoRandomInt.');
     }
     const range = max - min + 1;
-    // Largest multiple of range less than 2^32
-    const limit = TWO32 - (TWO32 % range);
+    const limit = TWO32 - (TWO32 % range); // Largest multiple of range less than 2^32
     const buf = new Uint32Array(1);
     let x;
     do {
@@ -97,6 +161,83 @@
     };
   }
 
+  /* ================= IndexedDB (new DB + keys) ================= */
+  const IDB_NAME = 'issueEndOverrideDB_v1';
+  const IDB_VER = 1;
+  const STORE_SETTINGS = 'settings';
+  const KEY_END = 'overrideIssueEndNumber';
+  const KEY_LAST_MODAL = 'lastEndModalShown';
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, IDB_VER);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function idbGet(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readonly');
+      const st = tx.objectStore(STORE_SETTINGS);
+      const r = st.get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    }));
+  }
+  function idbSet(key, value) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readwrite');
+      const st = tx.objectStore(STORE_SETTINGS);
+      const r = st.put(value, key);
+      r.onsuccess = () => resolve(true);
+      r.onerror = () => reject(r.error);
+    }));
+  }
+
+  /* ===== Modal helpers (timing: occasional + throttled) ===== */
+  const MODAL_MIN_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+  const MODAL_SHOW_PROBABILITY = 0.15;
+
+  function maybeShowEndModal(prefill, onSave, onSkip) {
+    const dlg = document.getElementById('endDialog');
+    const input = document.getElementById('endInput');
+    const err = document.getElementById('endError');
+    const btnSave = document.getElementById('saveEndBtn');
+    const btnSkip = document.getElementById('skipEndBtn');
+    const btnReset = document.getElementById('resetEndBtn');
+
+    input.value = String(prefill || 1);
+    err.classList.add('hidden');
+
+    const validate = () => {
+      const v = Number(input.value);
+      if (!Number.isInteger(v) || v < 1) {
+        err.classList.remove('hidden');
+        return null;
+      }
+      err.classList.add('hidden');
+      return v;
+    };
+
+    btnSave.onclick = () => {
+      const v = validate();
+      if (v == null) return;
+      try { dlg.close(); } catch {}
+      onSave(v);
+    };
+    btnSkip.onclick = () => {
+      try { dlg.close(); } catch {}
+      onSkip && onSkip();
+    };
+    btnReset.onclick = () => { input.value = String(prefill || 1); err.classList.add('hidden'); };
+
+    try { dlg.showModal(); } catch { dlg.show(); }
+  }
+
   async function main() {
     const res = await fetch('config/all.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to load config');
@@ -105,7 +246,42 @@
     const reposRaw = cfg.repositories || cfg.repository || cfg.repo || {};
     const finalRepo = extractFinalRepo(reposRaw);
 
-    const end = Number(finalRepo.issueEndNumber);
+    // Seed IDB override with config value on first run; then always read from IDB
+    let endOverride = await idbGet(KEY_END);
+    if (typeof endOverride !== 'number' || !Number.isFinite(endOverride) || endOverride < 1) {
+      await idbSet(KEY_END, Number(finalRepo.issueEndNumber));
+      endOverride = Number(finalRepo.issueEndNumber);
+    }
+
+    // Decide if we should ask the user to recalibrate (non-blocking if skipped)
+    const lastShown = await idbGet(KEY_LAST_MODAL);
+    const now = Date.now();
+    const enoughTimePassed = !lastShown || (now - Number(lastShown)) >= MODAL_MIN_INTERVAL_MS;
+    const wantShow = enoughTimePassed && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+
+    // If we'll show the modal, wire it — if user ignores/skips, proceed with current IDB value
+    if (wantShow) {
+      maybeShowEndModal(
+        endOverride,
+        async (picked) => {
+          await idbSet(KEY_END, Number(picked));
+          await idbSet(KEY_LAST_MODAL, Date.now());
+          proceed(Number(picked), finalRepo);
+        },
+        () => {
+          // Skip: proceed with current override
+          proceed(Number(endOverride), finalRepo);
+        }
+      );
+      return; // pause here until modal action calls proceed(...)
+    }
+
+    // No modal: proceed immediately using stored override
+    proceed(Number(endOverride), finalRepo);
+  }
+
+  function proceed(endValue, finalRepo) {
+    const end = Number(endValue);
     if (!Number.isFinite(end) || end < 1) throw new Error('Invalid issueEndNumber.');
 
     const lowerBound = Math.max(1, end - 100);
