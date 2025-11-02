@@ -1,4 +1,3 @@
-  
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,19 +100,11 @@
       box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
     }
     dialog::backdrop { background: rgba(0,0,0,.6); }
-    .modal {
-      padding: 1.25rem 1.25rem 1rem;
-    }
-    .modal h2 {
-      margin: 0 0 .25rem 0; font-weight: 700; font-size: 1.2rem;
-    }
+    .modal { padding: 1.25rem 1.25rem 1rem; }
+    .modal h2 { margin: 0 0 .25rem 0; font-weight: 700; font-size: 1.2rem; }
     .modal p { margin: 0 0 1rem 0; color: var(--muted); }
-    .grid-5 {
-      display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: .5rem;
-    }
-    .btn-mid {
-      padding: .8rem .4rem; font-size: 1.05rem; border-radius: .6rem;
-    }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: .5rem; }
+    .btn-mid { padding: .8rem .4rem; font-size: 1.05rem; border-radius: .6rem; }
 
     /* UPDATED: allow full URL to wrap nicely in the rating modal */
     .url-line {
@@ -124,23 +115,50 @@
       word-break: break-word;
       text-overflow: clip;
     }
+
+    /* New: small helpers for ±5 min frequency control */
+    .freqrow { display: flex; align-items: center; gap: .5rem; }
+    .freqbadge {
+      padding: .35rem .6rem; border: 1px solid rgba(255,255,255,.08); border-radius: .5rem;
+      background: #0f1519; color: var(--fg); font-variant-numeric: tabular-nums;
+      min-width: 7ch; text-align: center;
+    }
   </style>
 
   <script>
     /************ Constants ************/
     const DB_NAME = 'urlProbDB';
     const DB_STORE = 'urls';
-    const DB_VER = 1;
+    const DB_VER = 2; // bumped to create the namespaced meta store
 
     // 2%: send to the edit link; 98%: weighted pick from DB/JSON
     const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
     const RANDOM_PDF_MAX = 39;
 
-    // How often to ask for a rating on page load (0..1)
+    // (Kept for reference; timing logic is authoritative)
     const RATING_PROBABILITY_ON_LOAD = 0.25;
 
     // Five rating choices
     const RATING_CHOICES = [-3, -1, 0, +1, +3];
+
+    /* ===== Modal timing & frequency ===== */
+    const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee
+    const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default when unset
+    const MODAL_SHOW_PROBABILITY = 0.15;            // soft attempts
+    const USER_MIN_FREQ_MINUTES = 5;                // floor 5 minutes
+    const STEP_MINUTES = 5;                         // +/- step
+
+    /* ===== Deterministic namespace (obfuscated) ===== */
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    const NS = fnv1aHex(location.origin + '|' + location.pathname);
+    const META_STORE = `m_${NS}`; // e.g., m_9f3a12c4
 
     /************ IndexedDB helpers (promise-wrapped) ************/
     function openDB() {
@@ -151,6 +169,9 @@
           if (!db.objectStoreNames.contains(DB_STORE)) {
             const store = db.createObjectStore(DB_STORE, { keyPath: 'url' });
             store.createIndex('by_effective', 'effectiveWeight', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(META_STORE)) {
+            db.createObjectStore(META_STORE); // simple KV: key -> value
           }
         };
         req.onsuccess = () => resolve(req.result);
@@ -190,12 +211,31 @@
       });
     }
 
+    /* ===== Meta store helpers (obfuscated keys) ===== */
+    function metaGet(db, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readonly');
+        const st = tx.objectStore(META_STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    function metaSet(db, key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readwrite');
+        const st = tx.objectStore(META_STORE);
+        const r = st.put(value, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
     /************ Utilities ************/
     function secureRandomFloat01() {
       const r = new Uint32Array(1);
       crypto.getRandomValues(r);
-      // 1 / 2^32
-      return r[0] / 4294967296;
+      return r[0] / 4294967296; // 1 / 2^32
     }
 
     function chooseWeighted(items) {
@@ -207,7 +247,6 @@
         total += w;
       }
       if (total <= 0) {
-        // fallback: if all zero, use baseWeight sum
         total = items.reduce((s, it) => s + (Number(it.baseWeight || 0)), 0) || 1;
         const threshold = Math.floor(secureRandomFloat01() * total);
         let acc = 0;
@@ -244,6 +283,31 @@
       return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
     }
 
+    /* ===== Frequency helpers (use meta store) ===== */
+    function roundToStep(valueMinutes) {
+      return Math.max(
+        USER_MIN_FREQ_MINUTES,
+        Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES
+      );
+    }
+    async function getStoredFreqMinutes(db) {
+      const val = await metaGet(db, 'f'); // 'f' = frequency
+      const n = Number(val);
+      const mins = (!Number.isFinite(n) || n <= 0) ? (DEFAULT_USER_INTERVAL_MS / 60000) : n;
+      return roundToStep(mins);
+    }
+    async function setStoredFreqMinutes(db, mins) {
+      return metaSet(db, 'f', roundToStep(mins));
+    }
+    async function getLastShownMs(db) {
+      const v = await metaGet(db, 'l'); // 'l' = last shown timestamp
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    async function markJustShown(db, nowMs = Date.now()) {
+      return metaSet(db, 'l', Number(nowMs));
+    }
+
     /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
     async function bootstrapDB(db) {
       const seed = JSON.parse(document.getElementById('urlProbability').textContent);
@@ -274,10 +338,9 @@
         }
       }
 
-      // Optionally keep records that are in DB but no longer in seed (we keep them)
+      // Keep records not in seed
       for (const rec of existing) {
         if (!seedMap.has(rec.url)) {
-          // Keep as-is
           toPut.push(rec);
         }
       }
@@ -286,33 +349,65 @@
       return toPut;
     }
 
-    /************ Rating modal ************/
-    function showRatingModal(targetUrl, onPick, onSkip) {
+    /************ Rating modal (with frequency controls) ************/
+    function showRatingModal(targetUrl, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
       const btnsWrap = document.getElementById('ratingButtons');
       const skipBtn = document.getElementById('skipRatingBtn');
 
+      // Frequency controls
+      const freqDecBtn = document.getElementById('freqDec');
+      const freqIncBtn = document.getElementById('freqInc');
+      const freqValueEl = document.getElementById('freqValue');
+
+      let freqMinutes = currentFreqMinutes;
+
+      function updateFreqUI() {
+        if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
+      }
+
+      function persistAndClose(cb) {
+        try { onPersistFreq && onPersistFreq(freqMinutes); } catch {}
+        try { dlg.close(); } catch { dlg.open = false; }
+        cb && cb();
+      }
+
       urlEl.textContent = targetUrl;
 
-      // Clean old listeners
+      // Clean old rating listeners
       btnsWrap.innerHTML = '';
       for (const val of RATING_CHOICES) {
         const b = document.createElement('button');
         b.className = 'btn btn-mid';
         b.textContent = (val > 0 ? `+${val}` : `${val}`);
         b.addEventListener('click', () => {
-          dlg.close();
-          onPick(val);
+          persistAndClose(() => onPick(val));
         }, { once: true });
         btnsWrap.appendChild(b);
       }
+
+      // Wire frequency buttons
+      if (freqDecBtn) {
+        freqDecBtn.onclick = () => {
+          freqMinutes = Math.max(USER_MIN_FREQ_MINUTES, freqMinutes - STEP_MINUTES);
+          updateFreqUI();
+        };
+      }
+      if (freqIncBtn) {
+        freqIncBtn.onclick = () => {
+          freqMinutes = freqMinutes + STEP_MINUTES;
+          updateFreqUI();
+        };
+      }
+      updateFreqUI();
+
+      // Skip
       skipBtn.onclick = () => {
-        dlg.close();
-        onSkip && onSkip();
+        persistAndClose(onSkip);
       };
 
-      try { dlg.showModal(); } catch { dlg.show(); } // Fallback if <dialog> not fully supported
+      try { dlg.showModal(); } catch { dlg.show(); } // Fallback
     }
 
     /************ Main flow ************/
@@ -330,36 +425,45 @@
         downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
       });
 
-      // Decide path bucket: EDIT (2%), PDF block (next 10%), otherwise weighted pick from IndexedDB
+      // ===== Decide next URL first (no redirects yet) =====
+      let nextUrl = null;
       const u = secureRandomFloat01();
       if (u < 0.02) {
-        // 2% direct redirect
-        window.location.replace(EDIT_URL);
-        return;
+        nextUrl = EDIT_URL;
       } else if (u < 0.12) {
-        // Optionally send to allrecent100 half of the time
         if (Math.random() < 0.5) {
-          window.location.replace(`https://sktoushi.github.io/su/allrecent100.html`);
-          return;
+          nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
+        } else {
+          const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
+          nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
         }
-        // 10% bucket: random PDF viewer
-        const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
-        const pdfUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-        window.location.replace(pdfUrl);
-        return;
+      } else {
+        const chosen = chooseWeighted(records);
+        nextUrl = chosen.url;
       }
 
-      // Weighted pick based on (baseWeight + delta) from IndexedDB
-      const chosen = chooseWeighted(records);
+      // ===== Modal timing decision (from meta store) =====
+      const now = Date.now();
+      const lastShown = await getLastShownMs(db);
+      const elapsed = lastShown ? (now - lastShown) : Infinity;
+      const currentFreqMinutes = await getStoredFreqMinutes(db);
 
-      // With some probability, ask for a rating BEFORE redirect
-      if (secureRandomFloat01() < RATING_PROBABILITY_ON_LOAD) {
-        // Choose a random URL to rate (could be the chosen one or any other)
-        const idx = Math.floor(secureRandomFloat01() * records.length);
-        const toRate = records[idx];
+      const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // 15m guarantee
+      const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+      const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
+      const wantShow = mustShow || wantsSoftShow;
+
+      const toRate = records.length
+        ? records[Math.floor(secureRandomFloat01() * records.length)]
+        : null;
+
+      if (wantShow && toRate) {
+        // Record "shown" immediately to respect the guarantee
+        await markJustShown(db, now);
 
         showRatingModal(
           toRate.url,
+          currentFreqMinutes,
           async (val) => {
             // Apply rating delta and persist
             const rec = await getOne(db, toRate.url);
@@ -378,17 +482,21 @@
             lastRatingNote.textContent = `Last rating: ${val > 0 ? `+${val}` : val} for ${toRate.url}`;
             lastRatingNote.classList.remove('hidden');
 
-            // Proceed to redirect to the originally chosen URL
-            window.location.replace(chosen.url);
+            // Redirect after rating
+            window.location.replace(nextUrl);
           },
+          // Skip -> redirect
           () => {
-            // Skip -> proceed to redirect
-            window.location.replace(chosen.url);
+            window.location.replace(nextUrl);
+          },
+          // Persist frequency when modal closes
+          async (mins) => {
+            await setStoredFreqMinutes(db, mins);
           }
         );
       } else {
-        // No rating this time — redirect immediately
-        window.location.replace(chosen.url);
+        // No modal this time — redirect immediately
+        window.location.replace(nextUrl);
       }
     }
 
@@ -414,6 +522,17 @@
     <div class="modal">
       <h2>How would you rate the probability weight for this URL?</h2>
       <p class="url-line mono" id="ratingUrl"></p>
+
+      <!-- ▼ Modal frequency controls (±5m, floor 5m) -->
+      <div class="small" style="margin:.5rem 0 .35rem;">Modal frequency</div>
+      <div class="freqrow" style="margin-bottom:.35rem;">
+        <button id="freqDec" type="button" class="btn btn-mid" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-mid" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+      <div class="small" style="margin:.1rem 0 .9rem;">We’ll still show this at least once every 15 minutes.</div>
+      <!-- ▲ End controls -->
+
       <div id="ratingButtons" class="grid-5" style="margin: .75rem 0 1rem;"></div>
       <div class="toolbar" style="justify-content: space-between; width: 100%;">
         <button class="btn btn-danger" id="skipRatingBtn" title="Continue without rating">Skip</button>
