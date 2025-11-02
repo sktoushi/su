@@ -45,11 +45,14 @@
     .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
     .btn-mid{padding:.8rem .4rem; font-size:1.05rem; border-radius:.6rem;}
     .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
-
-    /* New: small helpers for ±5 min frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
       background:#0f1519; color:#cfd8dc; font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
+    /* New for wildcard input */
+    .field{display:flex; gap:.5rem; align-items:center; margin:.75rem 0 .25rem;}
+    .input{flex:1; padding:.6rem .7rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.08); background:#0f1519; color:#cfd8dc;}
+    .help{font-size:.8rem; color:var(--muted); margin:.2rem 0 .8rem;}
+    .error{color:#ff8a80; font-size:.85rem; margin-top:.25rem;}
   </style>
 
   <script>
@@ -62,44 +65,34 @@
       }
       return ('00000000' + h.toString(16)).slice(-8);
     }
-    // Global namespace derived from origin + path
     const NS = fnv1aHex(location.origin + '|' + location.pathname);
-
-    // Obfuscated key builder: scope + name + NS + minor salt
     function obf(scope, name) {
       return `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
     }
 
     /************ Constants (all obfuscated to avoid collisions) ************/
-    // DB, store, index names obfuscated
     const DB_NAME  = obf('db',   'scheduler1_v2');
     const DB_STORE = obf('st',   'urls_v2');
-    const DB_VER   = 2;
+    const DB_VER   = 2; // meta-store already exists; no bump needed for new key
 
-    // Index name (not stored in data, but obfuscate for consistency)
     const IDX_EFFECTIVE = obf('idx', 'effectiveWeight');
-
-    // Meta store name (namespaced)
     const META_STORE = obf('meta', 'kvs');
 
-    // Meta keys (obfuscated)
-    const KEY_FREQ_MINUTES = obf('k', 'freq_minutes'); // previously 'f'
-    const KEY_LAST_SHOWN   = obf('k', 'last_shown_ms'); // previously 'l'
+    const KEY_FREQ_MINUTES = obf('k', 'freq_minutes');
+    const KEY_LAST_SHOWN   = obf('k', 'last_shown_ms');
+    /* NEW: Wildcard list key (array of URL strings) */
+    const KEY_WILDCARD_LIST = obf('k', 'wildcards_v1');
 
-    // Optional LocalStorage keys (none used previously). Provide helpers for future use.
     function lsKey(name) { return obf('ls', name); }
-    const LS_WATCHDOG = lsKey('watchdog'); // not required, reserved for future use
+    const LS_WATCHDOG = lsKey('watchdog');
 
-    // Redirect tuning
     const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
     const RANDOM_PDF_MAX = 27;
     const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
 
-    // Rating choices and modal cadence
     const RATING_PROBABILITY_ON_LOAD = 0.25; // informational
     const RATING_CHOICES = [-3, -1, 0, +1, +3];
 
-    // Modal timing & frequency (unchanged behavior)
     const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
     const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
     const MODAL_SHOW_PROBABILITY = 0.15;
@@ -126,12 +119,10 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     function txStore(db, mode='readonly') {
       const tx = db.transaction(DB_STORE, mode);
       return [tx, tx.objectStore(DB_STORE)];
     }
-
     function getAll(db) {
       return new Promise((resolve, reject) => {
         const [tx, store] = txStore(db);
@@ -140,7 +131,6 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     function getOne(db, key) {
       return new Promise((resolve, reject) => {
         const [tx, store] = txStore(db);
@@ -149,7 +139,6 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     function putMany(db, records) {
       return new Promise((resolve, reject) => {
         const [tx, store] = txStore(db, 'readwrite');
@@ -158,8 +147,7 @@
         tx.onerror = () => reject(tx.error);
       });
     }
-
-    /* ===== Meta store helpers (using obfuscated keys) ===== */
+    /* ===== Meta store helpers ===== */
     function metaGet(db, key) {
       return new Promise((resolve, reject) => {
         const tx = db.transaction(META_STORE, 'readonly');
@@ -183,9 +171,8 @@
     function secureRandomFloat01() {
       const r = new Uint32Array(1);
       crypto.getRandomValues(r);
-      return r[0] / 4294967296; // 1 / 2^32
+      return r[0] / 4294967296;
     }
-
     function chooseWeighted(items) {
       let total = 0;
       for (const it of items) {
@@ -213,7 +200,6 @@
       }
       return items[0];
     }
-
     function downloadJSON(filename, obj) {
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -224,14 +210,11 @@
       a.remove();
       URL.revokeObjectURL(url);
     }
-
     function fmtDateStamp() {
       const d = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
     }
-
-    /************ Safe parse for embedded JSON ************/
     function safeParseSeed() {
       const raw = document.getElementById('urlProbability')?.textContent ?? '';
       try {
@@ -250,11 +233,9 @@
     }
 
     /************ Frequency helpers (use meta store) ************/
+    const USER_MIN = USER_MIN_FREQ_MINUTES;
     function roundToStep(valueMinutes) {
-      return Math.max(
-        USER_MIN_FREQ_MINUTES,
-        Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES
-      );
+      return Math.max(USER_MIN, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
     }
     async function getStoredFreqMinutes(db) {
       const val = await metaGet(db, KEY_FREQ_MINUTES);
@@ -272,6 +253,27 @@
     }
     async function markJustShown(db, nowMs = Date.now()) {
       return metaSet(db, KEY_LAST_SHOWN, Number(nowMs));
+    }
+
+    /************ Wildcard helpers (array of URLs in meta) ************/
+    function isValidHttpUrl(str) {
+      try {
+        const u = new URL(str);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch { return false; }
+    }
+    async function getWildcards(db) {
+      const list = await metaGet(db, KEY_WILDCARD_LIST);
+      return Array.isArray(list) ? list.filter(isValidHttpUrl) : [];
+    }
+    async function addWildcard(db, url) {
+      if (!isValidHttpUrl(url)) return false;
+      const curr = await getWildcards(db);
+      if (!curr.includes(url)) {
+        curr.push(url);
+        await metaSet(db, KEY_WILDCARD_LIST, curr);
+      }
+      return true;
     }
 
     /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
@@ -308,35 +310,50 @@
         if (!seedMap.has(rec.url)) toPut.push(rec);
       }
       await putMany(db, toPut);
+
+      /* Ensure wildcard list key exists (initialize empty array exactly once) */
+      const wild = await metaGet(db, KEY_WILDCARD_LIST);
+      if (!Array.isArray(wild)) await metaSet(db, KEY_WILDCARD_LIST, []);
+
       return toPut;
     }
 
-    /************ Rating modal (frequency controls + 30s auto-dismiss) ************/
-    // Disables choices that would make effective <= 0 (existing behavior preserved)
-    function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
+    /************ Rating modal (frequency controls + wildcard input + 30s auto-dismiss) ************/
+    function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq, onAddWildcard) {
       const dlg = document.getElementById('ratingDialog');
       const urlEl = document.getElementById('ratingUrl');
       const btnsWrap = document.getElementById('ratingButtons');
       const skipBtn = document.getElementById('skipRatingBtn');
 
-      // Frequency controls
       const freqDecBtn = document.getElementById('freqDec');
       const freqIncBtn = document.getElementById('freqInc');
       const freqValueEl = document.getElementById('freqValue');
 
-      let freqMinutes = currentFreqMinutes;
+      const wildInput = document.getElementById('wildUrlInput');
+      const wildErr = document.getElementById('wildUrlError');
 
-      // Auto-dismiss timer handle
+      let freqMinutes = currentFreqMinutes;
       let timeoutId = null;
 
       function updateFreqUI() {
         if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`;
       }
       function clearTimer() {
-        if (timeoutId !== null) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+        if (timeoutId !== null) { clearTimeout(timeoutId); timeoutId = null; }
+      }
+      function validateWildcard() {
+        const val = (wildInput?.value || '').trim();
+        if (!val) { if (wildErr) wildErr.textContent = ''; return { ok: true, value: '' }; }
+        const ok = isValidHttpUrl(val);
+        if (!ok && wildErr) wildErr.textContent = 'Please enter a valid http(s) URL.';
+        if (ok && wildErr) wildErr.textContent = '';
+        return { ok, value: val };
+      }
+      async function maybePersistWildcardThen(cb) {
+        const { ok, value } = validateWildcard();
+        if (!ok) return; // keep modal open; error text shown
+        if (value) { try { await onAddWildcard?.(value); } catch {} }
+        cb && cb();
       }
       function persistAndClose(cb) {
         try { onPersistFreq && onPersistFreq(freqMinutes); } catch {}
@@ -354,55 +371,46 @@
         const b = document.createElement('button');
         b.className = 'btn btn-mid';
         b.textContent = (val > 0 ? `+${val}` : `${val}`);
-
         const projected = base + delta + val;
         if (projected <= 0) {
           b.disabled = true;
           b.title = 'Disabled: would reduce probability to zero or negative';
         }
-
         b.addEventListener('click', () => {
           if (b.disabled) return;
-          // User chose a rating (definitive "save"): cancel timer, persist, and continue
           clearTimer();
-          persistAndClose(() => onPick(val));
+          maybePersistWildcardThen(() => persistAndClose(() => onPick(val)));
         }, { once: true });
-
         btnsWrap.appendChild(b);
       }
 
-      // Wire frequency +/- buttons
       if (freqDecBtn) {
-        freqDecBtn.onclick = () => {
-          freqMinutes = Math.max(USER_MIN_FREQ_MINUTES, freqMinutes - STEP_MINUTES);
-          updateFreqUI();
-        };
+        freqDecBtn.onclick = () => { freqMinutes = Math.max(USER_MIN, freqMinutes - STEP_MINUTES); updateFreqUI(); };
       }
       if (freqIncBtn) {
-        freqIncBtn.onclick = () => {
-          freqMinutes = freqMinutes + STEP_MINUTES;
-          updateFreqUI();
-        };
+        freqIncBtn.onclick = () => { freqMinutes = freqMinutes + STEP_MINUTES; updateFreqUI(); };
       }
+      if (wildInput) {
+        wildInput.addEventListener('input', validateWildcard);
+        wildInput.addEventListener('blur', validateWildcard);
+      }
+
       updateFreqUI();
 
-      // Skip -> redirect immediately (also cancels timer)
       skipBtn.onclick = () => {
         clearTimer();
-        persistAndClose(onSkip);
+        maybePersistWildcardThen(() => persistAndClose(onSkip));
       };
 
       try { dlg.showModal(); } catch { dlg.show(); }
 
-      // Auto-dismiss after 30 seconds if no definitive rating chosen
       timeoutId = setTimeout(() => {
-        persistAndClose(onSkip);
+        maybePersistWildcardThen(() => persistAndClose(onSkip));
       }, 30_000);
     }
 
     /************ Main flow ************/
     async function main() {
-      // safety watchdog: if nothing happens in 5s, bail out to a known page
       const watchdog = setTimeout(() => {
         try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
       }, 5000);
@@ -410,8 +418,8 @@
       try {
         const db = await openDB();
         const records = await bootstrapDB(db);
+        const wildcardList = await getWildcards(db); // << load once for this run
 
-        // Controls toolbar (download button)
         document.getElementById('downloadBtn')?.addEventListener('click', async () => {
           const all = await getAll(db);
           const items = all.map(r => ({
@@ -424,8 +432,10 @@
         // ===== Decide next URL first (no redirect yet) =====
         let nextUrl = null;
         const u = secureRandomFloat01();
+
         if (u < 0.02) {
           nextUrl = EDIT_URL;
+
         } else if (u < 0.12) {
           if (secureRandomFloat01() < 0.5) {
             nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
@@ -433,6 +443,12 @@
             const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
             nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
           }
+
+        /* NEW: 10% chance to pick from wildcard array if non-empty */
+        } else if (wildcardList.length > 0 && secureRandomFloat01() < 0.10) {
+          const idx = Math.floor(secureRandomFloat01() * wildcardList.length);
+          nextUrl = wildcardList[idx];
+
         } else {
           const chosen = chooseWeighted(records.length ? records : (safeParseSeed().items || []).map(it => ({
             url: it.url, baseWeight: it.probabilityWeight, delta: 0
@@ -451,20 +467,17 @@
         const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
         const wantShow = mustShow || wantsSoftShow;
 
-        // Pick a record to rate (independent of where we redirect)
         const toRate = records.length
           ? records[Math.floor(secureRandomFloat01() * records.length)]
           : null;
 
         if (wantShow && toRate) {
-          // Record immediately to enforce the 15m guarantee even if closed
           await markJustShown(db, now);
 
           showRatingModal(
             toRate.url,
             toRate,
             currentFreqMinutes,
-            // onPick
             async (val) => {
               try {
                 const rec = await getOne(db, toRate.url);
@@ -488,15 +501,12 @@
                 window.location.replace(nextUrl);
               }
             },
-            // onSkip
             () => {
               clearTimeout(watchdog);
               window.location.replace(nextUrl);
             },
-            // onPersistFreq
-            async (mins) => {
-              await setStoredFreqMinutes(db, mins);
-            }
+            async (mins) => { await setStoredFreqMinutes(db, mins); },
+            async (wildUrl) => { await addWildcard(db, wildUrl); } // persist wildcard if provided
           );
         } else {
           clearTimeout(watchdog);
@@ -537,6 +547,15 @@
       </div>
       <div class="small" style="margin:.1rem 0 .9rem;">We’ll still show this at least once every 15 minutes.</div>
       <!-- ▲ End controls -->
+
+      <!-- ▼ NEW: Wildcard URL entry -->
+      <div class="small">Optional wildcard URL</div>
+      <div class="field">
+        <input id="wildUrlInput" class="input mono" type="url" placeholder="https://example.com/page" autocomplete="off" inputmode="url" />
+      </div>
+      <div id="wildUrlError" class="error"></div>
+      <div class="help">If provided and valid, this URL is added to your wildcard pool (10% random pick when the pool isn’t empty).</div>
+      <!-- ▲ End wildcard -->
 
       <div id="ratingButtons" class="grid-5" style="margin:.75rem 0 1rem;"></div>
       <div class="toolbar" style="justify-content:space-between; width:100%;">
