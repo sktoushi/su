@@ -4,16 +4,13 @@
   <meta charset="UTF-8" />
   <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend + Mix Modal)</title>
 
-  <!-- Ensure relative URLs resolve correctly on GitHub Pages project subpaths -->
-  <base href="./">
-
-  <!-- External helper (optional). We now have a robust local/global fallback. -->
+  <!-- (Optional) Keep this include if you really need it elsewhere.
+       But the code now has a safe local fallback so a 404 won't break the app. -->
   <script src="common/random-utils.js"></script>
 
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* === Theme tokens === */
     :root {
       --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
       --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
@@ -52,7 +49,6 @@
     .modal p{margin:0 0 .9rem 0; color:var(--muted);}
     .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
 
-    /* === Mix UI === */
     .mix-summary{
       display:flex; align-items:center; justify-content:space-between;
       margin:.25rem 0 0.75rem 0; color:var(--muted);
@@ -83,7 +79,6 @@
     }
     code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
 
-    /* Frequency control */
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
@@ -95,7 +90,6 @@
 <body>
 <main id="app"></main>
 
-<!-- Mix Modal -->
 <dialog id="mixDialog" aria-labelledby="mixTitle">
   <div class="modal">
     <div class="modal-header">
@@ -114,7 +108,6 @@
 
     <div id="mixRows" class="mix-rows"></div>
 
-    <!-- Frequency controls -->
     <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
       <label class="small">Modal frequency</label>
       <div class="freqrow">
@@ -135,38 +128,34 @@
 </dialog>
 
 <script>
-/* ============================================================
-   GLOBAL randomness fallback (robust on GH Pages)
-   ============================================================ */
-if (typeof window.getSecureRandomNumber !== 'function') {
-  window.getSecureRandomNumber = function () {
-    const u = new Uint32Array(1);
-    window.crypto.getRandomValues(u);
-    return u[0] / 0xffffffff;
-  };
+/* ========= NAMESPACING (collision-proof for reuse) =========
+   We derive a short, deterministic namespace from the current
+   origin+path so multiple copies of this file (or forks) won't
+   collide in IndexedDB or localStorage.
+*/
+function fnv1aHex(str) {
+  let h = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ('00000000' + (h >>> 0).toString(16)).slice(-8);
 }
-const getSecureRandomNumber =
-  typeof window.getSecureRandomNumber === 'function'
-    ? window.getSecureRandomNumber
-    : function () {
-        const u = new Uint32Array(1);
-        window.crypto.getRandomValues(u);
-        return u[0] / 0xffffffff;
-      };
-function getSecureRandom01() {
-  const u = new Uint32Array(1);
-  window.crypto.getRandomValues(u);
-  return u[0] / 0xffffffff;
-}
+const NS = (() => {
+  const base = 'rrx_v5';
+  const scope = `${location.origin}${location.pathname}`;
+  return `${base}_${fnv1aHex(scope)}`;
+})();
 
-/* ============================================================
-   IndexedDB helpers
-   ============================================================ */
-const DB_NAME = 'repoRandomizerDB';
+/* ========= HARDENING FOR GITHUB PAGES =========
+   1) Provide a local fallback for getSecureRandomNumber()
+   2) Slightly more robust config fetch path + assertive error surface
+*/
+const DB_NAME = `${NS}_db`;
 const DB_VERSION = 1;
-const STORE_CONFIG = 'config';
-const STORE_SETTINGS = 'settings';
-const STORE_META = 'meta';
+const STORE_CONFIG = `${NS}_cfg`;
+const STORE_SETTINGS = `${NS}_settings`;
+const STORE_META = `${NS}_meta`;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -200,20 +189,20 @@ function idbSet(store, key, value) {
   }));
 }
 
-/* ============================================================
-   Defaults
-   ============================================================ */
+/* ================== Defaults ================== */
 const FORMULAS_CANON = [
   'random',
   'leftLeaning',
   'rightLeaning1',
   'recent20Percent',
   'recent5Percent',
+  // Existing new ones
   'middleBell',
   'oldest10Percent',
   'recent10Percent',
   'zigZag',
   'primeBoost',
+  // ▼ Cognition-oriented additions
   'primacyRecency',
   'pyramidMiddle',
   'triPeak',
@@ -232,17 +221,17 @@ const FORMULAS_CANON = [
 ];
 
 const DEFAULT_MIX = {
-  random: 0,
-  leftLeaning: 0,
-  rightLeaning1: 0,
-  recent20Percent: 1,
-  recent5Percent: 1,
+  random: 1,
+  leftLeaning: 1,
+  rightLeaning1: 3,
+  recent20Percent: 3,
+  recent5Percent: 3,
   middleBell: 1,
   oldest10Percent: 1,
-  recent10Percent: 1,
+  recent10Percent: 3,
   zigZag: 1,
   primeBoost: 1,
-  primacyRecency: 1,
+  primacyRecency: 2,
   pyramidMiddle: 1,
   triPeak: 1,
   sinusoidal: 1,
@@ -259,7 +248,6 @@ const DEFAULT_MIX = {
   noveltyWave: 1
 };
 
-/* Modal timing */
 const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
 const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
 const MODAL_SHOW_PROBABILITY = 0.15;
@@ -267,9 +255,18 @@ const KEY_FREQ_MINUTES = 'modalFreqMinutes';
 const USER_MIN_FREQ_MINUTES = 5;
 const STEP_MINUTES = 5;
 
-/* ============================================================
-   Utilities
-   ============================================================ */
+/* ================== Utilities ================== */
+function getSecureRandom01() {
+  const u = new Uint32Array(1);
+  crypto.getRandomValues(u);
+  return u[0] / 0xffffffff;
+}
+
+/* --- NEW: local fallback so GH Pages 404s won't break you --- */
+if (typeof window.getSecureRandomNumber !== 'function') {
+  window.getSecureRandomNumber = function () { return getSecureRandom01(); };
+}
+
 function sumMix(mix) {
   return Object.values(mix).reduce((a,b) => a + (Number(b)||0), 0);
 }
@@ -290,12 +287,11 @@ function weightedChoiceFromMix(mix, fallbackList) {
   return entries[entries.length - 1][0];
 }
 function roundToStep(valueMinutes) {
-  return Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+  const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+  return v;
 }
 
-/* ============================================================
-   Modal UI
-   ============================================================ */
+/* ================== Modal UI ================== */
 const mixDialog = document.getElementById('mixDialog');
 const mixRowsContainer = document.getElementById('mixRows');
 const totalCountPill = document.getElementById('totalCountPill');
@@ -310,6 +306,7 @@ const freqValueEl = document.getElementById('freqValue');
 
 let currentMix = { ...DEFAULT_MIX };
 let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
+
 let modalTimeoutId = null;
 
 function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); } }
@@ -436,32 +433,24 @@ function wireFrequencyControls() {
   };
 }
 
-/* ============================================================
-   Formulas (with gentle recency bias to the right where appropriate)
-   ============================================================ */
-function recencyMultiplier(i, n, alpha = 0.6) {
-  if (n <= 1) return 1;
-  const x = i / (n - 1);
-  return 1 + alpha * x;
-}
-
+/* ============= Weights: cognition-oriented shapes ============= */
 function applyFormulaWeights(formulaParam, n) {
   const weights = new Array(n).fill(1);
 
+  // existing
   if (formulaParam === 'leftLeaning') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
       weights[i] = (n - i) * noise;
     }
   } else if (formulaParam === 'rightLeaning1') {
     for (let i = 0; i < n; i++) {
-      const noise = 0.5 + getSecureRandomNumber();
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
       weights[i] = (i + 1) * noise;
     }
   } else if (formulaParam === 'recent20Percent') {
     const startIdx = Math.floor(n * 0.8);
     for (let i = startIdx; i < n; i++) weights[i] = 5;
-
   } else if (formulaParam === 'recent5Percent') {
     const startIdx = Math.floor(n * 0.95);
     for (let i = startIdx; i < n; i++) weights[i] = 20;
@@ -472,31 +461,20 @@ function applyFormulaWeights(formulaParam, n) {
     for (let i = 0; i < n; i++) {
       const z = (i - mu) / sigma;
       const bell = Math.exp(-0.5 * z * z);
-      weights[i] = (1 + 9 * bell) * recencyMultiplier(i, n, 0.45);
+      weights[i] = 1 + 9 * bell;
     }
-
   } else if (formulaParam === 'oldest10Percent') {
     const endIdx = Math.max(0, Math.floor(n * 0.10) - 1);
-    for (let i = 0; i < n; i++) {
-      const base = (i <= endIdx) ? 12 : 1;
-      weights[i] = base * recencyMultiplier(i, n, 0.35);
-    }
-
+    for (let i = 0; i < n; i++) weights[i] = (i <= endIdx) ? 12 : 1;
   } else if (formulaParam === 'recent10Percent') {
     const startIdx = Math.floor(n * 0.90);
-    for (let i = 0; i < n; i++) {
-      const base = (i >= startIdx) ? 12 : 1;
-      weights[i] = base * recencyMultiplier(i, n, 0.6);
-    }
-
+    for (let i = startIdx; i < n; i++) weights[i] = 12;
   } else if (formulaParam === 'zigZag') {
     for (let i = 0; i < n; i++) {
       const alt = (i % 2 === 0) ? 1.15 : 0.85;
       const slope = 1 + (i / Math.max(1, n - 1)) * 0.5;
-      const base = alt * slope;
-      weights[i] = base * recencyMultiplier(i, n, 0.4);
+      weights[i] = alt * slope;
     }
-
   } else if (formulaParam === 'primeBoost') {
     function isPrimeOneIndexed(pos) {
       if (pos < 2) return false;
@@ -507,24 +485,23 @@ function applyFormulaWeights(formulaParam, n) {
     }
     for (let i = 0; i < n; i++) {
       const pos = i + 1;
-      const base = isPrimeOneIndexed(pos) ? 6 : 1;
-      weights[i] = base * recencyMultiplier(i, n, 0.5);
+      weights[i] = isPrimeOneIndexed(pos) ? 6 : 1;
     }
+
+  /* ---------- Cognition patterns ---------- */
 
   } else if (formulaParam === 'primacyRecency') {
     const c = (n - 1) / 2;
     for (let i = 0; i < n; i++) {
       const norm = Math.abs(i - c) / (c || 1);
-      const base = 1 + 4 * norm;
-      weights[i] = base * recencyMultiplier(i, n, 0.5);
+      weights[i] = 1 + 4 * norm;
     }
 
   } else if (formulaParam === 'pyramidMiddle') {
     const c = (n - 1) / 2;
     for (let i = 0; i < n; i++) {
       const norm = 1 - Math.abs(i - c) / (c || 1);
-      const base = 1 + 4 * Math.max(0, norm);
-      weights[i] = base * recencyMultiplier(i, n, 0.35);
+      weights[i] = 1 + 4 * Math.max(0, norm);
     }
 
   } else if (formulaParam === 'triPeak') {
@@ -536,23 +513,20 @@ function applyFormulaWeights(formulaParam, n) {
         const z = (i - c) / sigma;
         s += Math.exp(-0.5 * z * z);
       }
-      const base = 1 + 3 * s;
-      weights[i] = base * recencyMultiplier(i, n, 0.45);
+      weights[i] = 1 + 3 * s;
     }
 
   } else if (formulaParam === 'sinusoidal') {
     for (let i = 0; i < n; i++) {
       const phase = 2 * Math.PI * i / Math.max(1, n - 1);
       const wave = 0.5 * (1 + Math.sin(phase));
-      const base = 1 + 3 * wave;
-      weights[i] = base * recencyMultiplier(i, n, 0.4);
+      weights[i] = 1 + 3 * wave;
     }
 
   } else if (formulaParam === 'interleaved3') {
     for (let i = 0; i < n; i++) {
       const r = i % 3;
-      const base = r === 0 ? 2.6 : (r === 1 ? 1.6 : 1.0);
-      weights[i] = base * recencyMultiplier(i, n, 0.5);
+      weights[i] = r === 0 ? 2.6 : (r === 1 ? 1.6 : 1.0);
     }
 
   } else if (formulaParam === 'chunkedBlocks') {
@@ -560,8 +534,7 @@ function applyFormulaWeights(formulaParam, n) {
     for (let i = 0; i < n; i++) {
       const pos = i % size;
       const edge = (pos === 0 || pos === size - 1);
-      const base = edge ? 3 : 1.2;
-      weights[i] = base * recencyMultiplier(i, n, 0.45);
+      weights[i] = edge ? 3 : 1.2;
     }
 
   } else if (formulaParam === 'expandingSpaced') {
@@ -574,44 +547,37 @@ function applyFormulaWeights(formulaParam, n) {
         const z = (i - a) / sigma;
         s += Math.exp(-0.5 * z * z);
       }
-      const base = 1 + 5 * s;
-      weights[i] = base * recencyMultiplier(i, n, 0.55);
+      weights[i] = 1 + 5 * s;
     }
 
   } else if (formulaParam === 'fixedSpaced') {
     const k = Math.max(3, Math.round(n / 12));
     for (let i = 0; i < n; i++) {
-      const base = (i % k === 0) ? 4 : 1;
-      weights[i] = base * recencyMultiplier(i, n, 0.4);
+      weights[i] = (i % k === 0) ? 4 : 1;
     }
 
   } else if (formulaParam === 'forgettingCurve') {
     const ages = [0.02, 0.05, 0.12, 0.25];
+    const t = (idx) => (n - 1 - idx) / Math.max(1, n - 1);
     const sigma = 0.04;
-    const ageOf = (idx) => (n - 1 - idx) / Math.max(1, n - 1);
     for (let i = 0; i < n; i++) {
-      const age = ageOf(i);
+      const age = t(i);
       let s = 0;
       for (const a of ages) {
         const z = (age - a) / sigma;
         s += Math.exp(-0.5 * z * z);
       }
-      const base = 1 + 8 * s;
-      weights[i] = base * recencyMultiplier(i, n, 0.5);
+      weights[i] = 1 + 8 * s;
     }
 
   } else if (formulaParam === 'reviewWindow7pct') {
     const startIdx = Math.floor(n * 0.93);
-    for (let i = 0; i < n; i++) {
-      const base = (i >= startIdx) ? 14 : 1;
-      weights[i] = base * recencyMultiplier(i, n, 0.6);
-    }
+    for (let i = startIdx; i < n; i++) weights[i] = 14;
 
   } else if (formulaParam === 'quadraticRamp') {
     for (let i = 0; i < n; i++) {
       const x = i / Math.max(1, n - 1);
-      const base = 1 + 5 * (x * x);
-      weights[i] = base;
+      weights[i] = 1 + 5 * (x * x);
     }
 
   } else if (formulaParam === 'easyThenHard') {
@@ -619,24 +585,21 @@ function applyFormulaWeights(formulaParam, n) {
       const x = i / Math.max(1, n - 1);
       const phase1 = Math.max(0, 0.6 - x) * 2.0;
       const phase2 = Math.max(0, x - 0.4) * 3.0;
-      const base = 1 + phase1 + phase2;
-      weights[i] = base;
+      weights[i] = 1 + phase1 + phase2;
     }
 
   } else if (formulaParam === 'contrastBlocks') {
     const size = Math.max(4, Math.round(n / 10));
     for (let i = 0; i < n; i++) {
       const block = Math.floor(i / size);
-      const base = (block % 2 === 0) ? 3.2 : 1.0;
-      weights[i] = base * recencyMultiplier(i, n, 0.35);
+      weights[i] = (block % 2 === 0) ? 3.2 : 1.0;
     }
 
   } else if (formulaParam === 'antiZigZag') {
     for (let i = 0; i < n; i++) {
       const alt = (i % 2 === 0) ? 0.85 : 1.15;
       const slope = 1 + (i / Math.max(1, n - 1)) * 0.2;
-      const base = alt * slope;
-      weights[i] = base * recencyMultiplier(i, n, 0.35);
+      weights[i] = alt * slope;
     }
 
   } else if (formulaParam === 'noveltyWave') {
@@ -645,16 +608,14 @@ function applyFormulaWeights(formulaParam, n) {
     for (let i = 0; i < n; i++) {
       const wave = 0.5 * (1 + Math.sin(4 * Math.PI * i / Math.max(1, n - 1)));
       const mid = Math.exp(-0.5 * Math.pow((i - c) / sigma, 2));
-      const base = 1 + 2.5 * wave + 2.5 * mid;
-      weights[i] = base * recencyMultiplier(i, n, 0.45);
+      weights[i] = 1 + 2.5 * wave + 2.5 * mid;
     }
   }
+
   return weights;
 }
 
-/* ============================================================
-   noisePatch (fixed implicit global + consistent window.crypto)
-   ============================================================ */
+/* === noisePatch (localStorage is namespaced) === */
 function noisePatch(weights, issues) {
   function cryptoRandom() {
     const buf = new Uint32Array(1);
@@ -671,7 +632,7 @@ function noisePatch(weights, issues) {
   function dejaGate(nowMs) {
     const d = new Date(nowMs);
     const hour = d.getHours() + d.getMinutes()/60;
-    const day  = d.getDay(); // FIX: declare variable instead of implicit global
+    const day  = d.getDay();
     const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
     const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
     const u = new Uint32Array(1); window.crypto.getRandomValues(u);
@@ -679,7 +640,7 @@ function noisePatch(weights, issues) {
     return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
   }
 
-  const key = "repo_randomizer_memory_v2";
+  const key = `${NS}_noise_mem_v1`;
   let mem = JSON.parse(localStorage.getItem(key) || "{}");
   let history = mem.history || new Array(weights.length).fill(0);
   let lastSeen = mem.lastSeen || {};
@@ -772,9 +733,7 @@ function noisePatch(weights, issues) {
   return { index: chosenIdx, erratic, adjusted, daysPassed };
 }
 
-/* ============================================================
-   Boot
-   ============================================================ */
+/* ================== Boot ================== */
 (async () => {
   try {
     const existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');
@@ -790,17 +749,13 @@ function noisePatch(weights, issues) {
     currentFreqMinutes = roundToStep(storedFreq);
     await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
 
-    /* Robust config fetch for GH Pages subpaths (+ soft bust) */
+    /* --- safer relative fetch under GH Pages subpaths --- */
+    const configUrl = new URL('./config/all.json', window.location.href).toString();
+
     let cfg = await idbGet(STORE_CONFIG, 'all');
     if (!cfg) {
-      const bust = `?v=${Date.now()}`;
-      const primary = new URL('./config/all.json' + bust, window.location.href).toString();
-      let res = await fetch(primary, { cache: 'no-store' }).catch(() => null);
-      if (!res || !res.ok) {
-        const fallback = './config/all.json' + bust;
-        res = await fetch(fallback, { cache: 'no-store' }).catch(() => null);
-      }
-      if (!res || !res.ok) throw new Error('Failed to load config (config/all.json not found)');
+      const res = await fetch(configUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to load config (${res.status})`);
       cfg = await res.json();
       await idbSet(STORE_CONFIG, 'all', cfg);
     }
@@ -816,7 +771,6 @@ function noisePatch(weights, issues) {
       }
     }
     const n = issues.length;
-    if (!n) throw new Error('No issues generated from config. Check config/all.json contents.');
 
     const lastShown = await idbGet(STORE_META, 'lastModalShown');
     const now = Date.now();
@@ -879,10 +833,8 @@ async function proceedWithFormula(formulaParam, n, issues) {
   const noisy = noisePatch(weights, issues);
   const chosen = issues[noisy.index];
 
-  // Redirect
   location.href = chosen;
 
-  // Fallback diagnostics if redirect blocked
   document.addEventListener('DOMContentLoaded', () => {
     const pre = document.createElement('pre');
     pre.className = 'diag';
