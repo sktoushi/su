@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend + Mix Modal)</title>
+  <!-- Keep your external helper; we add a local fallback below so GH Pages path issues don't break things -->
   <script src="common/random-utils.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -81,7 +82,7 @@
     .freqrow{display:flex; align-items:center; gap:.5rem;}
     .freqbadge{
       padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
-      background:#0f1519; color:#fg; font-variant-numeric:tabular-nums;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums; /* fixed var */
       min-width:7ch; text-align:center;
     }
   </style>
@@ -130,6 +131,24 @@
 </dialog>
 
 <script>
+/* ============================================================
+   Hardened randomness helpers (fix GH Pages ReferenceErrors)
+   ============================================================ */
+/* If the external helper defined it, use that; otherwise, provide a secure fallback */
+const getSecureRandomNumber = (typeof window.getSecureRandomNumber === 'function')
+  ? window.getSecureRandomNumber
+  : function getSecureRandomNumberFallback() {
+      const u = new Uint32Array(1);
+      crypto.getRandomValues(u);
+      return u[0] / 0xffffffff;
+    };
+/* Kept your local helper from earlier too */
+function getSecureRandom01() {
+  const u = new Uint32Array(1);
+  crypto.getRandomValues(u);
+  return u[0] / 0xffffffff;
+}
+
 /* ============================================================
    IndexedDB helpers
    ============================================================ */
@@ -210,8 +229,7 @@ const DEFAULT_MIX = {
   rightLeaning1: 0,
   recent20Percent: 1,
   recent5Percent: 1,
-  /* new formulas start enabled so you can see them in the modal;
-     set to 0 here if you prefer no behavior change until adjusted */
+  /* new formulas enabled by default so they show in modal */
   middleBell: 1,
   oldest10Percent: 1,
   recent10Percent: 1,
@@ -235,9 +253,9 @@ const DEFAULT_MIX = {
 };
 
 /* Modal timing (updated to include forced 15m + user-configurable ±5m) */
-const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee: show at least once every 15 minutes
-const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default target interval when user hasn't chosen
-const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts between forced intervals
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default interval
+const MODAL_SHOW_PROBABILITY = 0.15;            // probabilistic attempts
 const KEY_FREQ_MINUTES = 'modalFreqMinutes';
 const USER_MIN_FREQ_MINUTES = 5;                // floor 5 minutes
 const STEP_MINUTES = 5;                         // increment/decrement step
@@ -245,11 +263,6 @@ const STEP_MINUTES = 5;                         // increment/decrement step
 /* ============================================================
    Utilities
    ============================================================ */
-function getSecureRandom01() {
-  const u = new Uint32Array(1);
-  crypto.getRandomValues(u);
-  return u[0] / 0xffffffff;
-}
 function sumMix(mix) {
   return Object.values(mix).reduce((a,b) => a + (Number(b)||0), 0);
 }
@@ -436,7 +449,7 @@ function wireFrequencyControls() {
 }
 
 /* ============================================================
-   Base implementation + noise patch (original logic preserved)
+   Formulas (with recency bias on the right)
    ============================================================ */
 function recencyMultiplier(i, n, alpha = 0.6) {
   // Monotonic right-leaning factor in [1, 1+alpha]
@@ -466,7 +479,7 @@ function applyFormulaWeights(formulaParam, n) {
     const startIdx = Math.floor(n * 0.95);
     for (let i = startIdx; i < n; i++) weights[i] = 20;
 
-  /* ---------- New & cognition-oriented formulas (with recency tilt) ---------- */
+  /* ---------- Cognition-oriented patterns with gentle recency tilt ---------- */
 
   } else if (formulaParam === 'middleBell') {
     const mu = (n - 1) / 2;
@@ -672,9 +685,9 @@ function noisePatch(weights, issues) {
   function dejaGate(nowMs) {
     const d = new Date(nowMs);
     const hour = d.getHours() + d.getMinutes()/60;
-    const day  = d.getDay();
+    theDay = d.getDay();
     const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
-    const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
+    const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((theDay+0.5)/7)));
     const u = new Uint32Array(1); window.crypto.getRandomValues(u);
     const jitter = (u[0] / 0xffffffff) * 0.2;
     return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
@@ -794,10 +807,16 @@ function noisePatch(weights, issues) {
     await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
 
     // Config: fetch once then cache in IDB; afterwards read from IDB
+    // Be robust to GH Pages paths; use a URL relative to the current document.
     let cfg = await idbGet(STORE_CONFIG, 'all');
     if (!cfg) {
-      const res = await fetch('config/all.json', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to load config');
+      const configUrl = new URL('config/all.json', document.baseURI).href;
+      let res = await fetch(configUrl, { cache: 'no-store' }).catch(() => null);
+      if (!res || !res.ok) {
+        // Try a strictly relative fallback
+        res = await fetch('./config/all.json', { cache: 'no-store' }).catch(() => null);
+      }
+      if (!res || !res.ok) throw new Error('Failed to load config (config/all.json not found)');
       cfg = await res.json();
       await idbSet(STORE_CONFIG, 'all', cfg);
     }
@@ -814,6 +833,7 @@ function noisePatch(weights, issues) {
       }
     }
     const n = issues.length;
+    if (!n) throw new Error('No issues generated from config. Check config/all.json contents.');
 
     // Modal timing: forced guarantee + probabilistic user interval
     const lastShown = await idbGet(STORE_META, 'lastModalShown');
@@ -835,7 +855,7 @@ function noisePatch(weights, issues) {
       await idbSet(STORE_META, 'lastModalShown', now);
       openModal();
 
-      /* >>> NEW: Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
+      /* >>> Auto-dismiss after 30 seconds if user does NOT click "Save & Continue"
          Proceed with the usual implementation (choose and redirect) without saving. */
       modalTimeoutId = setTimeout(() => {
         closeModal(); // hide modal if it's still open
