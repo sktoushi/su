@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random PDF Picker (Crypto RNG, No Loop)</title>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* Original styles (kept) */
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #fafafa;
+      margin: 2rem;
+    }
+    code {
+      background: #eee;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+    a { word-break: break-all; }
+
+    /* ===== Themed modal (kept) ===== */
+    :root {
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+    }
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;
+    }
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+
+    dialog{
+      border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg);
+      width:min(560px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.25rem 1.25rem 1rem;}
+    .modal h2{margin:0 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 1rem 0; color:var(--muted);}
+
+    .field{
+      display:grid; grid-template-columns:1fr auto; gap:.75rem; align-items:center;
+      margin:.75rem 0 1rem 0;
+    }
+    .numinput{
+      width:12ch; padding:.6rem .75rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.08);
+      background:#0f1519; color:var(--fg); font-size:1rem;
+    }
+    .hint{margin-top:-.6rem; margin-bottom:.9rem;}
+
+    /* Modal frequency control */
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{
+      padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      min-width:7ch; text-align:center;
+    }
+
+    /* Mix controls */
+    .mixwrap{border-top:1px solid rgba(255,255,255,.08); padding-top:.75rem; margin-top:.5rem;}
+    .mixrow{display:flex; align-items:center; gap:.5rem; margin:.35rem 0;}
+    .mixrow label{flex:1; color:var(--fg); font-size:.95rem;}
+    .mixvalue{min-width:6ch; text-align:right; font-variant-numeric:tabular-nums;}
+    .mixgrid{display:grid; grid-template-columns:1fr auto auto auto; gap:.5rem; align-items:center;}
+    .countdown{font-variant-numeric:tabular-nums;}
+  </style>
+</head>
+<body>
+
+<!-- Themed modal asking for RANDOM_PDF_MAX -->
+<dialog id="endDialog" aria-labelledby="endDialogTitle">
+  <div class="modal">
+    <h2 id="endDialogTitle">Set <code>RANDOM_PDF_MAX</code></h2>
+    <p>Enter the highest PDF number to use when picking a random PDF. This value is saved in <code>IndexedDB</code> and used from now on.</p>
+
+    <div class="field">
+      <label for="endInput" class="small">RANDOM_PDF_MAX</label>
+      <input id="endInput" class="numinput" type="number" min="1" step="1" inputmode="numeric" pattern="[0-9]*" />
+    </div>
+    <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
+    <div class="hint small">If you skip, we’ll continue using the current stored value (seeded on first run).</div>
+
+    <!-- Modal show frequency -->
+    <div class="field">
+      <label class="small">Modal frequency</label>
+      <div class="freqrow">
+        <button id="freqDec" type="button" class="btn btn-small" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-small" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+    </div>
+    <div class="small hint">We’ll still show this at least once every 15 minutes.</div>
+
+    <!-- Randomization frequency mix -->
+    <div class="mixwrap">
+      <h3 class="small" style="margin:.25rem 0 .5rem;">Randomization frequency mix (must sum to 100%)</h3>
+      <div id="mixContainer" class="mixgrid">
+        <!-- rows injected by JS -->
+      </div>
+      <div class="small hint">Default is right-tilted: <em>Recent 100 items = 60%</em>, remaining 40% rises smoothly from Recent 5% → 90%.<br/>If <code>RANDOM_PDF_MAX</code> &lt; 100, the “Recent 100 items” bucket is automatically skipped and weights are renormalized.</div>
+    </div>
+
+    <div class="toolbar" style="margin-top:.6rem;">
+      <button class="btn btn-small btn-danger" id="skipEndBtn" title="Enabled after 30s">Skip</button>
+      <span id="skipCountdown" class="small countdown" aria-live="polite"></span>
+      <div style="flex:1"></div>
+      <button class="btn btn-small" id="resetEndBtn" title="Reset RANDOM_PDF_MAX to default">Reset</button>
+      <button class="btn btn-small" id="resetMixBtn" title="Restore right-tilted default mix">Reset Mix</button>
+      <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ============================================================
+   Crypto-secure randomness only (no Math.random)
+
+   Modifications:
+   - Traverses 1..RANDOM_PDF_MAX (PDF numbers) instead of GitHub issues.
+   - Keeps weighted mix of ranges:
+       Recent 90%, 80%, 70%, …, 10%, 5%
+       Recent 100 items (defaults to 60% weight)
+   - If RANDOM_PDF_MAX < 100, skip the "Recent 100 items" bucket and renormalize.
+   - Modal timing, mix UI, and persistence kept.
+   - Redirects to:
+       https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=<N>.pdf
+   - Initial RANDOM_PDF_MAX default is 39.
+   ============================================================ */
+
+(function () {
+  const TWO32 = 0x100000000; // 2^32
+  const DEFAULT_RANDOM_PDF_MAX = 39;
+
+  function assertCrypto() {
+    if (!window.crypto || !window.crypto.getRandomValues) {
+      throw new Error('Secure RNG unavailable: window.crypto.getRandomValues not found.');
+    }
+  }
+
+  // Uniform float in [0, 1)
+  function cryptoRandomFloat() {
+    assertCrypto();
+    const buf = new Uint32Array(1);
+    window.crypto.getRandomValues(buf);
+    return buf[0] / TWO32;
+  }
+
+  // Uniform integer in [min, max] inclusive, no modulo bias (rejection sampling)
+  function cryptoRandomInt(min, max) {
+    assertCrypto();
+    if (!Number.isInteger(min) || !Number.isInteger(max) || max < min) {
+      throw new Error('Invalid range for cryptoRandomInt.');
+    }
+    const range = max - min + 1;
+    const limit = TWO32 - (TWO32 % range);
+    const buf = new Uint32Array(1);
+    let x;
+    do {
+      window.crypto.getRandomValues(buf);
+      x = buf[0];
+    } while (x >= limit);
+    return min + (x % range);
+  }
+
+  /* ================= IndexedDB (same DB + keys + new mix key) ================= */
+  const IDB_NAME = 'issueEndOverrideDB_v1'; // keep original DB name for continuity
+  const IDB_VER = 1;
+  const STORE_SETTINGS = 'settings';
+  const KEY_END = 'overrideIssueEndNumber';     // reused to store RANDOM_PDF_MAX
+  const KEY_LAST_MODAL = 'lastEndModalShown';
+  const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+  const KEY_MIX_POINTS = 'rangeWeightsPointsV1'; // integer points -> normalized to 100%
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, IDB_VER);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function idbGet(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readonly');
+      const st = tx.objectStore(STORE_SETTINGS);
+      const r = st.get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    }));
+  }
+  function idbSet(key, value) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readwrite');
+      const st = tx.objectStore(STORE_SETTINGS);
+      const r = st.put(value, key);
+      r.onsuccess = () => resolve(true);
+      r.onerror = () => reject(r.error);
+    }));
+  }
+
+  /* ===== Modal helpers (timing: occasional + throttled) ===== */
+  const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000; // hard guarantee
+  const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000; // default 10min
+  const MODAL_SHOW_PROBABILITY = 0.15; // soft attempts between forced intervals
+  const USER_MIN_FREQ_MINUTES = 5; // floor: 5 minutes
+  const STEP_MINUTES = 5; // increment/decrement step
+
+  function roundToStep(valueMinutes) {
+    const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+    return v;
+  }
+
+  // ====== Mix model ======
+  // Order of display: 90,80,...,10,5, then 100 items
+  const MIX_DEF = [
+    { id:'p90', label:'Recent 90%', kind:'percent', p:90 },
+    { id:'p80', label:'Recent 80%', kind:'percent', p:80 },
+    { id:'p70', label:'Recent 70%', kind:'percent', p:70 },
+    { id:'p60', label:'Recent 60%', kind:'percent', p:60 },
+    { id:'p50', label:'Recent 50%', kind:'percent', p:50 },
+    { id:'p40', label:'Recent 40%', kind:'percent', p:40 },
+    { id:'p30', label:'Recent 30%', kind:'percent', p:30 },
+    { id:'p20', label:'Recent 20%', kind:'percent', p:20 },
+    { id:'p10', label:'Recent 10%', kind:'percent', p:10 },
+    { id:'p5',  label:'Recent 5%',  kind:'percent', p:5  },
+    { id:'n100', label:'Recent 100 items', kind:'fixed', n:100 }
+  ];
+
+  // Right-tilted default.
+  const TILT_POWER = 2;
+
+  function defaultMixPoints() {
+    const percentRows = ['p5','p10','p20','p30','p40','p50','p60','p70','p80','p90'];
+    const points = {};
+    let sumPercent = 0;
+
+    percentRows.forEach((id, idx) => {
+      const rank = idx + 1;                 // p5=1 … p90=10
+      const w = Math.pow(rank, TILT_POWER); // right-tilt growth
+      points[id] = w;
+      sumPercent += w;
+    });
+
+    // Make "Recent 100 items" ≈ 60% of total
+    const n100pts = Math.round((0.60 / 0.40) * sumPercent);
+    points['n100'] = n100pts;
+
+    return points; // integer points; UI normalizes to 100%
+  }
+
+  function normalizePointsToPerc(points) {
+    const ids = MIX_DEF.map(r => r.id);
+    let total = 0;
+    ids.forEach(id => total += Math.max(0, points[id] || 0));
+    if (total <= 0) {
+      points = defaultMixPoints();
+      total = Object.values(points).reduce((a,b)=>a+b,0);
+    }
+    const perc = {};
+    ids.forEach(id => {
+      const share = (Math.max(0, points[id] || 0) / total) * 100;
+      perc[id] = share;
+    });
+    return perc; // floating %
+  }
+
+  function weightedPickId(percMap) {
+    let acc = 0;
+    const ranges = MIX_DEF.map(row => {
+      const start = acc;
+      acc += (percMap[row.id] || 0);
+      return { id: row.id, start, end: acc };
+    });
+    const r = cryptoRandomFloat() * 100;
+    for (const it of ranges) {
+      if (r >= it.start && r < it.end) return it.id;
+    }
+    return MIX_DEF[MIX_DEF.length - 1].id; // safety: last bucket
+  }
+
+  // If end < 100, set n100 weight to zero, renormalize remaining to 100%
+  function adjustPercForEnd(percMap, end) {
+    const adjusted = { ...percMap };
+    if (end < 100) {
+      adjusted['n100'] = 0;
+      // renormalize
+      let sum = 0;
+      for (const k of Object.keys(adjusted)) sum += adjusted[k];
+      if (sum <= 0) return percMap; // fallback
+      for (const k of Object.keys(adjusted)) adjusted[k] = (adjusted[k] / sum) * 100;
+    }
+    return adjusted;
+  }
+
+  // Compute [lo,hi] inclusive for a chosen bucket at given end
+  function resolveRangeForBucket(end, bucketId) {
+    const endInt = Number(end);
+    if (!Number.isFinite(endInt) || endInt < 1) throw new Error('Invalid end for range resolution.');
+    const row = MIX_DEF.find(r => r.id === bucketId);
+    if (!row) throw new Error('Unknown bucket: ' + bucketId);
+
+    if (row.kind === 'fixed') {
+      const n = row.n || 100;
+      const lo = Math.max(1, endInt - n + 1);
+      const hi = endInt;
+      return [lo, hi];
+    }
+    // percent buckets cover the most recent p% of [1..end]
+    const p = row.p;
+    const lo = Math.max(1, Math.floor(endInt * (1 - (p/100))) + 1);
+    const hi = endInt;
+    return [lo, hi];
+  }
+
+  // ===== UI: build rows, manage points in-memory =====
+  function buildMixUI(container, points, onChange) {
+    container.innerHTML = '';
+    const ids = MIX_DEF.map(r => r.id);
+    const localPoints = {};
+    ids.forEach(id => localPoints[id] = Math.max(0, Math.round(points[id] || 0)));
+
+    function render() {
+      container.innerHTML = '';
+      const perc = normalizePointsToPerc(localPoints);
+      MIX_DEF.forEach(row => {
+        const wrap = document.createElement('div');
+        wrap.className = 'mixrow';
+        const label = document.createElement('label');
+        label.textContent = row.label;
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.className = 'btn btn-small';
+        minus.textContent = '−';
+        minus.setAttribute('aria-label', `Decrease ${row.label}`);
+        const val = document.createElement('span');
+        val.className = 'mixvalue small';
+        val.textContent = `${perc[row.id].toFixed(1)}%`;
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.className = 'btn btn-small';
+        plus.textContent = '+';
+        plus.setAttribute('aria-label', `Increase ${row.label}`);
+
+        minus.onclick = () => {
+          if (localPoints[row.id] > 0) { localPoints[row.id] -= 1; render(); onChange && onChange(localPoints); }
+        };
+        plus.onclick = () => {
+          localPoints[row.id] += 1;
+          render();
+          onChange && onChange(localPoints);
+        };
+
+        wrap.appendChild(label);
+        wrap.appendChild(minus);
+        wrap.appendChild(val);
+        wrap.appendChild(plus);
+        container.appendChild(wrap);
+      });
+    }
+    render();
+
+    return {
+      getPoints: () => ({ ...localPoints }),
+      setPoints: (p) => { Object.keys(localPoints).forEach(k => localPoints[k] = Math.max(0, Math.round(p[k] || 0))); render(); },
+      getPerc: () => normalizePointsToPerc(localPoints)
+    };
+  }
+
+  // ===== 30s min-display timer handles =====
+  let modalTimeoutId = null;
+  let skipEnableTimerId = null;
+
+  function maybeShowEndModal(prefillEnd, freqMinutes, mixPoints, onSave, onAutoOrSkip) {
+    const dlg = document.getElementById('endDialog');
+    const input = document.getElementById('endInput');
+    const err = document.getElementById('endError');
+    const btnSave = document.getElementById('saveEndBtn');
+    const btnSkip = document.getElementById('skipEndBtn');
+    const btnReset = document.getElementById('resetEndBtn');
+    const btnResetMix = document.getElementById('resetMixBtn');
+
+    // Modal frequency controls
+    const freqDec = document.getElementById('freqDec');
+    const freqInc = document.getElementById('freqInc');
+    const freqValue = document.getElementById('freqValue');
+
+    // Mix container
+    const mixContainer = document.getElementById('mixContainer');
+    const countdown = document.getElementById('skipCountdown');
+
+    input.value = String(prefillEnd || 1);
+    err.classList.add('hidden');
+
+    let currentFreq = roundToStep(Number(freqMinutes) || (DEFAULT_USER_INTERVAL_MS / 60000));
+    function renderFreq() {
+      freqValue.textContent = `${currentFreq} min`;
+    }
+    renderFreq();
+
+    freqDec.onclick = () => { currentFreq = Math.max(USER_MIN_FREQ_MINUTES, currentFreq - STEP_MINUTES); renderFreq(); };
+    freqInc.onclick = () => { currentFreq = currentFreq + STEP_MINUTES; renderFreq(); };
+
+    // Build mix UI
+    const mixUI = buildMixUI(mixContainer, mixPoints, () => { /* live updates only */ });
+
+    const validateEnd = () => {
+      const v = Number(input.value);
+      if (!Number.isInteger(v) || v < 1) {
+        err.classList.remove('hidden');
+        return null;
+      }
+      err.classList.add('hidden');
+      return v;
+    };
+
+    btnReset.onclick = () => {
+      input.value = String(DEFAULT_RANDOM_PDF_MAX);
+      err.classList.add('hidden');
+    };
+    btnResetMix.onclick = () => {
+      mixUI.setPoints(defaultMixPoints());
+    };
+
+    // Save can end sooner than 30s
+    btnSave.onclick = () => {
+      const v = validateEnd();
+      if (v == null) return;
+      clearTimers();
+      try { dlg.close(); } catch {}
+      onSave(v, currentFreq, mixUI.getPoints(), mixUI.getPerc());
+    };
+
+    // Skip: disabled until 30s have elapsed
+    btnSkip.disabled = true;
+    let remain = 30;
+    countdown.textContent = `Skip enabled in ${remain}s`;
+    skipEnableTimerId = setInterval(() => {
+      remain -= 1;
+      if (remain <= 0) {
+        clearInterval(skipEnableTimerId);
+        skipEnableTimerId = null;
+        btnSkip.disabled = false;
+        countdown.textContent = '';
+      } else {
+        countdown.textContent = `Skip enabled in ${remain}s`;
+      }
+    }, 1000);
+
+    btnSkip.onclick = () => {
+      if (btnSkip.disabled) return;
+      clearTimers();
+      try { dlg.close(); } catch {}
+      // proceed with current on-screen mix (not persisted), keep existing end
+      onAutoOrSkip(currentFreq, mixUI.getPerc());
+    };
+
+    function clearTimers() {
+      if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+      if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
+    }
+
+    // Show the modal
+    try { dlg.showModal(); } catch { dlg.show(); }
+
+    // Auto-proceed AFTER 30s if user neither saves nor presses Skip
+    modalTimeoutId = setTimeout(() => {
+      try { dlg.close(); } catch {}
+      // Auto proceed with current on-screen mix (not persisted), keep existing end
+      onAutoOrSkip(currentFreq, mixUI.getPerc());
+      modalTimeoutId = null;
+      if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
+    }, 30_000);
+  }
+
+  async function main() {
+    // Seed IDB override with default value on first run; then always read from IDB
+    let endOverride = await idbGet(KEY_END);
+    if (typeof endOverride !== 'number' || !Number.isFinite(endOverride) || endOverride < 1) {
+      await idbSet(KEY_END, Number(DEFAULT_RANDOM_PDF_MAX));
+      endOverride = Number(DEFAULT_RANDOM_PDF_MAX);
+    }
+
+    // Load (or seed) modal frequency
+    let freqMinutes = await idbGet(KEY_FREQ_MINUTES);
+    if (typeof freqMinutes !== 'number' || !Number.isFinite(freqMinutes) || freqMinutes <= 0) {
+      freqMinutes = DEFAULT_USER_INTERVAL_MS / 60000; // default 10
+    }
+    freqMinutes = roundToStep(freqMinutes);
+    await idbSet(KEY_FREQ_MINUTES, freqMinutes);
+
+    // Load (or seed) mix points
+    let mixPoints = await idbGet(KEY_MIX_POINTS);
+    if (!mixPoints || typeof mixPoints !== 'object') {
+      mixPoints = defaultMixPoints();
+      await idbSet(KEY_MIX_POINTS, mixPoints);
+    }
+
+    const lastShown = await idbGet(KEY_LAST_MODAL);
+    const now = Date.now();
+    const elapsed = lastShown ? now - Number(lastShown) : Infinity;
+
+    // Hard guarantee: if ≥15 min since last shown, force show
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
+
+    // Otherwise, soft rule: if ≥ user interval, maybe show based on probability
+    const userIntervalMs = Number(freqMinutes) * 60 * 1000;
+    const eligibleByUser = elapsed >= userIntervalMs;
+    const wantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
+
+    const wantShow = mustShow || wantsSoftShow;
+
+    if (wantShow) {
+      // Stamp "shown" time to uphold the 15-min guarantee
+      await idbSet(KEY_LAST_MODAL, now);
+
+      maybeShowEndModal(
+        endOverride,
+        freqMinutes,
+        mixPoints,
+        // onSave
+        async (pickedEnd, pickedFreqMinutes, pickedPoints, pickedPerc) => {
+          await idbSet(KEY_END, Number(pickedEnd));
+          await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
+          await idbSet(KEY_MIX_POINTS, pickedPoints);
+          await idbSet(KEY_LAST_MODAL, Date.now());
+          proceed(Number(pickedEnd), pickedPerc);
+        },
+        // onAutoOrSkip (after 30s or user presses Skip after 30s)
+        async (pickedFreqMinutes, percOnScreen) => {
+          if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
+            await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
+          }
+          // Use stored endOverride, and on-screen mix perc (not persisted)
+          proceed(Number(endOverride), percOnScreen);
+        }
+      );
+      return; // wait for modal interaction
+    }
+
+    // No modal: proceed immediately using stored override and stored mix
+    const storedPerc = normalizePointsToPerc(mixPoints);
+    proceed(Number(endOverride), storedPerc);
+  }
+
+  function proceed(endValue, percMapRaw) {
+    const end = Number(endValue);
+    if (!Number.isFinite(end) || end < 1) throw new Error('Invalid RANDOM_PDF_MAX.');
+
+    // Adjust mix if end < 100 (skip n100)
+    const percMap = adjustPercForEnd(percMapRaw || normalizePointsToPerc(defaultMixPoints()), end);
+
+    // Pick a bucket by weighted mix
+    const bucketId = weightedPickId(percMap);
+    const [lo, hi] = resolveRangeForBucket(end, bucketId);
+
+    const randomChosenNumber = cryptoRandomInt(lo, hi);
+
+    const chosenUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${randomChosenNumber}.pdf`;
+
+    // Redirect immediately
+    location.href = chosenUrl;
+
+    // Fallback UI if redirect is blocked
+    document.addEventListener('DOMContentLoaded', () => {
+      const wrap = document.createElement('div');
+      const h = document.createElement('h2');
+      h.textContent = 'Redirecting to a random PDF…';
+      const p = document.createElement('p');
+      p.innerHTML = `Selected bucket: <code>${bucketId}</code><br/>
+                     Selected range: <code>[${lo}, ${hi}]</code><br/>
+                     Chosen PDF #: <code>${randomChosenNumber}</code><br/>
+                     Link: <a href="${chosenUrl}">${chosenUrl}</a>`;
+      wrap.appendChild(h);
+      wrap.appendChild(p);
+      document.body.appendChild(wrap);
+    });
+  }
+
+  main().catch(err => {
+    document.body.textContent = err.message;
+  });
+})();
+</script>
+
+</body>
+</html>
