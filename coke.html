@@ -5,20 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Randomizer</title>
   <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-    body { display:flex; min-height:100svh; align-items:center; justify-content:center; margin:0; background:#0f0f12; color:#e9e9ee; }
-    .card { max-width:680px; width:min(92vw, 680px); background:#17171c; border:1px solid #2b2b31; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-    h1 { font-size:1.3rem; margin:0 0 10px; letter-spacing:.2px; }
-    p { opacity:.85; line-height:1.5; }
-    code { background:#111116; border:1px solid #2b2b31; padding:.15rem .35rem; border-radius:6px; }
-    .row { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
-    button, a.btn {
-      cursor:pointer; border:none; border-radius:12px; padding:12px 16px; font-weight:600; font-size:0.95rem;
-      background:#3a6df0; color:white; text-decoration:none;
+    /* Coca-Cola themed palette */
+    :root{
+      --coke-red:#F40009;
+      --coke-black:#111111;
+      --coke-white:#ffffff;
+      --bg:var(--coke-white);
+      --card:var(--coke-white);
+      --text:var(--coke-black);
+      --muted:#424242;
+      --border:#e6e6e6;
+      --code-bg:#f7f7f7;
+      --code-border:#e6e6e6;
+
+      --btn-primary-bg:var(--coke-red);
+      --btn-primary-text:#ffffff;
+
+      --btn-secondary-bg:#ffffff;
+      --btn-secondary-text:var(--coke-red);
+      --btn-secondary-border:var(--coke-red);
+
+      --shadow:0 10px 30px rgba(244,0,9,0.15);
+      --radius-lg:16px;
+      --radius-md:12px;
     }
-    button.secondary { background:#2b2b31; color:#e9e9ee; }
-    .url { margin-top:12px; word-break:break-all; font-size:.95rem; }
-    .hint { font-size:.85rem; opacity:.75; margin-top:6px; }
+
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+
+    body{
+      display:flex; min-height:100svh; align-items:center; justify-content:center;
+      margin:0; background:var(--bg); color:var(--text);
+    }
+
+    .card{
+      max-width:680px; width:min(92vw, 680px);
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      padding:24px;
+      box-shadow:var(--shadow);
+    }
+
+    h1{ font-size:1.3rem; margin:0 0 10px; letter-spacing:.2px; }
+    p{ color:var(--muted); line-height:1.55; margin:0; }
+
+    code{
+      background:var(--code-bg);
+      border:1px solid var(--code-border);
+      padding:.15rem .35rem; border-radius:6px;
+      color:var(--coke-black);
+      font-weight:600;
+    }
+
+    .row{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+    button, a.btn{
+      cursor:pointer; border:none; border-radius:var(--radius-md);
+      padding:12px 16px; font-weight:700; font-size:0.95rem;
+      text-decoration:none; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+      transition:transform .06s ease, box-shadow .12s ease, filter .06s ease, background-color .12s ease, color .12s ease, border-color .12s ease;
+      outline: none;
+    }
+
+    /* Primary */
+    #go{
+      background:var(--btn-primary-bg); color:var(--btn-primary-text);
+      box-shadow:0 6px 14px rgba(244,0,9,0.25);
+    }
+    #go:hover{ filter:brightness(.96); }
+    #go:active{ transform:translateY(1px); }
+
+    /* Secondary (button + link) */
+    .secondary{
+      background:var(--btn-secondary-bg); color:var(--btn-secondary-text);
+      border:1.5px solid var(--btn-secondary-border);
+      box-shadow:0 2px 8px rgba(0,0,0,0.05);
+    }
+    .secondary:hover{ background:#fff5f5; }
+    .secondary:active{ transform:translateY(1px); }
+
+    /* Focus ring */
+    button:focus-visible, a.btn:focus-visible{
+      box-shadow:0 0 0 3px rgba(244,0,9,0.25), 0 0 0 6px rgba(244,0,9,0.15);
+    }
+
+    .url{ margin-top:12px; word-break:break-all; font-size:.95rem; color:var(--coke-black); }
+    .hint{ font-size:.85rem; color:var(--muted); margin-top:6px; }
   </style>
 </head>
 <body>
@@ -31,7 +103,7 @@
       <a id="openLink" class="btn secondary" href="#" target="_blank" rel="noopener" style="display:none">Open in New Tab</a>
     </div>
     <div class="url" id="chosen"></div>
-    <div class="hint">Auto-redirect can be enabled with <code>?auto=1</code> in the URL.</div>
+    <div class="hint" id="hint">Automatically redirects in <span id="count">5</span>s. Add <code>?auto=1</code> for instant redirect.</div>
   </div>
 
 <script>
@@ -39,8 +111,10 @@
   const base = "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=";
   const files = [28,29,30,31,33,34,35,36,37,38].map(n => `${n}.pdf`);
 
+  let autoTimeout = null;
+  let countdownInterval = null;
+
   function pickRandom() {
-    // Uniform selection
     const idx = Math.floor(Math.random() * files.length);
     return base + files[idx];
   }
@@ -55,6 +129,26 @@
 
   function goNow(url) {
     window.location.href = url;
+  }
+
+  function scheduleRedirect(url, delayMs = 5000) {
+    clearTimeout(autoTimeout);
+    clearInterval(countdownInterval);
+
+    const countEl = document.getElementById('count');
+    if (countEl) {
+      let remaining = Math.ceil(delayMs / 1000);
+      countEl.textContent = remaining;
+      countdownInterval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+        }
+        if (remaining >= 0) countEl.textContent = remaining;
+      }, 1000);
+    }
+
+    autoTimeout = setTimeout(() => goNow(url), delayMs);
   }
 
   // Wire up buttons
@@ -74,23 +168,26 @@
     } catch(e) {
       alert("Copy failed. Manually copy the link shown.");
     }
+    // When user interacts, keep the scheduled redirect using the currently shown URL.
+    scheduleRedirect(url, 5000);
   });
 
-  // Support auto=1 for instant redirect on page load
+  // On load: instant redirect if ?auto=1, otherwise show choice and auto-redirect after 5s
   const params = new URLSearchParams(window.location.search);
   if (params.get('auto') === '1') {
     const url = pickRandom();
     setChosen(url);
     goNow(url);
   } else {
-    // Pre-pick and display for convenience
-    setChosen(pickRandom());
+    const url = pickRandom();
+    setChosen(url);
+    scheduleRedirect(url, 5000);
   }
 })();
 </script>
 
 <noscript>
-  <p style="color:#e9e9ee; text-align:center">JavaScript is required. Here are the possible links:</p>
+  <p style="color:#111111; text-align:center">JavaScript is required. Here are the possible links:</p>
   <ul>
     <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=28.pdf">28.pdf</a></li>
     <li><a href="https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=29.pdf">29.pdf</a></li>
