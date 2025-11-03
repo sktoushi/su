@@ -90,7 +90,7 @@
       <input id="endInput" class="numinput" type="number" min="1" step="1" inputmode="numeric" pattern="[0-9]*" />
     </div>
     <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
-    <div class="hint small">If you skip, we’ll continue using the current stored value (seeded on first run).</div>
+    <div class="hint small">If you skip, we’ll continue using the current stored value (seeded to <code>39</code> on first run).</div>
 
     <!-- Modal show frequency -->
     <div class="field">
@@ -116,7 +116,7 @@
       <button class="btn btn-small btn-danger" id="skipEndBtn" title="Enabled after 30s">Skip</button>
       <span id="skipCountdown" class="small countdown" aria-live="polite"></span>
       <div style="flex:1"></div>
-      <button class="btn btn-small" id="resetEndBtn" title="Reset RANDOM_PDF_MAX to default">Reset</button>
+      <button class="btn btn-small" id="resetEndBtn" title="Reset RANDOM_PDF_MAX to 39">Reset</button>
       <button class="btn btn-small" id="resetMixBtn" title="Restore right-tilted default mix">Reset Mix</button>
       <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
     </div>
@@ -127,16 +127,13 @@
 /* ============================================================
    Crypto-secure randomness only (no Math.random)
 
-   Modifications:
-   - Traverses 1..RANDOM_PDF_MAX (PDF numbers) instead of GitHub issues.
-   - Keeps weighted mix of ranges:
-       Recent 90%, 80%, 70%, …, 10%, 5%
-       Recent 100 items (defaults to 60% weight)
+   Modifications (FIXED):
+   - Initial RANDOM_PDF_MAX is seeded to 39 on first run.
+   - Uses a NEW IndexedDB database + keys so it won't reuse another site's data.
+   - Traverses 1..RANDOM_PDF_MAX using the weighted "recent %" buckets and "recent 100 items".
    - If RANDOM_PDF_MAX < 100, skip the "Recent 100 items" bucket and renormalize.
-   - Modal timing, mix UI, and persistence kept.
    - Redirects to:
        https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=<N>.pdf
-   - Initial RANDOM_PDF_MAX default is 39.
    ============================================================ */
 
 (function () {
@@ -174,14 +171,14 @@
     return min + (x % range);
   }
 
-  /* ================= IndexedDB (same DB + keys + new mix key) ================= */
-  const IDB_NAME = 'issueEndOverrideDB_v1'; // keep original DB name for continuity
+  /* ================= NEW IndexedDB (fresh DB name and keys) ================= */
+  const IDB_NAME = 'pdfPickerDB_v1';          // NEW DB name to avoid cross-site reuse
   const IDB_VER = 1;
-  const STORE_SETTINGS = 'settings';
-  const KEY_END = 'overrideIssueEndNumber';     // reused to store RANDOM_PDF_MAX
-  const KEY_LAST_MODAL = 'lastEndModalShown';
-  const KEY_FREQ_MINUTES = 'modalFreqMinutes';
-  const KEY_MIX_POINTS = 'rangeWeightsPointsV1'; // integer points -> normalized to 100%
+  const STORE_SETTINGS = 'pdf_settings';      // NEW store name
+  const KEY_RANDOM_MAX = 'pdf_random_max_v1'; // NEW keys
+  const KEY_LAST_MODAL = 'pdf_last_modal_shown_v1';
+  const KEY_FREQ_MINUTES = 'pdf_modal_freq_minutes_v1';
+  const KEY_MIX_POINTS = 'pdf_range_weights_points_v1';
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -403,7 +400,7 @@
     const mixContainer = document.getElementById('mixContainer');
     const countdown = document.getElementById('skipCountdown');
 
-    input.value = String(prefillEnd || 1);
+    input.value = String(prefillEnd || DEFAULT_RANDOM_PDF_MAX);
     err.classList.add('hidden');
 
     let currentFreq = roundToStep(Number(freqMinutes) || (DEFAULT_USER_INTERVAL_MS / 60000));
@@ -488,11 +485,11 @@
   }
 
   async function main() {
-    // Seed IDB override with default value on first run; then always read from IDB
-    let endOverride = await idbGet(KEY_END);
-    if (typeof endOverride !== 'number' || !Number.isFinite(endOverride) || endOverride < 1) {
-      await idbSet(KEY_END, Number(DEFAULT_RANDOM_PDF_MAX));
-      endOverride = Number(DEFAULT_RANDOM_PDF_MAX);
+    // Seed NEW DB with default value (39) on first run; then always read from this DB
+    let randomPdfMax = await idbGet(KEY_RANDOM_MAX);
+    if (typeof randomPdfMax !== 'number' || !Number.isFinite(randomPdfMax) || randomPdfMax < 1) {
+      randomPdfMax = Number(DEFAULT_RANDOM_PDF_MAX);
+      await idbSet(KEY_RANDOM_MAX, randomPdfMax);
     }
 
     // Load (or seed) modal frequency
@@ -529,12 +526,12 @@
       await idbSet(KEY_LAST_MODAL, now);
 
       maybeShowEndModal(
-        endOverride,
+        randomPdfMax,
         freqMinutes,
         mixPoints,
         // onSave
         async (pickedEnd, pickedFreqMinutes, pickedPoints, pickedPerc) => {
-          await idbSet(KEY_END, Number(pickedEnd));
+          await idbSet(KEY_RANDOM_MAX, Number(pickedEnd));
           await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           await idbSet(KEY_MIX_POINTS, pickedPoints);
           await idbSet(KEY_LAST_MODAL, Date.now());
@@ -545,8 +542,8 @@
           if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
             await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           }
-          // Use stored endOverride, and on-screen mix perc (not persisted)
-          proceed(Number(endOverride), percOnScreen);
+          // Use stored randomPdfMax, and on-screen mix perc (not persisted)
+          proceed(Number(randomPdfMax), percOnScreen);
         }
       );
       return; // wait for modal interaction
@@ -554,7 +551,7 @@
 
     // No modal: proceed immediately using stored override and stored mix
     const storedPerc = normalizePointsToPerc(mixPoints);
-    proceed(Number(endOverride), storedPerc);
+    proceed(Number(randomPdfMax), storedPerc);
   }
 
   function proceed(endValue, percMapRaw) {
