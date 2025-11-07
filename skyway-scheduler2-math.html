@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Arithmetic Challenge (Daily PB + SPC + Penalties)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root { --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342; --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .hidden{display:none!important;}
+    .wrap{display:grid; place-items:center; height:100vh; text-align:center; gap:1rem;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:inline-flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:center;}
+    .btn{border:1px solid #111; background:var(--btn); color:var(--fg); padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease; box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;}
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .badge{font-size:.8rem; padding:.25rem .5rem; border-radius:.5rem; background:#1c313a; color:#b2dfdb;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    dialog{border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg); width:min(620px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;}
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.25rem 1.25rem 1rem;}
+    .modal h2{margin:0 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 1rem 0; color:var(--muted);}
+    .grid-2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem;}
+    .btn-mid{padding:.8rem .4rem; font-size:1.05rem; border-radius:.6rem;}
+    .freqrow{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+    .freqbadge{padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:#cfd8dc; font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
+    .q{font-size:1.25rem; font-weight:700; margin:.25rem 0 .5rem;}
+    .qsub{color:var(--muted); font-size:.9rem; margin-bottom:.5rem;}
+    .pbnote{font-size:.95rem; color:#b2dfdb; margin-top:.5rem;}
+    .spc{font-size:.9rem; color:#9bd1c6; margin-top:.35rem; line-height:1.35;}
+    .wrong{outline:2px solid var(--danger)!important;}
+    .ok{outline:2px solid var(--accent)!important;}
+    .caption{font-size:.8rem; color:#90a4ae;}
+  </style>
+
+  <script>
+    /************ Deterministic namespace + simple obfuscation ************/
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    const NS = fnv1aHex(location.origin + '|' + location.pathname);
+    const obf = (scope, name) => `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
+
+    /************ IndexedDB (meta-only) ************/
+    const DB_NAME  = obf('db',   'scheduler1_v2'); // keep version/name stable
+    const DB_VER   = 2;                            // do not downgrade existing installs
+    const META_STORE = obf('meta', 'kvs');         // simple KV store
+
+    // Arithmetic meta keys
+    const KEY_ARITH_DIGITS = obf('k', 'arith_digits_v1'); // integer digits 1..6 (default 2)
+    // Daily PB map structure: { [digits: string]: { d: 'YYYY-MM-DD', t: number } }  // t = adjusted ms
+    const KEY_ARITH_PBMAP  = obf('k', 'arith_pb_daily_map_v2');
+    // Daily results store: { d: 'YYYY-MM-DD', runs: Array<Run> }
+    const KEY_ARITH_RESULTS_DAY = obf('k', 'arith_results_day_v1');
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(META_STORE)) {
+            db.createObjectStore(META_STORE); // key -> value
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function metaGet(db, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readonly');
+        const st = tx.objectStore(META_STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    function metaSet(db, key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readwrite');
+        const st = tx.objectStore(META_STORE);
+        const r = st.put(value, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    /************ Utilities ************/
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      return r[0] / 4294967296;
+    }
+    function msToSecStr(ms) { return (ms/1000).toFixed(2) + 's'; }
+    function pct(n) { return (n * 100).toFixed(1) + '%'; }
+    function localDateTimeWithTZ() {
+      const d = new Date();
+      const tzMin = -d.getTimezoneOffset();
+      const sign = tzMin >= 0 ? '+' : '-';
+      const ah = String(Math.floor(Math.abs(tzMin) / 60)).padStart(2,'0');
+      const am = String(Math.abs(tzMin) % 60).padStart(2,'0');
+      const tz = `UTC${sign}${ah}:${am}`;
+      const ds = d.toLocaleString(undefined, { year:'numeric', month:'2-digit', day:'2-digit', hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      return `${ds} (${tz})`;
+    }
+    function localDateKey() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const da = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`; // local date
+    }
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          return ok;
+        } catch { return false; }
+      }
+    }
+
+    /************ Arithmetic settings ************/
+    const ARITH_MIN_DIGITS = 1;
+    const ARITH_MAX_DIGITS = 6;
+    const ARITH_DEFAULT_DIGITS = 2;
+
+    // Penalty configuration (discourages guessing)
+    const PENALTY_PER_MISTAKE_MS = 3000; // +3 seconds per wrong attempt
+
+    function clampDigits(n) { return Math.min(ARITH_MAX_DIGITS, Math.max(ARITH_MIN_DIGITS, Math.round(n))); }
+    async function getArithDigits(db) {
+      const v = await metaGet(db, KEY_ARITH_DIGITS);
+      const n = Number(v);
+      return Number.isFinite(n) ? clampDigits(n) : ARITH_DEFAULT_DIGITS;
+    }
+    async function setArithDigits(db, n) { return metaSet(db, KEY_ARITH_DIGITS, clampDigits(n)); }
+
+    /************ Daily PB helpers (compares ADJUSTED time) ************/
+    async function getPBMap(db) {
+      const v = await metaGet(db, KEY_ARITH_PBMAP);
+      return (v && typeof v === 'object') ? v : {};
+    }
+    async function getTodayPBAdjusted(db, digits) {
+      const map = await getPBMap(db);
+      const today = localDateKey();
+      const entry = map[String(digits)];
+      if (!entry || entry.d !== today) return null;
+      return entry.t; // adjusted ms
+    }
+    async function updateTodayPBAdjusted(db, digits, adjustedMs) {
+      const map = await getPBMap(db);
+      const today = localDateKey();
+      const key = String(digits);
+      const entry = map[key];
+
+      let prev = null;
+      let isBeat = false;   // strictly faster than existing for today
+      let isFirstToday = false;
+
+      if (!entry || entry.d !== today) {
+        // New day (or first ever): set baseline (not considered a "beat")
+        map[key] = { d: today, t: Math.round(adjustedMs) };
+        isFirstToday = true;
+      } else {
+        prev = entry.t;
+        if (adjustedMs < prev) {
+          entry.t = Math.round(adjustedMs);
+          isBeat = true;
+        }
+      }
+      await metaSet(db, KEY_ARITH_PBMAP, map);
+      return { isBeat, isFirstToday, prevBestMs: prev, newBestMs: map[key]?.t ?? Math.round(adjustedMs), date: today };
+    }
+
+    /************ Daily results helpers (cleared each day) ************/
+    // Run schema:
+    // { ts, date, digits, questions, mistakes, accuracy, rawMs, penaltyMs, adjustedMs }
+    async function getTodayResults(db) {
+      const rec = await metaGet(db, KEY_ARITH_RESULTS_DAY);
+      const today = localDateKey();
+      if (!rec || typeof rec !== 'object' || rec.d !== today || !Array.isArray(rec.runs)) {
+        return { d: today, runs: [] };
+      }
+      return rec;
+    }
+    async function appendTodayResult(db, run) {
+      const today = localDateKey();
+      let rec = await getTodayResults(db);
+      if (rec.d !== today) {
+        rec = { d: today, runs: [] }; // clear if old day
+      }
+      rec.runs.push(run);
+      await metaSet(db, KEY_ARITH_RESULTS_DAY, rec);
+      return rec;
+    }
+
+    /************ SPC utilities over today's runs ************/
+    function mean(arr) { return arr.reduce((s, x) => s + x, 0) / (arr.length || 1); }
+    function sampleStd(arr) {
+      const n = arr.length;
+      if (n < 2) return 0;
+      const m = mean(arr);
+      const v = arr.reduce((s, x) => s + Math.pow(x - m, 2), 0) / (n - 1);
+      return Math.sqrt(v);
+    }
+    function lastN(arr, n) { return arr.slice(Math.max(0, arr.length - n)); }
+    function spcCommentFromRuns(rec, latestRun) {
+      const runs = rec.runs || [];
+      if (runs.length === 0) return 'SPC: No data yet for today.';
+      const adj = runs.map(r => r.adjustedMs);
+      const acc = runs.map(r => r.accuracy);
+
+      const n = runs.length;
+      const mAdj = mean(adj);
+      const sdAdj = sampleStd(adj);
+      const lcl = mAdj - 3 * sdAdj;
+      const ucl = mAdj + 3 * sdAdj;
+      const latest = latestRun || runs[runs.length - 1];
+      const z = sdAdj > 0 ? (latest.adjustedMs - mAdj) / sdAdj : 0;
+
+      const accMean = mean(acc);
+      const accMA3 = mean(lastN(acc, 3));
+
+      let status;
+      if (sdAdj === 0 && n > 1) {
+        status = 'All adjusted times identical so far.';
+      } else if (sdAdj === 0) {
+        status = 'Baseline established; need more runs for control limits.';
+      } else if (latest.adjustedMs < lcl) {
+        status = 'Special cause (LOW) — exceptional improvement.';
+      } else if (latest.adjustedMs > ucl) {
+        status = 'Special cause (HIGH) — unusually slow.';
+      } else {
+        status = 'In control.';
+      }
+
+      return [
+        `SPC (${rec.d}): n=${n}, mean=${msToSecStr(mAdj)}, σ=${msToSecStr(sdAdj)}, 3σ band=[${msToSecStr(Math.max(0,lcl))}, ${msToSecStr(ucl)}].`,
+        `Latest z≈${z.toFixed(2)} → ${status}`,
+        `Accuracy: mean=${pct(accMean)}, last3≈${pct(accMA3)}, latest=${pct(latest.accuracy)}`
+      ].join(' ');
+    }
+
+    /************ Arithmetic modal (always appears; 5 Qs; four answers) ************/
+    function showArithmeticModal(db, initialDigits) {
+      const dlg = document.getElementById('arithDialog');
+      const qEl = document.getElementById('arithQuestion');
+      const subEl = document.getElementById('arithSub');
+      const ansWrap = document.getElementById('arithAnswers');
+      const progEl = document.getElementById('arithProgress');
+      const pbNote = document.getElementById('arithPBNote');
+      const spcNote = document.getElementById('arithSPCNote');
+
+      const digDec = document.getElementById('arithDigitsDec');
+      const digInc = document.getElementById('arithDigitsInc');
+      const digVal = document.getElementById('arithDigitsVal');
+
+      const playAgain = document.getElementById('arithAgain');
+      const closeBtn  = document.getElementById('arithClose');
+
+      let digits = clampDigits(initialDigits);
+      let qIndex = 0;
+      const QCOUNT = 5;
+      let locked = false;
+      let startMs = 0;
+      let mistakes = 0; // total wrong clicks across all questions
+
+      function rngInt(min, maxInclusive) {
+        const r = secureRandomFloat01();
+        return Math.floor(r * (maxInclusive - min + 1)) + min;
+      }
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(secureRandomFloat01() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+      function makeQuestion() {
+        const lo = Math.pow(10, digits - 1);
+        const hi = Math.pow(10, digits) - 1;
+        const a = rngInt(lo, hi);
+        const b = rngInt(lo, hi);
+        const correct = a * b;
+
+        // Build 3 unique distractors near correct
+        const options = new Set([correct]);
+        const deltas = [0.05, 0.1, 0.15, 0.2].map(p => Math.max(1, Math.round(correct * p)));
+        while (options.size < 4) {
+          const d = deltas[rngInt(0, deltas.length - 1)];
+          const sign = rngInt(0,1) ? 1 : -1;
+          const jitter = rngInt(-Math.max(1, Math.floor(d/10)), Math.max(1, Math.floor(d/10)));
+          const candidate = correct + sign * d + jitter;
+          if (candidate > 0) options.add(candidate);
+        }
+        const choices = shuffle(Array.from(options));
+        return { a, b, correct, choices };
+      }
+
+      function updateDigitsUI() { digVal.textContent = `${digits}-digit × ${digits}-digit`; }
+      async function persistDigits() { await setArithDigits(db, digits); }
+
+      function renderQuestion(q) {
+        qEl.textContent = `${q.a} × ${q.b} = ?`;
+        subEl.textContent = 'Pick the correct answer';
+        progEl.textContent = `Q ${qIndex + 1} / ${QCOUNT}`;
+        ansWrap.innerHTML = '';
+        q.choices.forEach(choice => {
+          const b = document.createElement('button');
+          b.className = 'btn btn-mid';
+          b.textContent = String(choice);
+          b.addEventListener('click', async () => {
+            if (!locked) {
+              locked = true;
+              digDec.disabled = digInc.disabled = true;
+            }
+            if (choice === q.correct) {
+              b.classList.add('ok');
+              qIndex++;
+              if (qIndex >= QCOUNT) {
+                const rawMs = performance.now() - startMs;
+                const penaltyMs = mistakes * PENALTY_PER_MISTAKE_MS;
+                const adjustedMs = rawMs + penaltyMs;
+                const accuracy = QCOUNT / (QCOUNT + mistakes);
+
+                // Persist today's result (daily store, clears automatically on new day)
+                const run = {
+                  ts: Date.now(),
+                  date: localDateKey(),
+                  digits, questions: QCOUNT,
+                  mistakes, accuracy,
+                  rawMs: Math.round(rawMs),
+                  penaltyMs: Math.round(penaltyMs),
+                  adjustedMs: Math.round(adjustedMs)
+                };
+                const todayRec = await appendTodayResult(db, run);
+
+                // Update daily PB (using ADJUSTED time)
+                const upd = await updateTodayPBAdjusted(db, digits, adjustedMs);
+
+                // Prepare SPC comment (over today's history, including this run)
+                const spcComment = spcCommentFromRuns(todayRec, run);
+
+                // If the user BEAT an existing PB today (not just first run), copy receipt & redirect.
+                if (upd.isBeat) {
+                  const lines = [
+                    'Arithmetic Challenge Receipt',
+                    `Date: ${localDateTimeWithTZ()} (Day: ${upd.date})`,
+                    `Difficulty: ${digits}-digit × ${digits}-digit`,
+                    `Questions: ${QCOUNT}`,
+                    `Raw time: ${msToSecStr(rawMs)}`,
+                    `Penalty: +${msToSecStr(penaltyMs)} (${mistakes} mistake${mistakes===1?'':'s'} × ${msToSecStr(PENALTY_PER_MISTAKE_MS)})`,
+                    `Adjusted time: ${msToSecStr(adjustedMs)}`,
+                    `Accuracy: ${pct(accuracy)}`,
+                    `Daily PB Beaten: YES (prev ${upd.prevBestMs ? msToSecStr(upd.prevBestMs) : '—'} → ${msToSecStr(upd.newBestMs)})`
+                  ];
+                  await copyText(lines.join('\n'));
+                  window.location.assign('https://github.com/sktoushi/stash5/issues/new');
+                  return;
+                }
+
+                // Otherwise, show completion + SPC; no redirect
+                pbNote.textContent = upd.isFirstToday
+                  ? `Finished in ${msToSecStr(rawMs)} (+${msToSecStr(penaltyMs)} penalty) → adjusted ${msToSecStr(adjustedMs)}. Set today's baseline PB (${upd.date}).`
+                  : `Finished in ${msToSecStr(rawMs)} (+${msToSecStr(penaltyMs)} penalty) → adjusted ${msToSecStr(adjustedMs)}. Daily PB remains ${msToSecStr(upd.newBestMs)} (${upd.date}).`;
+
+                spcNote.textContent = spcComment;
+
+                // Enable end controls
+                playAgain.disabled = false;
+                closeBtn.disabled = false;
+              } else {
+                renderQuestion(makeQuestion());
+              }
+            } else {
+              mistakes += 1; // penalty for guessing
+              b.classList.add('wrong');
+              setTimeout(() => b.classList.remove('wrong'), 250);
+            }
+          });
+          ansWrap.appendChild(b);
+        });
+      }
+
+      // Wire controls
+      digDec.onclick = async () => { if (locked) return; digits = clampDigits(digits - 1); updateDigitsUI(); await persistDigits(); };
+      digInc.onclick = async () => { if (locked) return; digits = clampDigits(digits + 1); updateDigitsUI(); await persistDigits(); };
+
+      playAgain.onclick = () => {
+        // Reset state for a fresh run with current digits
+        qIndex = 0;
+        mistakes = 0;
+        locked = false;
+        digDec.disabled = digInc.disabled = false;
+        pbNote.textContent = '';
+        spcNote.textContent = '';
+        playAgain.disabled = true;
+        closeBtn.disabled = true;
+        startMs = performance.now();
+        renderQuestion(makeQuestion());
+      };
+      closeBtn.onclick = () => { try { dlg.close(); } catch { dlg.open = false; } };
+
+      // Initialize UI & start
+      updateDigitsUI();
+      pbNote.textContent = '';
+      spcNote.textContent = '';
+      playAgain.disabled = true;
+      closeBtn.disabled = true;
+      try { dlg.showModal(); } catch { dlg.show(); }
+      qIndex = 0;
+      mistakes = 0;
+      locked = false;
+      digDec.disabled = digInc.disabled = false;
+      startMs = performance.now();
+      renderQuestion(makeQuestion());
+    }
+
+    /************ Main (always show arithmetic modal at load) ************/
+    async function main() {
+      const db = await openDB();
+
+      // Ensure defaults exist
+      const ad = await getArithDigits(db);
+      const pb = await getPBMap(db);
+      if (!pb || typeof pb !== 'object') await metaSet(db, KEY_ARITH_PBMAP, {});
+      const today = await getTodayResults(db);
+      if (!today || today.d !== localDateKey()) {
+        await metaSet(db, KEY_ARITH_RESULTS_DAY, { d: localDateKey(), runs: [] });
+      }
+
+      // Always show the arithmetic game (100% appearance)
+      showArithmeticModal(db, ad);
+    }
+
+    document.addEventListener('DOMContentLoaded', main);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div><div class="badge">Arithmetic Challenge</div></div>
+    <div class="small">
+      Answer five <span class="mono">x-digit × x-digit</span> questions. <br/>
+      <strong>Daily PB</strong> resets every local day and is tracked on the <em>adjusted</em> time: raw time + <span class="mono">3s</span> per mistake. <br/>
+      If you beat today's PB, a receipt is copied and you'll be redirected to create a stash5 issue.
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-accent" onclick="document.getElementById('arithDialog')?.showModal()">Open challenge</button>
+    </div>
+  </div>
+
+  <!-- Arithmetic modal (always shown on load; can reopen via button) -->
+  <dialog id="arithDialog">
+    <div class="modal">
+      <h2>Quick arithmetic check</h2>
+      <p class="qsub">Answer 5 multiplication questions.</p>
+
+      <!-- Difficulty controls -->
+      <div class="small" style="margin:.25rem 0 .35rem;">Difficulty</div>
+      <div class="freqrow" style="margin-bottom:.5rem;">
+        <button id="arithDigitsDec" type="button" class="btn btn-mid" aria-label="Decrease digits">−</button>
+        <span id="arithDigitsVal" class="freqbadge small">2-digit × 2-digit</span>
+        <button id="arithDigitsInc" type="button" class="btn btn-mid" aria-label="Increase digits">+</button>
+      </div>
+
+      <!-- Question/answers -->
+      <div class="q" id="arithQuestion">12 × 34 = ?</div>
+      <div class="small" id="arithSub">Pick the correct answer</div>
+      <div id="arithAnswers" class="grid-2" style="margin:.5rem 0 0;"></div>
+      <div class="small" id="arithProgress" style="margin-top:.75rem;">Q 1 / 5</div>
+
+      <div class="pbnote" id="arithPBNote"></div>
+      <div class="spc" id="arithSPCNote"></div>
+      <div class="caption">Penalty: +<span class="mono">3s</span> per wrong click (applied to adjusted time).</div>
+
+      <div class="toolbar" style="margin-top:1rem; justify-content:space-between; width:100%;">
+        <button id="arithAgain" class="btn" disabled>Play again</button>
+        <button id="arithClose" class="btn btn-danger" disabled>Close</button>
+      </div>
+
+      <div class="small" style="margin-top:.75rem; color:#90a4ae;">
+        Beat today's PB to auto-copy a receipt and jump to <span class="mono">stash5</span> issues.
+      </div>
+    </div>
+  </dialog>
+
+  <noscript>
+    <style>body{font-family:sans-serif; padding:2rem;}</style>
+    <p>This page requires JavaScript for the arithmetic challenge.</p>
+  </noscript>
+</body>
+</html>
