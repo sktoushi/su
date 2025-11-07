@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Arithmetic Challenge (Daily PB + SPC + Penalties)</title>
+  <title>Arithmetic Challenge (Daily PB + SPC + Penalties + Mixed Ops)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
@@ -163,13 +163,6 @@
       const v = await metaGet(db, KEY_ARITH_PBMAP);
       return (v && typeof v === 'object') ? v : {};
     }
-    async function getTodayPBAdjusted(db, digits) {
-      const map = await getPBMap(db);
-      const today = localDateKey();
-      const entry = map[String(digits)];
-      if (!entry || entry.d !== today) return null;
-      return entry.t; // adjusted ms
-    }
     async function updateTodayPBAdjusted(db, digits, adjustedMs) {
       const map = await getPBMap(db);
       const today = localDateKey();
@@ -197,7 +190,7 @@
 
     /************ Daily results helpers (cleared each day) ************/
     // Run schema:
-    // { ts, date, digits, questions, mistakes, accuracy, rawMs, penaltyMs, adjustedMs }
+    // { ts, date, digits, questions, mistakes, accuracy, rawMs, penaltyMs, adjustedMs, ops: string[] }
     async function getTodayResults(db) {
       const rec = await metaGet(db, KEY_ARITH_RESULTS_DAY);
       const today = localDateKey();
@@ -264,7 +257,7 @@
       ].join(' ');
     }
 
-    /************ Arithmetic modal (always appears; 5 Qs; four answers) ************/
+    /************ Arithmetic modal (always appears; 5 Qs; four answers; mixed operations) ************/
     function showArithmeticModal(db, initialDigits) {
       const dlg = document.getElementById('arithDialog');
       const qEl = document.getElementById('arithQuestion');
@@ -287,6 +280,7 @@
       let locked = false;
       let startMs = 0;
       let mistakes = 0; // total wrong clicks across all questions
+      const opsUsed = []; // track ops per run
 
       function rngInt(min, maxInclusive) {
         const r = secureRandomFloat01();
@@ -299,32 +293,97 @@
         }
         return arr;
       }
-      function makeQuestion() {
-        const lo = Math.pow(10, digits - 1);
-        const hi = Math.pow(10, digits) - 1;
-        const a = rngInt(lo, hi);
-        const b = rngInt(lo, hi);
-        const correct = a * b;
-
-        // Build 3 unique distractors near correct
-        const options = new Set([correct]);
-        const deltas = [0.05, 0.1, 0.15, 0.2].map(p => Math.max(1, Math.round(correct * p)));
-        while (options.size < 4) {
-          const d = deltas[rngInt(0, deltas.length - 1)];
-          const sign = rngInt(0,1) ? 1 : -1;
-          const jitter = rngInt(-Math.max(1, Math.floor(d/10)), Math.max(1, Math.floor(d/10)));
-          const candidate = correct + sign * d + jitter;
-          if (candidate > 0) options.add(candidate);
-        }
-        const choices = shuffle(Array.from(options));
-        return { a, b, correct, choices };
+      function pickOp() {
+        const ops = ['add','sub','mul','div'];
+        return ops[Math.floor(secureRandomFloat01()*ops.length)];
       }
 
-      function updateDigitsUI() { digVal.textContent = `${digits}-digit × ${digits}-digit`; }
+      // Build a question for the chosen operation, honoring digit setting.
+      function makeQuestion() {
+        const op = pickOp();
+        let a, b, correct, label;
+
+        if (op === 'mul') {
+          const lo = Math.pow(10, digits - 1);
+          const hi = Math.pow(10, digits) - 1;
+          a = rngInt(lo, hi);
+          b = rngInt(lo, hi);
+          correct = a * b;
+          label = `×`;
+        } else if (op === 'add') {
+          const lo = Math.pow(10, digits - 1);
+          const hi = Math.pow(10, digits) - 1;
+          a = rngInt(lo, hi);
+          b = rngInt(lo, hi);
+          correct = a + b;
+          label = `+`;
+        } else if (op === 'sub') {
+          const lo = Math.pow(10, digits - 1);
+          const hi = Math.pow(10, digits) - 1;
+          // Ensure non-negative result: a >= b
+          a = rngInt(lo, hi);
+          b = rngInt(lo, hi);
+          if (b > a) [a, b] = [b, a];
+          correct = a - b;
+          label = `−`;
+        } else { // 'div' — whole-number answers only
+          const lo = Math.pow(10, digits - 1);
+          const hi = Math.pow(10, digits) - 1;
+          // Choose divisor and quotient within digit range; dividend = divisor * quotient
+          b = rngInt(lo, hi);                 // divisor
+          let q = rngInt(lo, hi);             // quotient (ensure >=1)
+          if (q === 0) q = 1;
+          correct = q;                         // a / b = q
+          a = b * q;                           // dividend
+          label = `÷`;
+        }
+
+        // Build 3 unique distractors suited to op
+        const options = new Set([correct]);
+        function addChoice(val) { if (Number.isInteger(val) && val >= 0) options.add(val); }
+
+        // Heuristics for distractors by op
+        if (op === 'mul' || op === 'add') {
+          const base = correct || 1;
+          const deltas = [0.05, 0.1, 0.15, 0.2].map(p => Math.max(1, Math.round(base * p)));
+          while (options.size < 4) {
+            const d = deltas[rngInt(0, deltas.length - 1)];
+            const tweak = correct + (rngInt(0,1) ? d : -d) + rngInt(-Math.max(1, Math.floor(d/10)), Math.max(1, Math.floor(d/10)));
+            addChoice(tweak);
+          }
+        } else if (op === 'sub') {
+          const base = Math.max(5, correct);
+          const deltas = [1,2,3,5,10,Math.round(base*0.1)];
+          while (options.size < 4) {
+            const d = deltas[rngInt(0, deltas.length - 1)];
+            const tweak = correct + (rngInt(0,1) ? d : -d);
+            addChoice(tweak);
+          }
+        } else { // div — integer answers only
+          // Favor near neighbors and some % offsets, all >=1
+          const base = Math.max(1, correct);
+          const near = [1,2,3].map(k => base + (rngInt(0,1)? k : -k));
+          const pctOffsets = [0.1, 0.2, 0.25].map(p => Math.round(base * (rngInt(0,1)? (1+p) : (1-p))));
+          const pool = [...near, ...pctOffsets].filter(x => x >= 1);
+          let idx = 0;
+          while (options.size < 4) {
+            let cand = pool[idx % pool.length];
+            if (!Number.isFinite(cand) || cand < 1) cand = base + idx + 1;
+            addChoice(cand);
+            idx++;
+          }
+        }
+
+        const choices = shuffle(Array.from(options));
+        return { a, b, correct, choices, op, label };
+      }
+
+      function updateDigitsUI() { digVal.textContent = `${digits}-digit ×/÷/+ / −`; }
       async function persistDigits() { await setArithDigits(db, digits); }
 
       function renderQuestion(q) {
-        qEl.textContent = `${q.a} × ${q.b} = ?`;
+        opsUsed.push(q.op);
+        qEl.textContent = `${q.a} ${q.label} ${q.b} = ?`;
         subEl.textContent = 'Pick the correct answer';
         progEl.textContent = `Q ${qIndex + 1} / ${QCOUNT}`;
         ansWrap.innerHTML = '';
@@ -354,7 +413,8 @@
                   mistakes, accuracy,
                   rawMs: Math.round(rawMs),
                   penaltyMs: Math.round(penaltyMs),
-                  adjustedMs: Math.round(adjustedMs)
+                  adjustedMs: Math.round(adjustedMs),
+                  ops: opsUsed.slice()
                 };
                 const todayRec = await appendTodayResult(db, run);
 
@@ -369,12 +429,13 @@
                   const lines = [
                     'Arithmetic Challenge Receipt',
                     `Date: ${localDateTimeWithTZ()} (Day: ${upd.date})`,
-                    `Difficulty: ${digits}-digit × ${digits}-digit`,
+                    `Difficulty: ${digits}-digit (mixed ops +, −, ×, ÷; division yields integer quotients)`,
                     `Questions: ${QCOUNT}`,
                     `Raw time: ${msToSecStr(rawMs)}`,
                     `Penalty: +${msToSecStr(penaltyMs)} (${mistakes} mistake${mistakes===1?'':'s'} × ${msToSecStr(PENALTY_PER_MISTAKE_MS)})`,
                     `Adjusted time: ${msToSecStr(adjustedMs)}`,
                     `Accuracy: ${pct(accuracy)}`,
+                    `Ops used: ${opsUsed.join(', ')}`,
                     `Daily PB Beaten: YES (prev ${upd.prevBestMs ? msToSecStr(upd.prevBestMs) : '—'} → ${msToSecStr(upd.newBestMs)})`
                   ];
                   await copyText(lines.join('\n'));
@@ -413,6 +474,7 @@
         // Reset state for a fresh run with current digits
         qIndex = 0;
         mistakes = 0;
+        opsUsed.length = 0;
         locked = false;
         digDec.disabled = digInc.disabled = false;
         pbNote.textContent = '';
@@ -433,6 +495,7 @@
       try { dlg.showModal(); } catch { dlg.show(); }
       qIndex = 0;
       mistakes = 0;
+      opsUsed.length = 0;
       locked = false;
       digDec.disabled = digInc.disabled = false;
       startMs = performance.now();
@@ -463,8 +526,9 @@
   <div class="wrap">
     <div><div class="badge">Arithmetic Challenge</div></div>
     <div class="small">
-      Answer five <span class="mono">x-digit × x-digit</span> questions. <br/>
-      <strong>Daily PB</strong> resets every local day and is tracked on the <em>adjusted</em> time: raw time + <span class="mono">3s</span> per mistake. <br/>
+      Answer five <span class="mono">x-digit</span> problems with mixed operations (<span class="mono">+ − × ÷</span>).<br/>
+      Division problems are constructed to have <em>whole-number answers</em>.<br/>
+      <strong>Daily PB</strong> resets every local day and is tracked on the <em>adjusted</em> time: raw time + <span class="mono">3s</span> per mistake.<br/>
       If you beat today's PB, a receipt is copied and you'll be redirected to create a stash5 issue.
     </div>
     <div class="toolbar">
@@ -476,13 +540,13 @@
   <dialog id="arithDialog">
     <div class="modal">
       <h2>Quick arithmetic check</h2>
-      <p class="qsub">Answer 5 multiplication questions.</p>
+      <p class="qsub">Answer 5 mixed-operation questions.</p>
 
       <!-- Difficulty controls -->
       <div class="small" style="margin:.25rem 0 .35rem;">Difficulty</div>
       <div class="freqrow" style="margin-bottom:.5rem;">
         <button id="arithDigitsDec" type="button" class="btn btn-mid" aria-label="Decrease digits">−</button>
-        <span id="arithDigitsVal" class="freqbadge small">2-digit × 2-digit</span>
+        <span id="arithDigitsVal" class="freqbadge small">2-digit ×/÷/+ / −</span>
         <button id="arithDigitsInc" type="button" class="btn btn-mid" aria-label="Increase digits">+</button>
       </div>
 
