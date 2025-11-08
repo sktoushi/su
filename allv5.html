@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Repository Issue Randomizer (with Noise Patch + Session Decay + Dynamic Blend + Mix Modal)</title>
+
+  <!-- (Optional) Keep this include if you really need it elsewhere.
+       But the code now has a safe local fallback so a 404 won't break the app. -->
+  <script src="common/random-utils.js"></script>
+
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+      --border: #1b2328;
+    }
+    html, body {
+      margin:0; padding:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    main { margin: 2rem; }
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;
+    }
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-ghost{background:transparent;}
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+
+    dialog{
+      border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg);
+      width:min(680px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.1rem 1.25rem 1rem;}
+    .modal h2{margin:.1rem 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 .9rem 0; color:var(--muted);}
+    .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
+
+    .mix-summary{
+      display:flex; align-items:center; justify-content:space-between;
+      margin:.25rem 0 0.75rem 0; color:var(--muted);
+    }
+    .pill{
+      font-size:.85rem; padding:.2rem .5rem; border-radius:.9rem;
+      background:#1c313a; color:#b2dfdb; border:1px solid rgba(255,255,255,.06);
+    }
+    .mix-rows{display:block; border-top:1px dashed rgba(255,255,255,.08);}
+    .mix-row{
+      display:grid; grid-template-columns:1fr auto auto auto; gap:.5rem; align-items:center;
+      padding:.55rem .25rem; border-bottom:1px dashed rgba(255,255,255,.08);
+    }
+    .mix-name{font-weight:700;}
+    .mix-count{
+      min-width:2.8rem; text-align:center; padding:.35rem .5rem; border-radius:.4rem;
+      background:#0f1519; border:1px solid rgba(255,255,255,.07);
+      font-variant-numeric: tabular-nums;
+    }
+    .modal-header{
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:.25rem;
+    }
+    .x-btn{border:none; background:transparent; color:var(--muted); font-size:1.1rem; cursor:pointer;}
+    .x-btn:hover{color:var(--fg);}
+    pre.diag{
+      background:#111116; border:1px solid var(--border);
+      border-radius:10px; padding:1rem; color:#dfe1e6; overflow:auto;
+    }
+    code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
+
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{
+      padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      min-width:7ch; text-align:center;
+    }
+  </style>
+</head>
+<body>
+<main id="app"></main>
+
+<dialog id="mixDialog" aria-labelledby="mixTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="mixTitle">Formula Mix · Current Counts</h2>
+      <button class="x-btn" id="closeModalBtn" aria-label="Close">✕</button>
+    </div>
+    <p>
+      Adjust how often each formula is used. Counts are non-negative and saved instantly.
+      At least <code>one</code> formula always remains at <code>1</code>.
+    </p>
+
+    <div class="mix-summary">
+      <span class="small">Your current distribution across formulas</span>
+      <span>Total: <span class="pill" id="totalCountPill">0</span></span>
+    </div>
+
+    <div id="mixRows" class="mix-rows"></div>
+
+    <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
+      <label class="small">Modal frequency</label>
+      <div class="freqrow">
+        <button id="freqDec" type="button" class="btn btn-small" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-small" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+    </div>
+    <div class="small" style="margin:.25rem 0 .5rem 0;">We’ll still show this at least once every 15 minutes.</div>
+
+    <div class="toolbar" style="margin-top:1rem;">
+      <button class="btn btn-small" id="resetDefaultsBtn" title="Reset to built-in defaults">Reset</button>
+      <button class="btn btn-small" id="zeroAllBtn" title="Set all to 0 except one kept at 1">Almost zero</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-accent btn-small" id="saveAndGoBtn">Save & Continue</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ========= HARDENING FOR GITHUB PAGES =========
+   1) Provide a local fallback for getSecureRandomNumber()
+   2) Slightly more robust config fetch path + assertive error surface
+*/
+const NS = 'rrx_v4_3e2f9b7a';
+
+const DB_NAME = `${NS}_db`;
+const DB_VERSION = 1;
+const STORE_CONFIG = `${NS}_cfg`;
+const STORE_SETTINGS = `${NS}_settings`;
+const STORE_META = `${NS}_meta`;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if (!db.objectStoreNames.contains(STORE_CONFIG)) db.createObjectStore(STORE_CONFIG);
+      if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
+      if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbGet(store, key) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const st = tx.objectStore(store);
+    const r = st.get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  }));
+}
+function idbSet(store, key, value) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const st = tx.objectStore(store);
+    const r = st.put(value, key);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  }));
+}
+
+/* ================== Defaults ================== */
+const FORMULAS_CANON = [
+  'random',
+  'leftLeaning',
+  'rightLeaning1',
+  'recent20Percent',
+  'recent5Percent',
+  // Existing new ones
+  'middleBell',
+  'oldest10Percent',
+  'recent10Percent',
+  'zigZag',
+  'primeBoost',
+  // ▼ Cognition-oriented additions
+  'primacyRecency',
+  'pyramidMiddle',
+  'triPeak',
+  'sinusoidal',
+  'interleaved3',
+  'chunkedBlocks',
+  'expandingSpaced',
+  'fixedSpaced',
+  'forgettingCurve',
+  'reviewWindow7pct',
+  'quadraticRamp',
+  'easyThenHard',
+  'contrastBlocks',
+  'antiZigZag',
+  'noveltyWave'
+];
+
+const DEFAULT_MIX = {
+  random: 1,
+  leftLeaning: 1,
+  rightLeaning1: 2,
+  recent20Percent: 1,
+  recent5Percent: 1,
+  middleBell: 1,
+  oldest10Percent: 1,
+  recent10Percent: 1,
+  zigZag: 1,
+  primeBoost: 1,
+  primacyRecency: 1,
+  pyramidMiddle: 1,
+  triPeak: 1,
+  sinusoidal: 1,
+  interleaved3: 1,
+  chunkedBlocks: 1,
+  expandingSpaced: 1,
+  fixedSpaced: 1,
+  forgettingCurve: 1,
+  reviewWindow7pct: 1,
+  quadraticRamp: 1,
+  easyThenHard: 1,
+  contrastBlocks: 1,
+  antiZigZag: 1,
+  noveltyWave: 1
+};
+
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+const MODAL_SHOW_PROBABILITY = 0.15;
+const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+const USER_MIN_FREQ_MINUTES = 5;
+const STEP_MINUTES = 5;
+
+/* ================== Utilities ================== */
+function getSecureRandom01() {
+  const u = new Uint32Array(1);
+  crypto.getRandomValues(u);
+  return u[0] / 0xffffffff;
+}
+
+/* --- NEW: local fallback so GH Pages 404s won't break you --- */
+if (typeof window.getSecureRandomNumber !== 'function') {
+  window.getSecureRandomNumber = function () { return getSecureRandom01(); };
+}
+
+function sumMix(mix) {
+  return Object.values(mix).reduce((a,b) => a + (Number(b)||0), 0);
+}
+function weightedChoiceFromMix(mix, fallbackList) {
+  const entries = Object.entries(mix).filter(([k,v]) => (Number(v)||0) > 0);
+  const total = entries.reduce((a,[,v]) => a + Number(v), 0);
+  if (total <= 0) {
+    const list = Array.isArray(fallbackList) && fallbackList.length ? fallbackList : FORMULAS_CANON;
+    const idx = Math.floor(getSecureRandom01() * list.length);
+    return list[idx];
+  }
+  let r = getSecureRandom01() * total;
+  for (const [name, wRaw] of entries) {
+    const w = Number(wRaw);
+    if (r < w) return name;
+    r -= w;
+  }
+  return entries[entries.length - 1][0];
+}
+function roundToStep(valueMinutes) {
+  const v = Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+  return v;
+}
+
+/* ================== Modal UI ================== */
+const mixDialog = document.getElementById('mixDialog');
+const mixRowsContainer = document.getElementById('mixRows');
+const totalCountPill = document.getElementById('totalCountPill');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+const zeroAllBtn = document.getElementById('zeroAllBtn');
+const saveAndGoBtn = document.getElementById('saveAndGoBtn');
+
+const freqDecBtn = document.getElementById('freqDec');
+const freqIncBtn = document.getElementById('freqInc');
+const freqValueEl = document.getElementById('freqValue');
+
+let currentMix = { ...DEFAULT_MIX };
+let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
+
+let modalTimeoutId = null;
+
+function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); } }
+function closeModal() { try { mixDialog.close(); } catch { mixDialog.open = false; } }
+
+function isLastNonZero(name) {
+  let nonZeroNames = FORMULAS_CANON.filter(k => (Number(currentMix[k])||0) > 0);
+  if (nonZeroNames.length > 1) return false;
+  return nonZeroNames.length === 1 && nonZeroNames[0] === name;
+}
+function nextMinusAllowed(name) {
+  const v = Number(currentMix[name]) || 0;
+  if (v <= 0) return false;
+  if (isLastNonZero(name) && v <= 1) return false;
+  return true;
+}
+
+function renderMixRows() {
+  mixRowsContainer.innerHTML = '';
+  FORMULAS_CANON.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'mix-row';
+
+    const label = document.createElement('div');
+    label.className = 'mix-name';
+    label.textContent = name;
+
+    const minus = document.createElement('button');
+    minus.className = 'btn btn-small';
+    minus.textContent = '–';
+
+    const count = document.createElement('div');
+    count.className = 'mix-count';
+    count.id = `count-${name}`;
+    count.textContent = String(Number(currentMix[name]) || 0);
+
+    const plus = document.createElement('button');
+    plus.className = 'btn btn-small';
+    plus.textContent = '+';
+
+    const refreshDisabled = () => { minus.disabled = !nextMinusAllowed(name); };
+    refreshDisabled();
+
+    minus.addEventListener('click', async () => {
+      if (!nextMinusAllowed(name)) return;
+      currentMix[name] = Math.max(0, (Number(currentMix[name])||0) - 1);
+      await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+      count.textContent = String(currentMix[name]);
+      updateTotalsAndButtons();
+    });
+
+    plus.addEventListener('click', async () => {
+      currentMix[name] = Math.max(0, (Number(currentMix[name])||0) + 1);
+      await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+      count.textContent = String(currentMix[name]);
+      updateTotalsAndButtons();
+    });
+
+    row.appendChild(label);
+    row.appendChild(minus);
+    row.appendChild(count);
+    row.appendChild(plus);
+    mixRowsContainer.appendChild(row);
+  });
+  updateTotalsAndButtons();
+}
+
+function updateTotalsAndButtons() {
+  FORMULAS_CANON.forEach(name => {
+    const el = document.getElementById(`count-${name}`);
+    if (el) el.textContent = String(Number(currentMix[name]) || 0);
+  });
+  totalCountPill.textContent = String(sumMix(currentMix));
+  const rows = mixRowsContainer.querySelectorAll('.mix-row');
+  rows.forEach((row, idx) => {
+    const name = FORMULAS_CANON[idx];
+    const minusBtn = row.querySelector('.btn.btn-small');
+    if (minusBtn) minusBtn.disabled = !nextMinusAllowed(name);
+  });
+  if (freqValueEl) freqValueEl.textContent = `${currentFreqMinutes} min`;
+}
+
+closeModalBtn.addEventListener('click', async () => {
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
+  closeModal();
+});
+resetDefaultsBtn.addEventListener('click', async () => {
+  currentMix = { ...DEFAULT_MIX };
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  renderMixRows();
+});
+zeroAllBtn.addEventListener('click', async () => {
+  const preserved = FORMULAS_CANON.includes('random') ? 'random' : FORMULAS_CANON[0];
+  const z = {};
+  FORMULAS_CANON.forEach(n => z[n] = (n === preserved ? 1 : 0));
+  currentMix = z;
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  renderMixRows();
+});
+saveAndGoBtn.addEventListener('click', async () => {
+  if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+  if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
+    currentMix['random'] = 1;
+  }
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
+  await idbSet(STORE_META, 'lastModalShown', Date.now());
+  closeModal();
+  proceedAfterMixSaved().catch(err => {
+    document.body.innerHTML = '<pre class="diag"></pre>';
+    document.querySelector('pre.diag').textContent = String(err && err.message || err);
+  });
+});
+
+function wireFrequencyControls() {
+  if (!freqDecBtn || !freqIncBtn || !freqValueEl) return;
+  freqDecBtn.onclick = () => {
+    currentFreqMinutes = Math.max(USER_MIN_FREQ_MINUTES, currentFreqMinutes - STEP_MINUTES);
+    updateTotalsAndButtons();
+  };
+  freqIncBtn.onclick = () => {
+    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES;
+    updateTotalsAndButtons();
+  };
+}
+
+/* ============= Weights: cognition-oriented shapes ============= */
+function applyFormulaWeights(formulaParam, n) {
+  const weights = new Array(n).fill(1);
+
+  // existing
+  if (formulaParam === 'leftLeaning') {
+    for (let i = 0; i < n; i++) {
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
+      weights[i] = (n - i) * noise;
+    }
+  } else if (formulaParam === 'rightLeaning1') {
+    for (let i = 0; i < n; i++) {
+      const noise = 0.5 + getSecureRandomNumber();  // <-- now safe
+      weights[i] = (i + 1) * noise;
+    }
+  } else if (formulaParam === 'recent20Percent') {
+    const startIdx = Math.floor(n * 0.8);
+    for (let i = startIdx; i < n; i++) weights[i] = 5;
+  } else if (formulaParam === 'recent5Percent') {
+    const startIdx = Math.floor(n * 0.95);
+    for (let i = startIdx; i < n; i++) weights[i] = 20;
+
+  } else if (formulaParam === 'middleBell') {
+    const mu = (n - 1) / 2;
+    const sigma = Math.max(1, n / 6);
+    for (let i = 0; i < n; i++) {
+      const z = (i - mu) / sigma;
+      const bell = Math.exp(-0.5 * z * z);
+      weights[i] = 1 + 9 * bell;
+    }
+  } else if (formulaParam === 'oldest10Percent') {
+    const endIdx = Math.max(0, Math.floor(n * 0.10) - 1);
+    for (let i = 0; i < n; i++) weights[i] = (i <= endIdx) ? 12 : 1;
+  } else if (formulaParam === 'recent10Percent') {
+    const startIdx = Math.floor(n * 0.90);
+    for (let i = startIdx; i < n; i++) weights[i] = 12;
+  } else if (formulaParam === 'zigZag') {
+    for (let i = 0; i < n; i++) {
+      const alt = (i % 2 === 0) ? 1.15 : 0.85;
+      const slope = 1 + (i / Math.max(1, n - 1)) * 0.5;
+      weights[i] = alt * slope;
+    }
+  } else if (formulaParam === 'primeBoost') {
+    function isPrimeOneIndexed(pos) {
+      if (pos < 2) return false;
+      if (pos % 2 === 0) return pos === 2;
+      const r = Math.floor(Math.sqrt(pos));
+      for (let f = 3; f <= r; f += 2) if (pos % f === 0) return false;
+      return true;
+    }
+    for (let i = 0; i < n; i++) {
+      const pos = i + 1;
+      weights[i] = isPrimeOneIndexed(pos) ? 6 : 1;
+    }
+
+  /* ---------- Cognition patterns ---------- */
+
+  } else if (formulaParam === 'primacyRecency') {
+    const c = (n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const norm = Math.abs(i - c) / (c || 1);
+      weights[i] = 1 + 4 * norm;
+    }
+
+  } else if (formulaParam === 'pyramidMiddle') {
+    const c = (n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      const norm = 1 - Math.abs(i - c) / (c || 1);
+      weights[i] = 1 + 4 * Math.max(0, norm);
+    }
+
+  } else if (formulaParam === 'triPeak') {
+    const centers = [0.25, 0.5, 0.75].map(p => Math.floor(p * (n - 1)));
+    const sigma = Math.max(1, n / 20);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (const c of centers) {
+        const z = (i - c) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 3 * s;
+    }
+
+  } else if (formulaParam === 'sinusoidal') {
+    for (let i = 0; i < n; i++) {
+      const phase = 2 * Math.PI * i / Math.max(1, n - 1);
+      const wave = 0.5 * (1 + Math.sin(phase));
+      weights[i] = 1 + 3 * wave;
+    }
+
+  } else if (formulaParam === 'interleaved3') {
+    for (let i = 0; i < n; i++) {
+      const r = i % 3;
+      weights[i] = r === 0 ? 2.6 : (r === 1 ? 1.6 : 1.0);
+    }
+
+  } else if (formulaParam === 'chunkedBlocks') {
+    const size = Math.max(2, Math.floor(Math.sqrt(n)));
+    for (let i = 0; i < n; i++) {
+      const pos = i % size;
+      const edge = (pos === 0 || pos === size - 1);
+      weights[i] = edge ? 3 : 1.2;
+    }
+
+  } else if (formulaParam === 'expandingSpaced') {
+    const anchorsPct = [0.0, 0.5, 0.75, 0.875, 0.9375];
+    const anchors = anchorsPct.map(p => Math.floor(p * (n - 1)));
+    const sigma = Math.max(1, n / 40);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (const a of anchors) {
+        const z = (i - a) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 5 * s;
+    }
+
+  } else if (formulaParam === 'fixedSpaced') {
+    const k = Math.max(3, Math.round(n / 12));
+    for (let i = 0; i < n; i++) {
+      weights[i] = (i % k === 0) ? 4 : 1;
+    }
+
+  } else if (formulaParam === 'forgettingCurve') {
+    const ages = [0.02, 0.05, 0.12, 0.25];
+    const t = (idx) => (n - 1 - idx) / Math.max(1, n - 1);
+    const sigma = 0.04;
+    for (let i = 0; i < n; i++) {
+      const age = t(i);
+      let s = 0;
+      for (const a of ages) {
+        const z = (age - a) / sigma;
+        s += Math.exp(-0.5 * z * z);
+      }
+      weights[i] = 1 + 8 * s;
+    }
+
+  } else if (formulaParam === 'reviewWindow7pct') {
+    const startIdx = Math.floor(n * 0.93);
+    for (let i = startIdx; i < n; i++) weights[i] = 14;
+
+  } else if (formulaParam === 'quadraticRamp') {
+    for (let i = 0; i < n; i++) {
+      const x = i / Math.max(1, n - 1);
+      weights[i] = 1 + 5 * (x * x);
+    }
+
+  } else if (formulaParam === 'easyThenHard') {
+    for (let i = 0; i < n; i++) {
+      const x = i / Math.max(1, n - 1);
+      const phase1 = Math.max(0, 0.6 - x) * 2.0;
+      const phase2 = Math.max(0, x - 0.4) * 3.0;
+      weights[i] = 1 + phase1 + phase2;
+    }
+
+  } else if (formulaParam === 'contrastBlocks') {
+    const size = Math.max(4, Math.round(n / 10));
+    for (let i = 0; i < n; i++) {
+      const block = Math.floor(i / size);
+      weights[i] = (block % 2 === 0) ? 3.2 : 1.0;
+    }
+
+  } else if (formulaParam === 'antiZigZag') {
+    for (let i = 0; i < n; i++) {
+      const alt = (i % 2 === 0) ? 0.85 : 1.15;
+      const slope = 1 + (i / Math.max(1, n - 1)) * 0.2;
+      weights[i] = alt * slope;
+    }
+
+  } else if (formulaParam === 'noveltyWave') {
+    const c = (n - 1) / 2;
+    const sigma = Math.max(1, n / 5);
+    for (let i = 0; i < n; i++) {
+      const wave = 0.5 * (1 + Math.sin(4 * Math.PI * i / Math.max(1, n - 1)));
+      const mid = Math.exp(-0.5 * Math.pow((i - c) / sigma, 2));
+      weights[i] = 1 + 2.5 * wave + 2.5 * mid;
+    }
+  }
+
+  return weights;
+}
+
+/* === noisePatch (unchanged) === */
+function noisePatch(weights, issues) {
+  function cryptoRandom() {
+    const buf = new Uint32Array(1);
+    window.crypto.getRandomValues(buf);
+    return buf[0] / 0xffffffff;
+  }
+  function cryptoNormal(mean = 0, stdDev = 1) {
+    let u1 = 0, u2 = 0;
+    while (u1 === 0) u1 = cryptoRandom();
+    while (u2 === 0) u2 = cryptoRandom();
+    const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    return z0 * stdDev + mean;
+  }
+  function dejaGate(nowMs) {
+    const d = new Date(nowMs);
+    const hour = d.getHours() + d.getMinutes()/60;
+    const day  = d.getDay();
+    const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
+    const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
+    const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+    const jitter = (u[0] / 0xffffffff) * 0.2;
+    return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
+  }
+
+  const key = `${NS}_noise_mem_v1`;
+  let mem = JSON.parse(localStorage.getItem(key) || "{}");
+  let history = mem.history || new Array(weights.length).fill(0);
+  let lastSeen = mem.lastSeen || {};
+  let lastTs = mem.lastTs || Date.now();
+  const now = Date.now();
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysPassed = Math.max(0, (now - lastTs) / msPerDay);
+  const decayRate = 0.15;
+  if (daysPassed > 0.1) {
+    const decayFactor = Math.exp(-decayRate * daysPassed);
+    history = history.map(v => v * decayFactor);
+  }
+
+  let total = history.reduce((a, b) => a + b, 0);
+
+  let bias = new Array(weights.length).fill(0);
+  if (total > 0) {
+    const avg = total / history.length;
+    bias = history.map(c => (avg - c) / avg * 0.05);
+  }
+
+  const sixHours = 6 * 60 * 60 * 1000;
+  const seenDeltas = [];
+  for (let i = 0; i < weights.length; i++) {
+    if (lastSeen[i] != null) seenDeltas.push(now - lastSeen[i]);
+  }
+  const meanDelta = seenDeltas.length
+    ? (seenDeltas.reduce((a,b)=>a+b,0) / seenDeltas.length)
+    : null;
+
+  const dejaMults = weights.map((_, i) => {
+    const ts = lastSeen[i];
+    if (ts == null) return 1.03;
+    const delta = now - ts;
+    if (delta < sixHours) return 0.1;
+
+    if (meanDelta == null || meanDelta <= 0) return 1.0;
+    const sigma = meanDelta * 0.6;
+    const x = (delta - meanDelta) / (sigma || 1);
+    const due = Math.exp(-(x * x));
+    return 1 + 0.6 * due;
+  });
+
+  const erratic = cryptoRandom() < 0.08;
+  const stdDev = erratic ? 0.35 : 0.08;
+
+  const base = weights.map((w, i) => {
+    const noise = cryptoNormal(0, stdDev) * w;
+    const drift = bias[i] || 0;
+    return Math.max(0.0001, w + w * noise + w * drift);
+  });
+
+  const baseSum = base.reduce((a,b)=>a+b, 0) || 1;
+  const p = base.map(v => v / baseSum);
+  let H = 0;
+  for (let i=0;i<p.length;i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
+  const Hnorm = (p.length > 1) ? (H / Math.log(p.length)) : 0;
+
+  let beta; {
+    const g = dejaGate(now);
+    const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+    const j = (u[0] / 0xffffffff);
+    beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
+    if (beta >= 0.5) beta = 0.499;
+    if (beta < 0) beta = 0;
+  }
+
+  let adjusted = base.map((b, i) => {
+    const dv = Math.max(0, dejaMults[i] || 1);
+    const blended = b * ((1 - beta) + beta * dv);
+    return Math.max(0.000001, blended);
+  });
+
+  const sum = adjusted.reduce((a, b) => a + b, 0);
+  adjusted = adjusted.map(w => w / sum);
+
+  const r = cryptoRandom();
+  let cumulative = 0;
+  let chosenIdx = adjusted.length - 1;
+  for (let i = 0; i < adjusted.length; i++) {
+    cumulative += adjusted[i];
+    if (r < cumulative) { chosenIdx = i; break; }
+  }
+
+  history[chosenIdx] = (history[chosenIdx] || 0) + 1;
+  lastSeen[chosenIdx] = now;
+  localStorage.setItem(key, JSON.stringify({ history, lastSeen, lastTs: now }));
+
+  return { index: chosenIdx, erratic, adjusted, daysPassed };
+}
+
+/* ================== Boot ================== */
+(async () => {
+  try {
+    const existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');
+    if (!existingMix) {
+      await idbSet(STORE_SETTINGS, 'formulaMix', { ...DEFAULT_MIX });
+    }
+    currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
+
+    let storedFreq = await idbGet(STORE_SETTINGS, KEY_FREQ_MINUTES);
+    if (typeof storedFreq !== 'number' || !Number.isFinite(storedFreq) || storedFreq <= 0) {
+      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000;
+    }
+    currentFreqMinutes = roundToStep(storedFreq);
+    await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
+
+    /* --- safer relative fetch under GH Pages subpaths --- */
+    const configUrl = new URL('./config/all.json', window.location.href).toString();
+
+    let cfg = await idbGet(STORE_CONFIG, 'all');
+    if (!cfg) {
+      const res = await fetch(configUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to load config (${res.status})`);
+      cfg = await res.json();
+      await idbSet(STORE_CONFIG, 'all', cfg);
+    }
+
+    const repos = cfg.repositories || {};
+    const issues = [];
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+    const n = issues.length;
+
+    const lastShown = await idbGet(STORE_META, 'lastModalShown');
+    const now = Date.now();
+    const elapsed = lastShown ? (now - Number(lastShown)) : Infinity;
+
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
+    const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+    const wantsSoftShow = eligibleByUser && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
+    const wantShow = mustShow || wantsSoftShow;
+
+    renderMixRows();
+    wireFrequencyControls();
+    updateTotalsAndButtons();
+
+    if (wantShow) {
+      await idbSet(STORE_META, 'lastModalShown', now);
+      openModal();
+      modalTimeoutId = setTimeout(() => {
+        closeModal();
+        const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
+        proceedWithFormula(chosenFormula, n, issues);
+      }, 30_000);
+      return;
+    }
+
+    const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
+    await proceedWithFormula(chosenFormula, n, issues);
+
+  } catch (e) {
+    document.body.innerHTML = '<main><pre class="diag"></pre></main>';
+    document.querySelector('pre.diag').textContent = e && e.message ? e.message : String(e);
+  }
+})();
+
+async function proceedAfterMixSaved() {
+  currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
+  if (FORMULAS_CANON.every(n => (Number(currentMix[n])||0) === 0)) {
+    currentMix['random'] = 1;
+    await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  }
+
+  const cfg = await idbGet(STORE_CONFIG, 'all');
+  const repos = cfg.repositories || {};
+  const issues = [];
+  for (const [repo, info] of Object.entries(repos)) {
+    const start = Number(info.issueStartNumber);
+    const end = Number(info.issueEndNumber);
+    const user = info.username;
+    for (let i = start; i <= end; i++) {
+      issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+    }
+  }
+  const n = issues.length;
+  const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
+  await proceedWithFormula(chosenFormula, n, issues);
+}
+
+async function proceedWithFormula(formulaParam, n, issues) {
+  const weights = applyFormulaWeights(formulaParam, n);
+  const noisy = noisePatch(weights, issues);
+  const chosen = issues[noisy.index];
+
+  location.href = chosen;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const pre = document.createElement('pre');
+    pre.className = 'diag';
+    pre.textContent =
+      `Formula: ${formulaParam}\n` +
+      `Selected: ${chosen}\n` +
+      `Erratic mode: ${noisy.erratic ? "⚡ yes" : "⤵ stable"}\n` +
+      `Weights (top 5): ${noisy.adjusted.slice(0,5).map(w => w.toFixed(4)).join(', ')}`;
+    document.getElementById('app').appendChild(pre);
+  });
+}
+</script>
+</body>
+</html>

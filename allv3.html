@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repository Issue Randomizer (IndexedDB + Time-Aware Deja Vu)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #fafafa;
+      margin: 2rem;
+      line-height: 1.5;
+    }
+    code {
+      background: #eee;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+    .muted { color:#666; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<script>
+(async () => {
+  try {
+    const res = await fetch('config/all.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories || {};
+    const issues = [];
+
+    // --- Gather all issue URLs
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+
+    const n = issues.length;
+    let formulaParam = 'random';
+    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
+    if (formulas.length > 0) {
+      const idx = Math.floor(getSecureRandomNumber() * formulas.length);
+      formulaParam = formulas[idx];
+    }
+
+    const weights = new Array(n).fill(1);
+    if (formulaParam === 'leftLeaning') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (n - i) * noise;
+      }
+    } else if (formulaParam === 'rightLeaning1') {
+      for (let i = 0; i < n; i++) {
+        const noise = 0.5 + getSecureRandomNumber();
+        weights[i] = (i + 1) * noise;
+      }
+    } else if (formulaParam === 'recent20Percent') {
+      const startIdx = Math.floor(n * 0.8);
+      for (let i = startIdx; i < n; i++) weights[i] = 5;
+    } else if (formulaParam === 'recent5Percent') {
+      const startIdx = Math.floor(n * 0.95);
+      for (let i = startIdx; i < n; i++) weights[i] = 20;
+    }
+
+    // ------------------------------------------------------------
+    // Utilities
+    // ------------------------------------------------------------
+    function cryptoRandom() {
+      const buf = new Uint32Array(1);
+      window.crypto.getRandomValues(buf);
+      return buf[0] / 0xffffffff;
+    }
+    function cryptoNormal(mean = 0, stdDev = 1) {
+      let u1 = 0, u2 = 0;
+      while (u1 === 0) u1 = cryptoRandom();
+      while (u2 === 0) u2 = cryptoRandom();
+      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      return z0 * stdDev + mean;
+    }
+    function dejaGate(nowMs) {
+      const d = new Date(nowMs);
+      const hour = d.getHours() + d.getMinutes()/60; // 0..24
+      const day  = d.getDay();                       // 0..6
+      const daily  = 0.5 * (1 + Math.sin((2*Math.PI)*(hour/24 - 0.25)));
+      const weekly = 0.5 * (1 + Math.cos((2*Math.PI)*((day+0.5)/7)));
+      const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+      const jitter = (u[0] / 0xffffffff) * 0.2;
+      return Math.min(1, Math.max(0, 0.45*daily + 0.35*weekly + jitter));
+    }
+
+    // ------------------------------------------------------------
+    // IndexedDB layer (fallback to localStorage)
+    // ------------------------------------------------------------
+    const DB_NAME = 'repoRandomizerDB_v1';
+    const STORE_ISSUES = 'issues';
+    const STORE_META = 'meta';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE_ISSUES)) {
+            db.createObjectStore(STORE_ISSUES, { keyPath: 'key' }); // { key, count, lastSeen }
+          }
+          if (!db.objectStoreNames.contains(STORE_META)) {
+            db.createObjectStore(STORE_META, { keyPath: 'key' });   // { key, value }
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('IndexedDB open failed'));
+      });
+    }
+
+    function txGetAllByKeys(db, storeName, keys) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const out = new Array(keys.length);
+        let remaining = keys.length;
+        if (remaining === 0) resolve(out);
+        keys.forEach((k, i) => {
+          const r = store.get(k);
+          r.onsuccess = () => { out[i] = r.result || null; if (--remaining === 0) resolve(out); };
+          r.onerror = () => { out[i] = null; if (--remaining === 0) resolve(out); };
+        });
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB read error'));
+      });
+    }
+
+    function txGet(db, storeName, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const r = store.get(key);
+        r.onsuccess = () => resolve(r.result || null);
+        r.onerror = () => reject(r.error || new Error('IndexedDB get error'));
+      });
+    }
+
+    function txPut(db, storeName, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const r = store.put(value);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error || new Error('IndexedDB put error'));
+      });
+    }
+
+    // ------------------------------------------------------------
+    // Time-aware memory + Deja Vu (IndexedDB-first)
+    // ------------------------------------------------------------
+    async function noisePatchWithIDB(weights, issues) {
+      const now = Date.now();
+      const ms = { hour: 3600000, day: 86400000 };
+      const decayPerDay = 0.15;
+      const recentAvoidHours = 6;
+      const dejaWindowsDays = [1, 3, 7, 14, 30];
+      const dejaScale = 0.6;
+      const dejaWidth = 0.6;
+
+      const db = await openDB();
+      const metaLast = await txGet(db, STORE_META, 'lastTs');
+      const lastTs = metaLast?.value || now;
+
+      const keys = issues.map(u => u);
+      const recs = await txGetAllByKeys(db, STORE_ISSUES, keys);
+
+      const effCounts = new Array(weights.length).fill(0);
+      const dejaMults = new Array(weights.length).fill(1);
+      const lastSeenAges = new Array(weights.length).fill(null);
+
+      for (let i = 0; i < weights.length; i++) {
+        const rec = recs[i] || { key: keys[i], count: 0, lastSeen: null };
+
+        if (rec.count && rec.lastSeen) {
+          const days = Math.max(0, (now - rec.lastSeen) / ms.day);
+          const decayFactor = Math.exp(-decayPerDay * days);
+          effCounts[i] = rec.count * decayFactor;
+          lastSeenAges[i] = now - rec.lastSeen;
+        } else {
+          effCounts[i] = 0;
+          lastSeenAges[i] = null;
+        }
+
+        if (rec.lastSeen) {
+          const delta = now - rec.lastSeen;
+
+          if (delta < recentAvoidHours * ms.hour) {
+            dejaMults[i] = 0.1;
+            continue;
+          }
+
+          const idx = Math.min(rec.count, dejaWindowsDays.length - 1);
+          const target = dejaWindowsDays[idx] * ms.day;
+          const sigma = target * dejaWidth;
+          const x = (delta - target) / (sigma || 1);
+          const dueScore = Math.exp(-(x * x));
+          dejaMults[i] = 1 + dejaScale * dueScore;
+        } else {
+          dejaMults[i] = 1.03;
+        }
+      }
+
+      // Under-visited bias from effective counts
+      let bias = new Array(weights.length).fill(0);
+      const totalEff = effCounts.reduce((a, b) => a + b, 0);
+      if (totalEff > 0) {
+        const avg = totalEff / effCounts.length;
+        bias = effCounts.map(c => (avg - c) / avg * 0.05);
+      }
+
+      const erratic = cryptoRandom() < 0.08;
+      const stdDev = erratic ? 0.35 : 0.08;
+
+      // -------- base (noise + bias)
+      const base = weights.map((w, i) => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        const drift = (bias[i] || 0);
+        return Math.max(0.0001, w + w * noise + w * drift);
+      });
+
+      // -------- dynamic blend
+      const baseSum = base.reduce((a,b)=>a+b, 0) || 1;
+      const p = base.map(v => v / baseSum);
+      let H = 0; for (let i=0;i<p.length;i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
+      const Hnorm = (p.length > 1) ? (H / Math.log(p.length)) : 0;
+
+      let beta; {
+        const g = dejaGate(now);
+        const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+        const j = (u[0] / 0xffffffff);
+        beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
+        if (beta >= 0.5) beta = 0.499;
+        if (beta < 0) beta = 0;
+      }
+
+      let adjusted = base.map((b, i) => {
+        const dv = Math.max(0, dejaMults[i] || 1);
+        const blended = b * ((1 - beta) + beta * dv);
+        return Math.max(0.000001, blended);
+      });
+
+      const sum = adjusted.reduce((a, b) => a + b, 0) || 1;
+      adjusted = adjusted.map(w => w / sum);
+
+      // sample
+      const r = cryptoRandom();
+      let cumulative = 0;
+      let chosenIdx = adjusted.length - 1;
+      for (let i = 0; i < adjusted.length; i++) {
+        cumulative += adjusted[i];
+        if (r < cumulative) { chosenIdx = i; break; }
+      }
+
+      const chosenKey = keys[chosenIdx];
+      const chosenRec = recs[chosenIdx] || { key: chosenKey, count: 0, lastSeen: null };
+      await txPut(db, STORE_ISSUES, {
+        key: chosenKey,
+        count: (chosenRec.count || 0) + 1,
+        lastSeen: now
+      });
+      await txPut(db, STORE_META, { key: 'lastTs', value: now });
+
+      return {
+        index: chosenIdx,
+        erratic,
+        adjusted,
+        lastSeenDeltaMs: lastSeenAges[chosenIdx],
+        dejaMultiplier: dejaMults[chosenIdx],
+        used: 'indexeddb',
+        beta
+      };
+    }
+
+    // ------------------------------------------------------------
+    // LocalStorage fallback
+    // ------------------------------------------------------------
+    function noisePatchWithLocalStorage(weights, issues) {
+      const key = "repo_randomizer_memory_v3";
+      const now = Date.now();
+      const msPerDay = 86400000;
+
+      let mem = JSON.parse(localStorage.getItem(key) || "{}");
+      let history = mem.history || new Array(weights.length).fill(0);
+      let lastSeen = mem.lastSeen || {}; // { index: ts }
+      let lastTs = mem.lastTs || now;
+
+      const daysPassed = Math.max(0, (now - lastTs) / msPerDay);
+      const decayRate = 0.15;
+      if (daysPassed > 0.1) {
+        const decayFactor = Math.exp(-decayRate * daysPassed);
+        history = history.map(v => v * decayFactor);
+      }
+
+      const dejaWindowsDays = [1, 3, 7, 14, 30];
+      const dejaScale = 0.6;
+      const dejaWidth = 0.6;
+      const sixHours = 6 * 60 * 60 * 1000;
+
+      const dejaMults = weights.map((_, i) => {
+        const seenTs = lastSeen[i];
+        if (seenTs == null) return 1.03;
+        const delta = now - seenTs;
+        if (delta < sixHours) return 0.1;
+
+        const count = Math.max(0, Math.round(history[i] || 0));
+        const idx = Math.min(count, dejaWindowsDays.length - 1);
+        const target = dejaWindowsDays[idx] * msPerDay;
+        const sigma = target * dejaWidth || 1;
+        const x = (delta - target) / sigma;
+        const dueScore = Math.exp(-(x * x));
+        return 1 + dejaScale * dueScore;
+      });
+
+      const total = history.reduce((a, b) => a + b, 0);
+      let bias = new Array(weights.length).fill(0);
+      if (total > 0) {
+        const avg = total / history.length;
+        bias = history.map(c => (avg - c) / avg * 0.05);
+      }
+
+      const erratic = cryptoRandom() < 0.08;
+      const stdDev = erratic ? 0.35 : 0.08;
+
+      // -------- base (noise + bias)
+      const base = weights.map((w, i) => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        const drift = (bias[i] || 0);
+        return Math.max(0.0001, w + w * noise + w * drift);
+      });
+
+      // -------- dynamic blend
+      const baseSum = base.reduce((a,b)=>a+b, 0) || 1;
+      const p = base.map(v => v / baseSum);
+      let H = 0; for (let i=0;i<p.length;i++) if (p[i] > 0) H -= p[i] * Math.log(p[i]);
+      const Hnorm = (p.length > 1) ? (H / Math.log(p.length)) : 0;
+
+      let beta; {
+        const g = dejaGate(now);
+        const u = new Uint32Array(1); window.crypto.getRandomValues(u);
+        const j = (u[0] / 0xffffffff);
+        beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
+        if (beta >= 0.5) beta = 0.499;
+        if (beta < 0) beta = 0;
+      }
+
+      let adjusted = base.map((b, i) => {
+        const dv = Math.max(0, dejaMults[i] || 1);
+        const blended = b * ((1 - beta) + beta * dv);
+        return Math.max(0.000001, blended);
+      });
+
+      const sum = adjusted.reduce((a, b) => a + b, 0) || 1;
+      adjusted = adjusted.map(w => w / sum);
+
+      const r = cryptoRandom();
+      let cumulative = 0;
+      let chosenIdx = adjusted.length - 1;
+      for (let i = 0; i < adjusted.length; i++) {
+        cumulative += adjusted[i];
+        if (r < cumulative) { chosenIdx = i; break; }
+      }
+
+      history[chosenIdx] = (history[chosenIdx] || 0) + 1;
+      lastSeen[chosenIdx] = now;
+      localStorage.setItem(key, JSON.stringify({ history, lastSeen, lastTs: now }));
+
+      return {
+        index: chosenIdx,
+        erratic,
+        adjusted,
+        lastSeenDeltaMs: now - (lastSeen[chosenIdx] || now),
+        dejaMultiplier: dejaMults[chosenIdx],
+        used: 'localstorage'
+      };
+    }
+
+    // ------------------------------------------------------------
+    // Execute
+    // ------------------------------------------------------------
+    let noisy;
+    try {
+      noisy = await noisePatchWithIDB(weights, issues);
+    } catch (e) {
+      noisy = noisePatchWithLocalStorage(weights, issues);
+    }
+    const chosen = issues[noisy.index];
+
+    // Redirect
+    location.href = chosen;
+
+    // Diagnostics (if redirect blocked)
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = document.createElement('pre');
+      const since = noisy.lastSeenDeltaMs == null
+        ? 'never'
+        : (noisy.lastSeenDeltaMs / (1000*60*60)).toFixed(2) + 'h ago';
+      pre.textContent =
+        `Selected: ${chosen}\n` +
+        `Mode: ${noisy.used} | Erratic: ${noisy.erratic ? "⚡ yes" : "⤵ stable"}\n` +
+        `Last seen (selected): ${since}\n` +
+        `Deja multiplier: x${(noisy.dejaMultiplier || 1).toFixed(2)}\n` +
+        (typeof noisy.beta === 'number' ? `β: ${(noisy.beta).toFixed(3)}\n` : '') +
+        `Weights (top 5): ${noisy.adjusted.slice(0,5).map(w => w.toFixed(4)).join(', ')}`;
+      document.body.appendChild(pre);
+
+      const hint = document.createElement('div');
+      hint.className = 'muted';
+      hint.innerHTML = `
+        <p>Data persists in <code>IndexedDB</code> with a <code>localStorage</code> fallback.
+        Immediate repeats (&lt;6h) are avoided; older interactions gently fade via time decay.</p>`;
+      document.body.appendChild(hint);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>
