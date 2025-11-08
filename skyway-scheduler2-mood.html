@@ -49,8 +49,11 @@
 
   /* Modal */
   .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;padding:1rem}
+  /* FIX: show the backdrop when 'show' is toggled */
+  .modal-backdrop.show{display:grid;}
   .modal{width:min(100%,560px);background:var(--paper);border-radius:14px;border:1px solid var(--border);box-shadow:0 30px 70px rgba(0,0,0,.6);padding:1rem}
   .modal header{display:flex;align-items:center;justify-content:space-between}
+  /* (this rule is harmless if kept; the inner .modal never gets 'show') */
   .modal.show{display:grid}
   .field{margin:.75rem 0}
   .field label{display:block;margin-bottom:.35rem;font-weight:600}
@@ -229,8 +232,8 @@ async function clearAll(){
 
 /* ===== Modal ===== */
 function openModal(){
-  $("#modalWrap").classList.add("show");
-  $("#modalWrap").setAttribute("aria-hidden","false");
+  modalWrap.classList.add("show");
+  modalWrap.setAttribute("aria-hidden","false");
   tagInput.value = "";
   moodRange.value = "5"; moodVal.textContent = "5";
   buildRecentChips();
@@ -244,6 +247,8 @@ $("#addBtn").addEventListener("click", openModal);
 $("#closeModal").addEventListener("click", closeModal);
 modalWrap.addEventListener("click", e=>{ if(e.target===modalWrap) closeModal(); });
 moodRange.addEventListener("input", ()=>{ moodVal.textContent = moodRange.value; });
+// Convenience: close on Escape
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && modalWrap.classList.contains("show")) closeModal(); });
 
 /* ===== Chip helpers ===== */
 function makeChip(text, onClick){
@@ -251,7 +256,7 @@ function makeChip(text, onClick){
   chip.type = "button";
   chip.className = "chip btn-small";
   chip.textContent = text;
-  chip.addEventListener("click", onClick);
+  chip.addEventListener("click", (e) => onClick(e)); // pass event explicitly
   return chip;
 }
 
@@ -264,17 +269,17 @@ function buildTagBar(all){
   });
   tagChipsEl.innerHTML="";
   list.slice(0,12).forEach(t=>{
-    tagChipsEl.appendChild(makeChip(t, ()=>{
+    tagChipsEl.appendChild(makeChip(t, (e)=>{
       // filter view by tag (toggle)
-      const active = event.currentTarget.classList.toggle("active");
+      const active = e.currentTarget.classList.toggle("active");
       document.querySelectorAll(".chip").forEach(c=>{
-        if(c!==event.currentTarget && c.parentElement===tagChipsEl) c.classList.remove("active");
+        if(c!==e.currentTarget && c.parentElement===tagChipsEl) c.classList.remove("active");
       });
-      renderEntries(active ? all.filter(e=> (e.tag||"").trim()===t) : all);
+      renderEntries(active ? all.filter(e2=> (e2.tag||"").trim()===t) : all);
     }));
   });
   // Also add quick "All" chip
-  tagChipsEl.prepend(makeChip("All", ()=>{ 
+  tagChipsEl.prepend(makeChip("All", (e)=>{ 
     document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
     renderEntries(all);
   }));
