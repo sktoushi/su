@@ -113,6 +113,11 @@
     const MODAL_ACTION_DELAY_MS = 30_000;
     /* ▲▲ NEW */
 
+    /* ▼▼ NEW: Seed versioning / sync controls */
+    const KEY_SEED_SIG = obf('k', 'seed_signature_v1');
+    const SEED_SYNC_MODE = 'hard'; // 'hard' = reset deltas to match HTML; 'merge' = keep existing deltas
+    /* ▲▲ NEW */
+
     /************ IndexedDB helpers (promise-wrapped) ************/
     function openDB() {
       return new Promise((resolve, reject) => {
@@ -259,6 +264,18 @@
       }
     }
 
+    /* ▼▼ NEW: canonical string for seed to build a stable signature */
+    function canonicalSeedString(seed) {
+      const items = Array.isArray(seed?.items) ? seed.items.slice() : [];
+      items.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
+      const canon = { items: items.map(it => ({
+        url: String(it.url || ''),
+        probabilityWeight: Number(it.probabilityWeight || 0)
+      }))};
+      return JSON.stringify(canon);
+    }
+    /* ▲▲ NEW */
+
     /************ Frequency helpers (use meta store) ************/
     const USER_MIN = USER_MIN_FREQ_MINUTES;
     function roundToStep(valueMinutes) {
@@ -303,44 +320,77 @@
       return true;
     }
 
-    /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
+    /************ Bootstrap DB from embedded JSON with redeploy sync ************/
     async function bootstrapDB(db) {
       const seed = safeParseSeed();
-      const seedMap = new Map((seed.items || []).map(it => [it.url, it.probabilityWeight]));
+      const seedMap = new Map((seed.items || []).map(it => [it.url, Number(it.probabilityWeight || 0)]));
+
+      // Compute a stable signature of the current seed (order-insensitive)
+      const seedSig = fnv1aHex(canonicalSeedString(seed));
+      const prevSig = await metaGet(db, KEY_SEED_SIG);
 
       const existing = await getAll(db);
       const existingMap = new Map(existing.map(r => [r.url, r]));
 
+      const isRedeploy = prevSig && prevSig !== seedSig;
       const toPut = [];
-      for (const [url, baseWeight] of seedMap.entries()) {
-        const rec = existingMap.get(url);
-        if (rec) {
-          const bw = Number(baseWeight) || 0;
-          const dl = Number(rec.delta || 0);
-          toPut.push({
-            ...rec,
-            baseWeight: bw,
-            effectiveWeight: Math.max(0, bw + dl)
-          });
-        } else {
+
+      if (isRedeploy && SEED_SYNC_MODE === 'hard') {
+        // HARD SYNC: reset seed URLs to exactly match HTML, preserve non-seed records
+        for (const [url, baseWeight] of seedMap.entries()) {
+          const rec = existingMap.get(url);
           const bw = Number(baseWeight) || 0;
           toPut.push({
-            url,
+            ...(rec || { url }),
             baseWeight: bw,
             delta: 0,
-            effectiveWeight: bw,
-            lastRatedAt: 0
+            effectiveWeight: Math.max(0, bw),
+            lastRatedAt: rec?.lastRatedAt || 0
           });
+          existingMap.delete(url);
+        }
+        // Keep any non-seed records intact
+        for (const rec of existingMap.values()) {
+          toPut.push(rec);
+        }
+      } else {
+        // INITIAL BOOTSTRAP or SOFT MERGE: update baseWeight from HTML; keep delta for seed URLs
+        for (const [url, baseWeight] of seedMap.entries()) {
+          const rec = existingMap.get(url);
+          if (rec) {
+            const bw = Number(baseWeight) || 0;
+            const dl = Number(rec.delta || 0);
+            toPut.push({
+              ...rec,
+              baseWeight: bw,
+              effectiveWeight: Math.max(0, bw + dl)
+            });
+            existingMap.delete(url);
+          } else {
+            const bw = Number(baseWeight) || 0;
+            toPut.push({
+              url,
+              baseWeight: bw,
+              delta: 0,
+              effectiveWeight: bw,
+              lastRatedAt: 0
+            });
+          }
+        }
+        // Keep any non-seed records intact
+        for (const rec of existingMap.values()) {
+          toPut.push(rec);
         }
       }
-      for (const rec of existing) {
-        if (!seedMap.has(rec.url)) toPut.push(rec);
-      }
+
       await putMany(db, toPut);
 
       /* Ensure wildcard list key exists (initialize empty array exactly once) */
       const wild = await metaGet(db, KEY_WILDCARD_LIST);
       if (!Array.isArray(wild)) await metaSet(db, KEY_WILDCARD_LIST, []);
+
+      // Persist the applied seed signature
+      await metaSet(db, KEY_SEED_SIG, seedSig);
 
       return toPut;
     }
