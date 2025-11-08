@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Redirect (IndexedDB + Ratings)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Seed items (initial load only). After first run, weights are loaded from IndexedDB. -->
+  <script type="application/json" id="urlProbability">
+  {
+    "items": [
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=thinking-fast-and-slow-1-530.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-secret-codes-1-298.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-power-of-habit-1-386.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-laws-of-human-nature-1-690.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-choice-factory-1-158.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-art-of-thinking-clearly-1-225.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=the-art-of-manipulation-1-181.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=strategy-381-768.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=strategy-1-380.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=social-life-1-201.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=skin-in-the-game-nassim-nicholas-taleb-1-318.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=predictably-irrational.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=nudge-improving-decisions-about-health-wealth-and-happiness-1-311.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=noise-a-flaw-in-human-judgment-1-373.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=never-split-the-difference-1-375.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=manual-of-politeness-1-83.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=korean-words-phrases-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-995-1136.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-853-994.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-711-852.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-569-710.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-427-568.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-285-426.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-143-284.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1279-1421.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1137-1278.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1-142.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1-142.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=hooked-how-to-build-habit-forming-products-301-535.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=hooked-how-to-build-habit-forming-products-1-300.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=hangul-basics.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=futures-finance-601-723.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=futures-finance-401-600.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=futures-finance-201-400.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=futures-finance-1-200.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=freakonomics-1-188.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=ebook-of-etiquette-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=decoding-the-new-consumer-mind-1-213.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=boundaries-1-357.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=book-of-politeness-1-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=body-language-101-1-169.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Without-Saying-a-Word-Master-the-Science-of-Body-Language-and-Maximize-Your-Success-1-257.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Understanding-Consumer-Behaviour1-326.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Tractatus-Logico-Philosophicus.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=The-Persuasion-Code-How-Neuromarketing-Can-Help-You-Persuade-Anyone-Anywhere-Anytime-201-361.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=The-Persuasion-Code-How-Neuromarketing-Can-Help-You-Persuade-Anyone-Anywhere-Anytime-101-200.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=The-Persuasion-Code-How-Neuromarketing-Can-Help-You-Persuade-Anyone-Anywhere-Anytime-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Japanese-approach-to-learning-Japanese-grammar-1-497.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Impulse-Why-We-Do-What-We-Do-Without-Knowing-Why-We-Do-It-1-333.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=History-of-Western-Philosophy-1-955.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=First-Aid-1-103.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=COMPLETE-GUIDE-TO-SELF-CULTURE-1-251.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Buyology-Truth-and-Lies-About-Why-We-Buy-1-83.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Brandwashed-Tricks-Companies-Use-to-Manipulate-Our-Minds-and-Persuade-Us-to-Buy-1-321.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Brainfluence-100-Ways-to-Persuade-and-Convince-Consumers-with-Neuromarketing-1-335.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=Body-Language-Secrets-A-Guide-During-Courtship-and-Dating-1-107.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=thinking-in-bets-by-annie-duke-1-318.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=plato-the_republic-1-484.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=mans-search-for-meaning-1-69.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=competition-demystified-1-183.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=angela-duckworth-grit-1-267.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=The-Phoenix-Project-A-Novel-about-IT-DevOps-and-Helping-Your-Business-Win-1-385_Compressed.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=The-Lean-Startup-Erick-Ries-1-296.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=The-Art-of-Learning-1-188.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Sapiens-A-Brief-History-of-Humankind-1-439.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Principles-Dalio-Ray-1-392.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Measure-What-Matters-John-Doerr-1-276.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Marcus-Aurelius-Meditations-1-128.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Leaders-Eat-Last-Simon-Sinek-1-296.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Drive-the-Surprising-Truth-about-What-Motivates-Us-1-149.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=AtulGawandeTheChecklistManifestoHowToGetThingsRight-1-223.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2410/viewer-pdfjs-4chan2.html?fileName=Atomic-habits-1-256.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behavioral-Game-Theory-Camerer-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behavioral-Game-Theory-Camerer-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behavioral-Game-Theory-Camerer-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behavioral-Game-Theory-Camerer-p4-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behavioral-Game-Theory-Camerer-p5-1-76.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Behaviorism-watson-1-246.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Beyond-Freedom-and-Dignity-6-207.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Beyond-Stalinism-13-184.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Communism-for-Kids-5-53.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Communist-Manifesto-60-210.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Effective-Executive-drucker-9-196.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Evolution-and-the-Theory-of-Games-maynard-1-205.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p4-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p5-1-100-p1-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p5-1-100-p2-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p6-1-100-p1-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p6-1-100-p2-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p7-1-109-p1-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Financial-Risk-Manager-Handbook-p7-1-109-p2-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Game-theory-evolving-20-337.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Games-of-Strategy-dixit-p1-1-400.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Games-of-Strategy-dixit-p2-1-400.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Games-of-Strategy-dixit-p3-1-400.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Games-of-Strategy-dixit-p4-1-349.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Getting-More-of-What-You-Want-Secrets-of-Economics-and-Psychology-Negotiate-Business-Life-8-233.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Introduction-to-operations-and-supply-chain-management-Bozarth-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Introduction-to-operations-and-supply-chain-management-Bozarth-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Introduction-to-operations-and-supply-chain-management-Bozarth-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Introduction-to-operations-and-supply-chain-management-Bozarth-p4-1-168.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Manifesto-of-the-Communist-Party-7-185.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p10-1-61.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p4-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p5-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p6-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p7-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p8-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Microeconomic-Theory-Andreu-Mas-Colell-p9-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Operations-Management-Processes-and-Supply-Chains-p1-1-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Operations-Management-Processes-and-Supply-Chains-p2-1-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Operations-Management-Processes-and-Supply-Chains-p3-1-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Operations-Management-Processes-and-Supply-Chains-p4-1-148.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Risk-Management-and-Financial Institutions-p1-1-350.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Risk-Management-and-Financial Institutions-p2-1-422.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=Stress-Testing-risk-26-258.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Five-Dysfunctions-of-a-Team-14-155.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Innovators-Dilemma-36-334.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Leadership-Challenge-17-361.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Principles-of-Psychology-1-919.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Strategy-of-Conflict-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Strategy-of-Conflict-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=The-Strategy-of-Conflict-p3-1-101.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=a-course-in-game-theory-17-325.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=a-mind-for-numbers-17-226.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=a-treatise-of-human-nature-8-1635.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=against-the-gods-the-remarkable-story-of-risk-24-328.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=an-enquiry-concerning-human-understanding-oxford-worlds-classics-70-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=blue-ocean-strategy-19-311.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=capitalism-and-freedom-fortieth-anniversary-edition-18-219.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=capitalism-socialism-and-democracy-26-429.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=communism-very-short-intro-16-153.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=communist-manifesto.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=competitive-strategy-porter-11-407.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=deep-work-15-154.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=delphi-complete-works-of-adam-smith-12-1973.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=enterprise-risk-management-from-incentives-to-controls-1-450.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=factory-physics-30-723.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-101a-7-306.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-analysis-of-conflict-19-555.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-for-applied-economists-9-260.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-fudenberg-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-fudenberg-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-fudenberg-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-fudenberg-p4-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=game-theory-fudenberg-p5-1-156.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=games-and-information-rasmusen-p1-1-230.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=games-and-information-rasmusen-p2-1-230.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=good-strategy-bad-strategy-18-193.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=good-to-great-9-227.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=high-output-management-25-198.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=how-to-persuade-people-who-dont-want-to-16-247.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=how-we-learn-14-206.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=hume-dialogues-concerning-natural-religion-and-other-writings-59-179.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=influence-the-psychology-of-persuasion-6-219.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=inventory-and-production-management-in-supply-chains-1-504.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p1-1-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p2-1-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p3-1-215.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-ii-37-529.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-iii-36-905.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=leadership-and-self-deception-17-177.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=lean-construction-management-the-toyota-way-32-347.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=lean-thinking-banish-waste-p1-1-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=lean-thinking-banish-waste-p2-1-173.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=make-it-stick-16-268.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=man-and-his-symbols-p1-1-185.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=man-and-his-symbols-p2-1-186.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=mein-kampf.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=never-split-the-difference-negotiating.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=nudge-improving-decisions-25-248.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=options-futures-and-other-derivatives-p1-1-300.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=options-futures-and-other-derivatives-p2-1-300.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=options-futures-and-other-derivatives-p3-1-184.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=options-futures-and-other-derivatives.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=persuasion-bb-rintu-basu.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=persuasion-jobs-rintu-basu.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=pmbok2025.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=pre-suasion-cialdini-12-360.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=predictably-irrational-15-272.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=principles-of-political-economy-30-304.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=production-and-operations-analysis-p1-1-300.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=production-and-operations-analysis-p2-1-300.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=production-and-operations-analysis-p3-1-193.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=quantitative-risk-management-p1-1-330.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=quantitative-risk-management-p2-1-308.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=software-architecture-in-practice.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=taiichi-ohnos-workplace-management-15-132.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-48-laws-of-power-19-403.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-art-of-learning-an-inner-journey-to-optimal-performance-16-182.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-art-of-strategy-1-368.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-art-of-war-complete-text-13-509.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-black-swan-20-383.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-essential-keynes-39-571.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-general-theory-of-employment-interest-and-money-42-399.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-goal-a-process-of-ongoing-improvement-10-346.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-greatest-business-decisions-18-124.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-intelligent-investor-15-601.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-intelligent-investor-chapter20-1-7.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-intelligent-investor-chapter8-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-intelligent-negotiator-6-214.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-interpretation-of-dreams-3-192.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-lombardi-rules-15-128.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-longevity-solution-10-258.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-modern-theory-of-the-toyota-production-system-29-421.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-principles-of-political-economy-and-taxation-8-312.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-road-to-serfdom-81-272.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-theory-of-games-and-economic-behavior-13-227.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-theory-of-moral-sentiments-9-438.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-toyota-kaizen-continuum-17-212.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-toyota-template-16-111.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=the-toyota-way-16-320.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=thinking-fast-and-slow-22-501.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=toyota-by-toyota-reflections-25-229.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=toyota-production-system-25-152.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=value-at-risk-p1-1-275.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=value-at-risk-p2-1-279.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=wealth-of-nations-11-1281.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=introduction-to-calculus-p2-1-326.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=introduction-to-calculus-p1-1-292.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=economics-nordhaus-p3-1-233.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=economics-nordhaus-p2-1-220.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=calculus-made-easy-p2-1-182.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=calculus-made-easy-p1-1-134.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=calculus-for-dummies-21-607.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=The-Math-Hacker-p2-1-386.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=The-Math-Hacker-p1-1-339.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Principles-of-Mathematical-Analysis-Rudin-10-343.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Macroeconomics-Mankiw-1-582.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Intermediate-Microeconomics-Hal-Varian-28-815.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Game-Theory-for-Applied-Economists-9-258.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Calculus-p2-1-341.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=Advanced-Macroeconomics-28-670.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2502/viewer-pdfjs-4chan2.html?fileName=A-Man-of-Two-Faces-11-247.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=33-strategies-of-war-1-575.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Against-the-Academics-St-Augustine-volume1-23-255.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Autobiography-of-a-Yogi-13-573.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=BRAINWASHING-The-Science-of-Thought-Control-10-281.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Beyond-Good-and-Evil-1-178.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Catechism-of-the-Catholic-Church-tr-p1-1-233.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Catechism-of-the-Catholic-Church-tr-p2-1-233.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Catechism-of-the-Catholic-Church-tr-p3-1-231.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Elements-of-Mercantile-Law-3-388.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=From-Jesus-to-Christ-10-244.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Hawthorn-The-Tree-That-Has-Nourished-14-237.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Hun-Sens-Cambodia-7-298.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Il-gran-cardinale-Alessandro-Farnese-p1-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Il-gran-cardinale-Alessandro-Farnese-p2-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Il-gran-cardinale-Alessandro-Farnese-p3-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Il-gran-cardinale-Alessandro-Farnese-p4-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Il-gran-cardinale-Alessandro-Farnese-p5-1-44.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=King-of-the-godfathers-Big-Joey-Massino-p1-1-110.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=King-of-the-godfathers-Big-Joey-Massino-p2-1-110.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=King-of-the-godfathers-Big-Joey-Massino-p3-1-115.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Kwaidan-Stories-and-Studies-of-Strange-Things-11-150.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=On-Order-St-Augustine-volume3-43-253.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=On-the-Happy-Life-Saint-Augustine-volume2-9-157.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Plato-Republic-A-Study-7-395.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Reclaiming-Patriotism-in-an-Age-of-Extremes-20-172.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Seven-Crashes-9-323.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Simple-rules-how-to-succeed-in-a-complex-world-9-245.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Soldiers-and-Kings-Human-Smuggling-tr-p1-1-222.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Soldiers-and-Kings-Human-Smuggling-tr-p2-1-222.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-Colonel-Who-Would-Not-Repent-15-377.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-Goal-A-Process-of-Ongoing-Improvement-1-337.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-athenaeum-more-than-just-another-london-club-tr-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-athenaeum-more-than-just-another-london-club-tr-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-athenaeum-more-than-just-another-london-club-tr-p3-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=The-athenaeum-more-than-just-another-london-club-tr-p4-1-48.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=These-Trees-Tell-a-Story-tr-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=These-Trees-Tell-a-Story-tr-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=These-Trees-Tell-a-Story-tr-p31-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=These-Trees-Tell-a-Story-tr-p32-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=These-Trees-Tell-a-Story-tr-p4-1-54.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=Vatican-Council-2-documents-13-861.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=access-denied-12-448.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=atlas-shrugged-2-1053.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=cia-manual-tr-p1-1-117.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=cia-manual-tr-p2-1-145.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=code-of-canon-law-3-362.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=dark-persuasion-32-245.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=decoding-chomsky-16-307.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=ecclesiastes-matthew-henry-5-184.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=economics-of-labor-tr-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=economics-of-labor-tr-p2-1-148.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=electricity-and-matter-13-174.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=essentials-of-payroll-management-and-accounting-20-292.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=house-of-owls-22-207.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=illuminati-formula-mind-5-745.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=in-the-dragons-shadow-tr-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=in-the-dragons-shadow-tr-p21-1-50.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=in-the-dragons-shadow-tr-p221-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=in-the-dragons-shadow-tr-p222-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=in-the-dragons-shadow-tr-p3-1-96.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=job-matthew-henry-12-474.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mass-mind-control-4-57.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=massacre-paris-commune-30-411.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mathematicians-delight-p1-1-114.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mathematicians-delight-p2-1-122.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mind-performance-projects-tr-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mind-performance-projects-tr-p2-1-75.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mkultra-monarch-2-270.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=mourning-lincoln-12-285.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=of-human-kindness-14-133.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=our-life-beyond-mkultra-3-220.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=past-of-possibilities-20-318.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=project-mkultra-cia-5-238.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=propaganda-techniques-3-270.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=proverbs-matthew-henry-6-474.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=rape-of-the-mind-6-240.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=shah-of-shahs-iran-6-176.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=soliloquies-volume4-45-304.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=spycraft-p1-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=spycraft-p2-1-100.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=spycraft-p3-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=st-augustine-answers-questions-on-prayer-16-116.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=subliminal-psychology-8-139.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=the-alex-ferguson-quote-book-11-164.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=the-clock-mirage-17-247.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=the-future-of-nature-34-544.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=the-persian-expedition-tr-1-315.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=the-state-and-revolution-tr-1-103.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=way-to-wisdom-6-192.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=when-your-child-hurts-11-299.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=world-of-the-favorite-tr-p11-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=world-of-the-favorite-tr-p12-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=world-of-the-favorite-tr-p21-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2503/viewer-pdfjs-4chan2.html?fileName=world-of-the-favorite-tr-p22-1-85.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Anatomy-of-Malice-The-Enigma-of-the-Nazi-War-Criminals-22-216.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=High-Output-Management-28-234.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Munger-almanack-8-618.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Practice-Standard-for-Scheduling-9-116.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Rockefeller-38-letters-6-128.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Security-Engineering-A-Guide-to-Building-Dependable-1-1041.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=The-Challenger-Sale-18-235.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=The-Hard-Thing-About-Hard-Thing-9-249.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Thus-Spoke-Zarathustra-49-313.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=What-You-Do-Is-Who-You-Are-1-146.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Who-The-A-Method-for-Hiring-17-193.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=against-the-gods-story-of-risk-1-486.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=artificial-intelligence-a-modern-approach-p1-1-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=artificial-intelligence-a-modern-approach-p2-1-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=artificial-intelligence-a-modern-approach-p3-1-250.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=artificial-intelligence-a-modern-approach-p4-1-316.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=blink-gladwell-16-289.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=boards-that-lead-8-263.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=casino-marketing-17-167.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=casino-marketing-theories-and-applications-1-143.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=casino-operations-management-1-390.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=common-stocks-and-uncommon-profits-30-305.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=competing-on-analytics-1-270.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=critical-chain-6-97.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dark-persuasion-32-245.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p1-1-54.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p10-1-30.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p11-1-47.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p12-1-52.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p2-1-33.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p3-1-37.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p4-1-36.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p5-1-35.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p6-1-34.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p7-1-36.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p8-1-38.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-p9-1-35.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-part-1.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-part-2-1-33.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=Rename dsm3_part_2_1-33.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-part-2.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3-part-3.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_10_1-40.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_11_1-47.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_12_1-52.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_1_1-40.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_3_1-37.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_4_1-36.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_5_1-35.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_6_1-34.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_7_1-36.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_8_1-38.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=dsm3_part_9_1-35.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=extreme-ownership-29-246.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=human-memory-a-proposed-system-and-its-control-processes-1-103.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=incerto-taleb-p1-1-120.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=incerto-taleb-p2-1-120.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=incerto-taleb-p3-1-120.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=incerto-taleb-p4-1-118.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=innergameoftennis-1-87.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=inspired-tech-company-21-346.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p1-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p10-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p11-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p12-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p13-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p14-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p15-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p16-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p17-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p18-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p19-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p2-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p20-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p21-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p22-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p23-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p24-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p25-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p3-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p4-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p5-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p6-1-26.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p7-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p8-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=introduction-to-psychology-kalat-p9-1-25.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=lives-of-the-caesars-p1-8-224.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=lives-of-the-caesars-p2-1-182.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=macau-and-the-casino-complex-gambling-series-1-95.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=making-japanese-citizens-32-269.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=marketing-positioning-the-battle-for-your-mind-12-254.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=matthew-henry-commentary-on-Job-12-474.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=nevada-casino-license-to-steal-gambling-series-21-334.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=never-eat-alone-15-309.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=noise-10-360.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=port-management-and-operations-17-265.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=power-and-prediction-ai-11-281.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=predictive-analytics-the-power-to-predict-who-will-click-buy-lie-or-die-21-338.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=sources-of-power-how-people-make-decisions-23-607.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=superforecasting-8-231.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=tales-from-the-pit-casino-table-games-managers-10-294.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-goal-ongoing-process-improvement-10-392.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-intelligent-negotiator-6-214.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-most-important-thing-howard-marks-16-195.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-prince-1-133.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-psychodynamics-and-psychology-of-gambling-1-192.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-unseen-realm-15-391.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=the-world-is-flat-4-309.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=thou-shall-prosper-29-354.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=tipping-point-gladwell-17-180.pdf" },
+      { "probabilityWeight": 1, "url": "https://sktoushi.github.io/ref2506/viewer-pdfjs-4chan2.html?fileName=zero-to-one-thiel-8-184.pdf" }
+    ]
+  }
+  </script>
+
+  <style>
+    :root { --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342; --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .hidden{display:none!important;}
+    .wrap{display:grid; place-items:center; height:100vh; text-align:center; gap:1rem;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:inline-flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:center;}
+    .btn{border:1px solid #111; background:var(--btn); color:var(--fg); padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease; box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;}
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .badge{font-size:.8rem; padding:.25rem .5rem; border-radius:.4rem; background:#1c313a; color:#b2dfdb;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    dialog{border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg); width:min(560px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;}
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.25rem 1.25rem 1rem;}
+    .modal h2{margin:0 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 1rem 0; color:var(--muted);}
+    .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
+    .btn-mid{padding:.8rem .4rem; font-size:1.05rem; border-radius:.6rem;}
+    .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:#cfd8dc; font-variant-numeric:tabular-nums; min-width:7ch; text-align:center;}
+    .help{font-size:.8rem; color:var(--muted); margin:.2rem 0 .8rem;}
+  </style>
+
+  <script>
+    /************ Deterministic namespace + obfuscation helpers ************/
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    const APP_ID = 'rr_v3_cobalt-buffalo_8a7e8e6e-5c2a-4b3d-96db-5a1d5eab1d92';
+    const NS = fnv1aHex(location.origin + '|' + location.pathname);
+    function obf(scope, name) {
+      const base = `${scope}|${name}|${APP_ID}|${NS}`;
+      return `${scope}_${APP_ID}_${NS}_${fnv1aHex(base)}`;
+    }
+
+    /************ Constants ************/
+    const DB_NAME  = obf('db',   'scheduler1_v2');
+    const DB_STORE = obf('st',   'urls_v2');
+    const DB_VER   = 2;
+
+    const IDX_EFFECTIVE = obf('idx', 'effectiveWeight');
+    const META_STORE = obf('meta', 'kvs');
+
+    const KEY_FREQ_MINUTES = obf('k', 'freq_minutes');
+    const KEY_LAST_SHOWN   = obf('k', 'last_shown_ms');
+
+    const RATING_CHOICES = [-3, -1, 0, +1, +3];
+    const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+    const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+    const MODAL_SHOW_PROBABILITY = 0.15;
+    const USER_MIN_FREQ_MINUTES = 5;
+    const STEP_MINUTES = 5;
+
+    const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
+
+    /************ IndexedDB helpers ************/
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            const store = db.createObjectStore(DB_STORE, { keyPath: 'url' });
+            if (![...store.indexNames].includes(IDX_EFFECTIVE)) {
+              store.createIndex(IDX_EFFECTIVE, 'effectiveWeight', { unique: false });
+            }
+          }
+          if (!db.objectStoreNames.contains(META_STORE)) {
+            db.createObjectStore(META_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function txStore(db, mode='readonly') {
+      const tx = db.transaction(DB_STORE, mode);
+      return [tx, tx.objectStore(DB_STORE)];
+    }
+    function getAll(db) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function getOne(db, key) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function putMany(db, records) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db, 'readwrite');
+        records.forEach(rec => store.put(rec));
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    /* ===== Meta store helpers ===== */
+    function metaGet(db, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readonly');
+        const st = tx.objectStore(META_STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    function metaSet(db, key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readwrite');
+        const st = tx.objectStore(META_STORE);
+        const r = st.put(value, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    /************ Utilities ************/
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      return r[0] / 4294967296;
+    }
+
+    // ====== FLOOR PROBABILITY = 1 throughout ======
+    function chooseWeighted(items) {
+      let total = 0;
+      for (const it of items) {
+        const base = Number(it.baseWeight || 0);
+        const dlt  = Number(it.delta || 0);
+        const w = Math.max(1, (isFinite(base)?base:0) + (isFinite(dlt)?dlt:0)); // floor = 1
+        it.effectiveWeight = w;
+        total += w;
+      }
+      if (total <= 0) {
+        total = items.length || 1;
+        const threshold = Math.floor(secureRandomFloat01() * total);
+        return items[threshold] || items[0];
+      }
+      const threshold = Math.floor(secureRandomFloat01() * total);
+      let acc = 0;
+      for (const it of items) {
+        acc += it.effectiveWeight;
+        if (threshold < acc) return it;
+      }
+      return items[0];
+    }
+
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function fmtDateStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+    function safeParseSeed() {
+      const raw = document.getElementById('urlProbability')?.textContent ?? '';
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        const cleaned = raw
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/\/\/.*$/gm, '');
+        try {
+          return JSON.parse(cleaned);
+        } catch (e2) {
+          console.error('Failed to parse seed JSON', e2);
+          return { items: [] };
+        }
+      }
+    }
+
+    /************ Frequency helpers ************/
+    const USER_MIN = USER_MIN_FREQ_MINUTES;
+    function roundToStep(valueMinutes) {
+      return Math.max(USER_MIN, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+    }
+    async function getStoredFreqMinutes(db) {
+      const val = await metaGet(db, KEY_FREQ_MINUTES);
+      const n = Number(val);
+      const mins = (!Number.isFinite(n) || n <= 0) ? (DEFAULT_USER_INTERVAL_MS / 60000) : n;
+      return roundToStep(mins);
+    }
+    async function setStoredFreqMinutes(db, mins) {
+      return metaSet(db, KEY_FREQ_MINUTES, roundToStep(mins));
+    }
+    async function getLastShownMs(db) {
+      const v = await metaGet(db, KEY_LAST_SHOWN);
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    async function markJustShown(db, nowMs = Date.now()) {
+      return metaSet(db, KEY_LAST_SHOWN, Number(nowMs));
+    }
+
+    /************ Seen-tracking helpers ************/
+    async function markUrlShown(db, url, whenMs = Date.now()) {
+      if (!url) return;
+      const rec = await getOne(db, url);
+      if (!rec) return;
+      const times = Number(rec.timesShown || 0) + 1;
+      const updated = { ...rec, timesShown: times, lastShownAt: whenMs };
+      await putMany(db, [updated]);
+    }
+
+    /************ Bootstrap DB from embedded JSON (idempotent merge) ************/
+    async function bootstrapDB(db) {
+      const seed = safeParseSeed();
+      const seedMap = new Map((seed.items || []).map(it => [it.url, it.probabilityWeight]));
+      const existing = await getAll(db);
+      const existingMap = new Map(existing.map(r => [r.url, r]));
+
+      const toPut = [];
+      for (const [url, baseWeight] of seedMap.entries()) {
+        const rec = existingMap.get(url);
+        if (rec) {
+          const bw = Math.max(1, Number(baseWeight) || 1);
+          const dl = Number(rec.delta || 0);
+          toPut.push({
+            ...rec,
+            baseWeight: bw,
+            effectiveWeight: Math.max(1, bw + dl),
+            timesShown: Number(rec.timesShown || 0),
+            lastShownAt: Number(rec.lastShownAt || 0)
+          });
+        } else {
+          const bw = Math.max(1, Number(baseWeight) || 1);
+          toPut.push({
+            url,
+            baseWeight: bw,
+            delta: 0,
+            effectiveWeight: bw,
+            lastRatedAt: 0,
+            timesShown: 0,
+            lastShownAt: 0
+          });
+        }
+      }
+      // keep any legacy rows not in seed (respect floor)
+      for (const rec of existing) {
+        if (!seedMap.has(rec.url)) {
+          toPut.push({
+            ...rec,
+            baseWeight: Math.max(1, Number(rec.baseWeight || 1)),
+            effectiveWeight: Math.max(1, Number(rec.effectiveWeight || rec.baseWeight || 1))
+          });
+        }
+      }
+      await putMany(db, toPut);
+      return toPut;
+    }
+
+    /************ Rating modal (re-rate only URLs seen ≥ 1) ************/
+    function showRatingModal(targetUrl, currentWeights, currentFreqMinutes, onPick, onSkip, onPersistFreq) {
+      const dlg = document.getElementById('ratingDialog');
+      const urlEl = document.getElementById('ratingUrl');
+      const btnsWrap = document.getElementById('ratingButtons');
+      const skipBtn = document.getElementById('skipRatingBtn');
+
+      const freqDecBtn = document.getElementById('freqDec');
+      const freqIncBtn = document.getElementById('freqInc');
+      const freqValueEl = document.getElementById('freqValue');
+
+      let freqMinutes = currentFreqMinutes;
+      let timeoutId = null;
+
+      function delayProceed(fn) { setTimeout(fn, 30_000); }
+      function updateFreqUI() { if (freqValueEl) freqValueEl.textContent = `${freqMinutes} min`; }
+      function clearTimer() { if (timeoutId !== null) { clearTimeout(timeoutId); timeoutId = null; } }
+
+      const base = Number(currentWeights?.baseWeight ?? 1) || 1;
+      const delta = Number(currentWeights?.delta ?? 0) || 0;
+
+      urlEl.textContent = targetUrl;
+      btnsWrap.innerHTML = '';
+
+      for (const val of RATING_CHOICES) {
+        const b = document.createElement('button');
+        b.className = 'btn btn-mid';
+        b.textContent = (val > 0 ? `+${val}` : `${val}`);
+        const projected = base + delta + val;
+        if (projected < 1) { b.disabled = true; b.title = 'Disabled: minimum weight is 1'; }
+        b.addEventListener('click', () => {
+          if (b.disabled) return;
+          clearTimer();
+          delayProceed(() => { try { onPersistFreq?.(freqMinutes); } finally { onPick(val); } });
+        }, { once: true });
+        btnsWrap.appendChild(b);
+      }
+
+      if (freqDecBtn) freqDecBtn.onclick = () => { freqMinutes = Math.max(USER_MIN, freqMinutes - STEP_MINUTES); updateFreqUI(); };
+      if (freqIncBtn) freqIncBtn.onclick = () => { freqMinutes = freqMinutes + STEP_MINUTES; updateFreqUI(); };
+      updateFreqUI();
+
+      skipBtn.onclick = () => {
+        clearTimer();
+        delayProceed(() => { try { onPersistFreq?.(freqMinutes); } finally { onSkip(); } });
+      };
+
+      try { dlg.showModal(); } catch { dlg.show(); }
+      timeoutId = setTimeout(() => { try { onPersistFreq?.(freqMinutes); } finally { onSkip(); } }, 30_000);
+    }
+
+    /************ Main flow (DRAW ONLY FROM ITEMS) ************/
+    async function main() {
+      const watchdog = setTimeout(() => {
+        try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
+      }, 5000);
+
+      try {
+        const db = await openDB();
+        const records = await bootstrapDB(db);
+
+        document.getElementById('downloadBtn')?.addEventListener('click', async () => {
+          const all = await getAll(db);
+          const items = all.map(r => ({
+            probabilityWeight: Math.max(1, Math.round((Number(r.baseWeight) || 1) + (Number(r.delta) || 0))), // floor = 1
+            url: r.url
+          }));
+          downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
+        });
+
+        // Pick strictly from items (no edit links, no wildcards, no extras)
+        const chosen = chooseWeighted(
+          records.length ? records : (safeParseSeed().items || []).map(it => ({
+            url: it.url, baseWeight: Math.max(1, it.probabilityWeight), delta: 0
+          }))
+        );
+        const nextUrl = chosen.url;
+
+        // Decide whether to show rating modal (only for URLs already seen at least once)
+        const now = Date.now();
+        const lastShown = await getLastShownMs(db);
+        const elapsed = lastShown ? (now - lastShown) : Infinity;
+        const currentFreqMinutes = await getStoredFreqMinutes(db);
+
+        const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // at least every 15m
+        const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+        const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
+
+        // Re-rate only from URLs seen ≥ 1
+        const seenRecords = records.filter(r => Number(r.timesShown || 0) > 0);
+        const wantShow = (mustShow || wantsSoftShow) && seenRecords.length > 0;
+        const toRate = wantShow ? seenRecords[Math.floor(secureRandomFloat01() * seenRecords.length)] : null;
+
+        async function go(url) {
+          try {
+            const rec = await getOne(db, url);
+            if (rec) await markUrlShown(db, url, Date.now());
+          } catch {}
+          clearTimeout(watchdog);
+          window.location.replace(url);
+        }
+
+        if (wantShow && toRate) {
+          await markJustShown(db, now);
+
+          showRatingModal(
+            toRate.url,
+            toRate,
+            currentFreqMinutes,
+            async (val) => {
+              try {
+                const rec = await getOne(db, toRate.url);
+                const base = Math.max(1, Number(rec?.baseWeight ?? toRate.baseWeight ?? 1));
+                const newDelta = (Number(rec?.delta || 0) || 0) + Number(val || 0);
+                const updated = {
+                  ...(rec || { url: toRate.url }),
+                  baseWeight: base,
+                  delta: newDelta,
+                  effectiveWeight: Math.max(1, base + newDelta), // floor = 1
+                  lastRatedAt: Date.now(),
+                  timesShown: Number((rec || toRate).timesShown || 0),
+                  lastShownAt: Number((rec || toRate).lastShownAt || 0)
+                };
+                await putMany(db, [updated]);
+                const note = document.getElementById('lastRatingNote');
+                if (note) { note.textContent = `Last rating: ${val > 0 ? `+${val}` : val} for ${toRate.url}`; note.classList.remove('hidden'); }
+              } finally {
+                await go(nextUrl);
+              }
+            },
+            async () => { await go(nextUrl); },
+            async (mins) => { await setStoredFreqMinutes(db, mins); }
+          );
+        } else {
+          await go(nextUrl);
+        }
+      } catch (err) {
+        console.error('Redirect flow failed:', err);
+        window.location.assign(SAFETY_FALLBACK_URL);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', main);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div><div class="badge">Random Redirect</div></div>
+    <div class="small">Drawing <em>only</em> from your items. Min weight = 1. Re-ratings are shown only for URLs you’ve already seen.</div>
+    <div class="toolbar">
+      <button id="downloadBtn" class="btn btn-accent">Download updated <span class="mono">items</span> JSON</button>
+      <span id="lastRatingNote" class="small hidden"></span>
+    </div>
+  </div>
+
+  <!-- Rating modal -->
+  <dialog id="ratingDialog">
+    <div class="modal">
+      <h2>Adjust probability weight for this URL</h2>
+      <p class="url-line mono" id="ratingUrl"></p>
+
+      <!-- Modal frequency controls (±5m, floor 5m) -->
+      <div class="small" style="margin:.5rem 0 .35rem;">Modal frequency</div>
+      <div class="freqrow" style="margin-bottom:.35rem;">
+        <button id="freqDec" type="button" class="btn btn-mid" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-mid" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+      <div class="small" style="margin:.1rem 0 .9rem;">We’ll still ask at least once every 15 minutes.</div>
+
+      <div id="ratingButtons" class="grid-5" style="margin:.75rem 0 1rem;"></div>
+      <div class="toolbar" style="justify-content:space-between; width:100%;">
+        <button class="btn btn-danger" id="skipRatingBtn" title="Continue without rating">Skip</button>
+        <span class="small">Choices: -3, -1, 0, +1, +3 (min weight = 1)</span>
+      </div>
+    </div>
+  </dialog>
+
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://sktoushi.github.io/su/allrecent100.html" />
+    <style>body{font-family:sans-serif; padding:2rem;}</style>
+    <p>JavaScript is disabled; redirecting…</p>
+  </noscript>
+</body>
+</html>
