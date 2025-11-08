@@ -86,6 +86,12 @@
     /* NEW: Wildcard list key (array of URL strings) */
     const KEY_WILDCARD_LIST = obf('k', 'wildcards_v1');
 
+    /* ▼▼ NEW: Visit tracking keys */
+    const KEY_VISIT_COUNT        = obf('k', 'visit_count_v1');
+    const KEY_SEGMENT_START_MS   = obf('k', 'segment_start_ms_v1'); // time at visit numbers 1,101,201,...
+    const KEY_SEGMENT_100_MS     = obf('k', 'segment_100_ms_v1');   // time at visit numbers 100,200,300,...
+    /* ▲▲ NEW */
+
     function lsKey(name) { return obf('ls', name); }
     const LS_WATCHDOG = lsKey('watchdog');
 
@@ -217,6 +223,19 @@
       a.remove();
       URL.revokeObjectURL(url);
     }
+    /* ▼▼ NEW: download plain text */
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+    /* ▲▲ NEW */
+
     function fmtDateStamp() {
       const d = new Date();
       const pad = (n) => String(n).padStart(2, '0');
@@ -426,6 +445,54 @@
       }, 30_000);
     }
 
+    /* ▼▼ NEW: duration formatter for receipts */
+    function formatMeaningfulDuration(ms) {
+      const mins = ms / 60000;
+      if (mins < 60) {
+        const m = Math.max(0, Math.round(mins));
+        return `${m} minute${m === 1 ? '' : 's'}`;
+      }
+      const hours = ms / 3600000;
+      if (hours < 24) {
+        const h = Math.max(0, Math.round(hours));
+        return `${h} hour${h === 1 ? '' : 's'}`;
+      }
+      const days = Math.floor(ms / 86400000);
+      let remH = Math.round((ms % 86400000) / 3600000);
+      if (remH === 24) { remH = 0; }
+      const dPart = `${days} day${days === 1 ? '' : 's'}`;
+      const hPart = `${remH} hour${remH === 1 ? '' : 's'}`;
+      return `${dPart} ${hPart}`;
+    }
+    /* ▲▲ NEW */
+
+    /* ▼▼ NEW: robust clipboard helper */
+    async function copyTextToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch {}
+      // Fallback for older browsers or if permission denied
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+    /* ▲▲ NEW */
+
     /************ Main flow ************/
     async function main() {
       const watchdog = setTimeout(() => {
@@ -436,6 +503,56 @@
         const db = await openDB();
         const records = await bootstrapDB(db);
         const wildcardList = await getWildcards(db); // << load once for this run
+
+        /* ▼▼ NEW: Visit tracking logic */
+        const now = Date.now();
+        const rawCount = Number(await metaGet(db, KEY_VISIT_COUNT)) || 0;
+        const newCount = rawCount + 1;
+
+        // If this is 101st, 201st, 301st, ... attempt to generate receipt
+        if ((newCount % 100) === 1 && newCount > 1) {
+          const segStart = Number(await metaGet(db, KEY_SEGMENT_START_MS)); // time at (newCount-100)th visit
+          const seg100   = Number(await metaGet(db, KEY_SEGMENT_100_MS));  // time at (newCount-1)th visit
+          if (Number.isFinite(segStart) && Number.isFinite(seg100) && seg100 >= segStart) {
+            const durMs = seg100 - segStart;
+            const pretty = formatMeaningfulDuration(durMs);
+            const rangeFrom = new Date(segStart).toISOString();
+            const rangeTo   = new Date(seg100).toISOString();
+            const windowStartVisit = newCount - 100;
+            const windowEndVisit   = newCount - 1;
+            const receipt =
+`Page Visit Receipt
+Window: visits ${windowStartVisit} to ${windowEndVisit}
+From:   ${rangeFrom}
+To:     ${rangeTo}
+Duration: ${pretty}
+
+Notes:
+- Count increments once per page load.
+- Duration measures time between the FIRST and the 100TH visit of the window.`;
+
+            // 1) keep existing download
+            downloadText(`visit-receipt-${fmtDateStamp()}.txt`, receipt);
+
+            // 2) copy to clipboard (best effort)
+            try { await copyTextToClipboard(receipt); } catch {}
+
+            // 3) show as alert
+            try { alert(`Visit receipt (copied to clipboard):\n\n${receipt}`); } catch {}
+          }
+        }
+
+        // Mark special milestones for the rolling 100-visit windows:
+        //  - at visit numbers 1,101,201,... store segment start time
+        //  - at visit numbers 100,200,300,... store segment "100th" time
+        if ((newCount % 100) === 1) {
+          await metaSet(db, KEY_SEGMENT_START_MS, now);
+        }
+        if ((newCount % 100) === 0) {
+          await metaSet(db, KEY_SEGMENT_100_MS, now);
+        }
+        await metaSet(db, KEY_VISIT_COUNT, newCount);
+        /* ▲▲ NEW */
 
         document.getElementById('downloadBtn')?.addEventListener('click', async () => {
           const all = await getAll(db);
@@ -474,7 +591,6 @@
         }
 
         // ===== Modal timing decision (from meta store) =====
-        const now = Date.now();
         const lastShown = await getLastShownMs(db);
         const elapsed = lastShown ? (now - lastShown) : Infinity;
         const currentFreqMinutes = await getStoredFreqMinutes(db);
