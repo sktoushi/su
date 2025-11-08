@@ -106,9 +106,7 @@
     <!-- Randomization frequency mix -->
     <div class="mixwrap">
       <h3 class="small" style="margin:.25rem 0 .5rem;">Randomization frequency mix (must sum to 100%)</h3>
-      <div id="mixContainer" class="mixgrid">
-        <!-- rows injected by JS -->
-      </div>
+      <div id="mixContainer" class="mixgrid"></div>
       <div class="small hint">Default is right-tilted: <em>Recent 100 items = 60%</em>, remaining 40% rises smoothly from Recent 5% → 90%.<br/>If <code>RANDOM_PDF_MAX</code> &lt; 100, the “Recent 100 items” bucket is automatically skipped and weights are renormalized.</div>
     </div>
 
@@ -127,18 +125,30 @@
 /* ============================================================
    Crypto-secure randomness only (no Math.random)
 
-   Modifications (FIXED):
-   - Initial RANDOM_PDF_MAX is seeded to 39 on first run.
-   - Uses a NEW IndexedDB database + keys so it won't reuse another site's data.
-   - Traverses 1..RANDOM_PDF_MAX using the weighted "recent %" buckets and "recent 100 items".
-   - If RANDOM_PDF_MAX < 100, skip the "Recent 100 items" bucket and renormalize.
-   - Redirects to:
+   NEW in this version:
+   - Two-bucket probability picker:
+       * Bucket A (legacy): numbers 1..RANDOM_PDF_MAX  → weight = RANDOM_PDF_MAX
+       * Bucket B (fixed):  SPECIAL_URL                → weight = 445
+     Total weight = RANDOM_PDF_MAX + 445.
+     If Bucket B is selected, we go straight to SPECIAL_URL.
+     Otherwise we run the existing recency mix within 1..RANDOM_PDF_MAX.
+   - “Recent 100 items” continues to mean last 100 counting back from RANDOM_PDF_MAX.
+
+   Other retained behavior:
+   - Initial RANDOM_PDF_MAX seeded to DEFAULT_RANDOM_PDF_MAX on first run.
+   - Dedicated IndexedDB namespace/keys.
+   - Recency buckets with adjustable mix and modal controls.
+   - Legacy redirect:
        https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=<N>.pdf
    ============================================================ */
 
 (function () {
   const TWO32 = 0x100000000; // 2^32
   const DEFAULT_RANDOM_PDF_MAX = 45;
+
+  /* ========= Configure the special recent-books URL here ========= */
+  const SPECIAL_URL = 'https://example.com/your-recent-books-randomizer'; // <-- REPLACE with the exact URL
+  const SPECIAL_URL_WEIGHT = 445;
 
   function assertCrypto() {
     if (!window.crypto || !window.crypto.getRandomValues) {
@@ -172,10 +182,10 @@
   }
 
   /* ================= NEW IndexedDB (fresh DB name and keys) ================= */
-  const IDB_NAME = 'pdfPickerDB_v1';          // NEW DB name to avoid cross-site reuse
+  const IDB_NAME = 'pdfPickerDB_v1';
   const IDB_VER = 1;
-  const STORE_SETTINGS = 'pdf_settings';      // NEW store name
-  const KEY_RANDOM_MAX = 'pdf_random_max_v1'; // NEW keys
+  const STORE_SETTINGS = 'pdf_settings';
+  const KEY_RANDOM_MAX = 'pdf_random_max_v1';
   const KEY_LAST_MODAL = 'pdf_last_modal_shown_v1';
   const KEY_FREQ_MINUTES = 'pdf_modal_freq_minutes_v1';
   const KEY_MIX_POINTS = 'pdf_range_weights_points_v1';
@@ -222,23 +232,21 @@
     return v;
   }
 
-  // ====== Mix model ======
-  // Order of display: 90,80,...,10,5, then 100 items
+  // ====== Mix model (legacy bucket only) ======
   const MIX_DEF = [
-    { id:'p90', label:'Recent 90%', kind:'percent', p:90 },
-    { id:'p80', label:'Recent 80%', kind:'percent', p:80 },
-    { id:'p70', label:'Recent 70%', kind:'percent', p:70 },
-    { id:'p60', label:'Recent 60%', kind:'percent', p:60 },
-    { id:'p50', label:'Recent 50%', kind:'percent', p:50 },
-    { id:'p40', label:'Recent 40%', kind:'percent', p:40 },
-    { id:'p30', label:'Recent 30%', kind:'percent', p:30 },
-    { id:'p20', label:'Recent 20%', kind:'percent', p:20 },
-    { id:'p10', label:'Recent 10%', kind:'percent', p:10 },
-    { id:'p5',  label:'Recent 5%',  kind:'percent', p:5  },
-    { id:'n100', label:'Recent 100 items', kind:'fixed', n:100 }
+    { id:'p90',  label:'Recent 90%',        kind:'percent', p:90 },
+    { id:'p80',  label:'Recent 80%',        kind:'percent', p:80 },
+    { id:'p70',  label:'Recent 70%',        kind:'percent', p:70 },
+    { id:'p60',  label:'Recent 60%',        kind:'percent', p:60 },
+    { id:'p50',  label:'Recent 50%',        kind:'percent', p:50 },
+    { id:'p40',  label:'Recent 40%',        kind:'percent', p:40 },
+    { id:'p30',  label:'Recent 30%',        kind:'percent', p:30 },
+    { id:'p20',  label:'Recent 20%',        kind:'percent', p:20 },
+    { id:'p10',  label:'Recent 10%',        kind:'percent', p:10 },
+    { id:'p5',   label:'Recent 5%',         kind:'percent', p:5  },
+    { id:'n100', label:'Recent 100 items',  kind:'fixed',   n:100 }
   ];
 
-  // Right-tilted default.
   const TILT_POWER = 2;
 
   function defaultMixPoints() {
@@ -257,7 +265,7 @@
     const n100pts = Math.round((0.60 / 0.40) * sumPercent);
     points['n100'] = n100pts;
 
-    return points; // integer points; UI normalizes to 100%
+    return points;
   }
 
   function normalizePointsToPerc(points) {
@@ -273,7 +281,7 @@
       const share = (Math.max(0, points[id] || 0) / total) * 100;
       perc[id] = share;
     });
-    return perc; // floating %
+    return perc;
   }
 
   function weightedPickId(percMap) {
@@ -287,7 +295,7 @@
     for (const it of ranges) {
       if (r >= it.start && r < it.end) return it.id;
     }
-    return MIX_DEF[MIX_DEF.length - 1].id; // safety: last bucket
+    return MIX_DEF[MIX_DEF.length - 1].id;
   }
 
   // If end < 100, set n100 weight to zero, renormalize remaining to 100%
@@ -372,7 +380,7 @@
     render();
 
     return {
-      getPoints: () => ({ ...localPoints }),
+      getPoints: () => ({ ...localPoints } ),
       setPoints: (p) => { Object.keys(localPoints).forEach(k => localPoints[k] = Math.max(0, Math.round(p[k] || 0))); render(); },
       getPerc: () => normalizePointsToPerc(localPoints)
     };
@@ -391,12 +399,10 @@
     const btnReset = document.getElementById('resetEndBtn');
     const btnResetMix = document.getElementById('resetMixBtn');
 
-    // Modal frequency controls
     const freqDec = document.getElementById('freqDec');
     const freqInc = document.getElementById('freqInc');
     const freqValue = document.getElementById('freqValue');
 
-    // Mix container
     const mixContainer = document.getElementById('mixContainer');
     const countdown = document.getElementById('skipCountdown');
 
@@ -404,16 +410,13 @@
     err.classList.add('hidden');
 
     let currentFreq = roundToStep(Number(freqMinutes) || (DEFAULT_USER_INTERVAL_MS / 60000));
-    function renderFreq() {
-      freqValue.textContent = `${currentFreq} min`;
-    }
+    function renderFreq() { freqValue.textContent = `${currentFreq} min`; }
     renderFreq();
 
     freqDec.onclick = () => { currentFreq = Math.max(USER_MIN_FREQ_MINUTES, currentFreq - STEP_MINUTES); renderFreq(); };
     freqInc.onclick = () => { currentFreq = currentFreq + STEP_MINUTES; renderFreq(); };
 
-    // Build mix UI
-    const mixUI = buildMixUI(mixContainer, mixPoints, () => { /* live updates only */ });
+    const mixUI = buildMixUI(mixContainer, mixPoints, () => {});
 
     const validateEnd = () => {
       const v = Number(input.value);
@@ -429,11 +432,8 @@
       input.value = String(DEFAULT_RANDOM_PDF_MAX);
       err.classList.add('hidden');
     };
-    btnResetMix.onclick = () => {
-      mixUI.setPoints(defaultMixPoints());
-    };
+    btnResetMix.onclick = () => { mixUI.setPoints(defaultMixPoints()); };
 
-    // Save can end sooner than 30s
     btnSave.onclick = () => {
       const v = validateEnd();
       if (v == null) return;
@@ -442,7 +442,6 @@
       onSave(v, currentFreq, mixUI.getPoints(), mixUI.getPerc());
     };
 
-    // Skip: disabled until 30s have elapsed
     btnSkip.disabled = true;
     let remain = 30;
     countdown.textContent = `Skip enabled in ${remain}s`;
@@ -462,7 +461,6 @@
       if (btnSkip.disabled) return;
       clearTimers();
       try { dlg.close(); } catch {}
-      // proceed with current on-screen mix (not persisted), keep existing end
       onAutoOrSkip(currentFreq, mixUI.getPerc());
     };
 
@@ -471,13 +469,10 @@
       if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
     }
 
-    // Show the modal
     try { dlg.showModal(); } catch { dlg.show(); }
 
-    // Auto-proceed AFTER 30s if user neither saves nor presses Skip
     modalTimeoutId = setTimeout(() => {
       try { dlg.close(); } catch {}
-      // Auto proceed with current on-screen mix (not persisted), keep existing end
       onAutoOrSkip(currentFreq, mixUI.getPerc());
       modalTimeoutId = null;
       if (skipEnableTimerId) { clearInterval(skipEnableTimerId); skipEnableTimerId = null; }
@@ -485,14 +480,12 @@
   }
 
   async function main() {
-    // Seed NEW DB with default value (39) on first run; then always read from this DB
     let randomPdfMax = await idbGet(KEY_RANDOM_MAX);
     if (typeof randomPdfMax !== 'number' || !Number.isFinite(randomPdfMax) || randomPdfMax < 1) {
       randomPdfMax = Number(DEFAULT_RANDOM_PDF_MAX);
       await idbSet(KEY_RANDOM_MAX, randomPdfMax);
     }
 
-    // Load (or seed) modal frequency
     let freqMinutes = await idbGet(KEY_FREQ_MINUTES);
     if (typeof freqMinutes !== 'number' || !Number.isFinite(freqMinutes) || freqMinutes <= 0) {
       freqMinutes = DEFAULT_USER_INTERVAL_MS / 60000; // default 10
@@ -500,7 +493,6 @@
     freqMinutes = roundToStep(freqMinutes);
     await idbSet(KEY_FREQ_MINUTES, freqMinutes);
 
-    // Load (or seed) mix points
     let mixPoints = await idbGet(KEY_MIX_POINTS);
     if (!mixPoints || typeof mixPoints !== 'object') {
       mixPoints = defaultMixPoints();
@@ -511,25 +503,19 @@
     const now = Date.now();
     const elapsed = lastShown ? now - Number(lastShown) : Infinity;
 
-    // Hard guarantee: if ≥15 min since last shown, force show
     const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
-
-    // Otherwise, soft rule: if ≥ user interval, maybe show based on probability
     const userIntervalMs = Number(freqMinutes) * 60 * 1000;
     const eligibleByUser = elapsed >= userIntervalMs;
     const wantsSoftShow = eligibleByUser && (cryptoRandomFloat() < MODAL_SHOW_PROBABILITY);
-
     const wantShow = mustShow || wantsSoftShow;
 
     if (wantShow) {
-      // Stamp "shown" time to uphold the 15-min guarantee
       await idbSet(KEY_LAST_MODAL, now);
 
       maybeShowEndModal(
         randomPdfMax,
         freqMinutes,
         mixPoints,
-        // onSave
         async (pickedEnd, pickedFreqMinutes, pickedPoints, pickedPerc) => {
           await idbSet(KEY_RANDOM_MAX, Number(pickedEnd));
           await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
@@ -537,19 +523,16 @@
           await idbSet(KEY_LAST_MODAL, Date.now());
           proceed(Number(pickedEnd), pickedPerc);
         },
-        // onAutoOrSkip (after 30s or user presses Skip after 30s)
         async (pickedFreqMinutes, percOnScreen) => {
           if (typeof pickedFreqMinutes === 'number' && Number.isFinite(pickedFreqMinutes)) {
             await idbSet(KEY_FREQ_MINUTES, roundToStep(Number(pickedFreqMinutes)));
           }
-          // Use stored randomPdfMax, and on-screen mix perc (not persisted)
           proceed(Number(randomPdfMax), percOnScreen);
         }
       );
-      return; // wait for modal interaction
+      return;
     }
 
-    // No modal: proceed immediately using stored override and stored mix
     const storedPerc = normalizePointsToPerc(mixPoints);
     proceed(Number(randomPdfMax), storedPerc);
   }
@@ -558,13 +541,37 @@
     const end = Number(endValue);
     if (!Number.isFinite(end) || end < 1) throw new Error('Invalid RANDOM_PDF_MAX.');
 
-    // Adjust mix if end < 100 (skip n100)
-    const percMap = adjustPercForEnd(percMapRaw || normalizePointsToPerc(defaultMixPoints()), end);
+    // ===== Two-bucket weighted pick (ADDED) =====
+    // Bucket A: legacy 1..end            → weight = end
+    // Bucket B: SPECIAL_URL (single URL)  → weight = 445
+    const totalWeight = end + SPECIAL_URL_WEIGHT;
+    const roll = cryptoRandomInt(1, totalWeight); // inclusive
+    const pickedBucketType = (roll <= end) ? 'legacy' : 'special';
 
-    // Pick a bucket by weighted mix
+    if (pickedBucketType === 'special') {
+      // Redirect immediately to the fixed URL
+      location.href = SPECIAL_URL;
+
+      // Fallback UI if redirect is blocked
+      document.addEventListener('DOMContentLoaded', () => {
+        const wrap = document.createElement('div');
+        const h = document.createElement('h2');
+        h.textContent = 'Redirecting to recent-books URL…';
+        const p = document.createElement('p');
+        p.innerHTML = `Selected bucket: <code>special (weight ${SPECIAL_URL_WEIGHT})</code><br/>
+                       Total weight: <code>${totalWeight}</code><br/>
+                       Link: <a href="${SPECIAL_URL}">${SPECIAL_URL}</a>`;
+        wrap.appendChild(h);
+        wrap.appendChild(p);
+        document.body.appendChild(wrap);
+      });
+      return;
+    }
+
+    // ===== Legacy path (kept): pick within 1..end using recency mix =====
+    const percMap = adjustPercForEnd(percMapRaw || normalizePointsToPerc(defaultMixPoints()), end);
     const bucketId = weightedPickId(percMap);
     const [lo, hi] = resolveRangeForBucket(end, bucketId);
-
     const randomChosenNumber = cryptoRandomInt(lo, hi);
 
     const chosenUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${randomChosenNumber}.pdf`;
@@ -578,7 +585,8 @@
       const h = document.createElement('h2');
       h.textContent = 'Redirecting to a random PDF…';
       const p = document.createElement('p');
-      p.innerHTML = `Selected bucket: <code>${bucketId}</code><br/>
+      p.innerHTML = `Selected top-level bucket: <code>legacy (weight ${end})</code><br/>
+                     Recency bucket: <code>${bucketId}</code><br/>
                      Selected range: <code>[${lo}, ${hi}]</code><br/>
                      Chosen PDF #: <code>${randomChosenNumber}</code><br/>
                      Link: <a href="${chosenUrl}">${chosenUrl}</a>`;
