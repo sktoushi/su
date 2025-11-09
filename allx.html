@@ -40,7 +40,7 @@
   <script>
     (function () {
       // Default max if not provided or invalid
-      var DEFAULT_MAX = 6;
+      var DEFAULT_MAX = 2;
 
       // Hard upper bound to keep the crypto RNG logic safe (<= 2^32)
       var HARD_MAX = 0x100000000;
@@ -81,7 +81,7 @@
       var max = Math.max(DEFAULT_MAX, urlMax);
 
       var versionNumber = randomIntInclusive(max);
-      var target = "https://sktoushi.github.io/su/allv" + String(versionNumber) + ".html";
+      var target = "https://sktoushi.github.io/su/all503020v" + String(versionNumber) + ".html";
 
       // Update visible link for users without JS redirects
       var link = document.getElementById('link');
