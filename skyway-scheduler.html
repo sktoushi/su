@@ -1,30 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Skyway Scheduler</title>
-  <script>
-    async function runScheduler() {
-      try {
-        const resp = await fetch('config/schedule.json');
-        const cfg = await resp.json();
-
-        const cycle = Array.isArray(cfg) ? cfg : cfg.cycle;
-        if (!Array.isArray(cycle) || cycle.length === 0) {
-          document.body.textContent = 'Invalid schedule configuration.';
-          return;
-        }
-
-        const url = cycle[Math.floor(Math.random() * cycle.length)];
-        window.location.href = url;
-      } catch (e) {
-        document.body.textContent = 'Failed to load schedule.';
-      }
-    }
-    window.onload = runScheduler;
-  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skyway Scheduler Randomizer</title>
+  <meta name="description" content="Redirects to a random Skyway Scheduler version based on the ?max= URL parameter.">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .wrap { display: grid; place-items: center; height: 100%; text-align: center; padding: 2rem; }
+    .card { max-width: 720px; }
+    code { padding: .2rem .4rem; border-radius: .25rem; background: rgba(0,0,0,.06); }
+    a { word-break: break-all; }
+  </style>
 </head>
 <body>
-  <p>Redirecting...</p>
+  <div class="wrap">
+    <div class="card">
+      <h1>Redirecting…</h1>
+      <p>If you are not redirected automatically, <a id="target" href="#" rel="nofollow noopener">click here</a>.</p>
+      <p><small>Tip: Control the maximum version via <code>?max=&lt;number&gt;</code>. The default is <code>2</code>. If a provided max and the default differ, the larger one is used.</small></p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var DEFAULT_MAX = 2;
+
+      function parseMaxParam() {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (!params.has('max')) return NaN;
+          var raw = params.get('max');
+          // Allow "7", "7.9" (floored); ignore invalids
+          var n = Math.floor(Number(raw));
+          if (!Number.isFinite(n) || n < 1) return NaN;
+          return n;
+        } catch (e) {
+          return NaN;
+        }
+      }
+
+      var maxFromParam = parseMaxParam();
+      var effectiveMax = Math.max(DEFAULT_MAX, Number.isNaN(maxFromParam) ? 0 : maxFromParam);
+
+      // Ensure integer and lower bound of 1
+      effectiveMax = Math.max(1, Math.floor(effectiveMax));
+
+      // Random integer in [1, effectiveMax]
+      var version = 1 + Math.floor(Math.random() * effectiveMax);
+
+      var target = "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
+
+      // Update fallback link
+      var a = document.getElementById('target');
+      if (a) {
+        a.href = target;
+        a.textContent = target;
+      }
+
+      // Redirect (replace avoids keeping this page in history)
+      try {
+        window.location.replace(target);
+      } catch (e) {
+        window.location.href = target;
+      }
+    })();
+  </script>
+
+  <noscript>
+    <div style="text-align:center; padding:1rem;">
+      JavaScript is required to redirect. Please enable JavaScript or open:
+      <div><code>https://sktoushi.github.io/su/skyway-scheduler1.html</code> or <code>https://sktoushi.github.io/su/skyway-scheduler2.html</code></div>
+    </div>
+  </noscript>
 </body>
 </html>
