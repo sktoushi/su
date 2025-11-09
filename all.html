@@ -31,13 +31,19 @@
   <div class="card" role="status" aria-live="polite">
     <h1>Redirecting…</h1>
     <p>If you are not redirected automatically, <a id="link" href="#" rel="nofollow">click here</a>.</p>
-    <p style="font-size:.9rem;opacity:.8">Tip: pass <code>?max=7</code> (or any positive integer) to control the range. Defaults to <code>5</code>.</p>
+    <p style="font-size:.9rem;opacity:.8">
+      Tip: pass <code>?max=7</code> (or any positive integer) to control the range.
+      The larger of the default (<code>5</code>) and your <code>?max</code> is used.
+    </p>
   </div>
 
   <script>
     (function () {
       // Default max if not provided or invalid
-      var DEFAULT_MAX = 5;
+      var DEFAULT_MAX = 6;
+
+      // Hard upper bound to keep the crypto RNG logic safe (<= 2^32)
+      var HARD_MAX = 0x100000000;
 
       function parseMax() {
         try {
@@ -48,6 +54,7 @@
           if (!Number.isFinite(n)) return DEFAULT_MAX;
           n = Math.floor(n);
           if (n < 1) return DEFAULT_MAX;
+          if (n > HARD_MAX) return HARD_MAX;
           return n;
         } catch (e) {
           return DEFAULT_MAX;
@@ -69,7 +76,10 @@
         return (r % range) + 1;
       }
 
-      var max = parseMax();
+      // Prefer the larger of DEFAULT_MAX and the URL's ?max=
+      var urlMax = parseMax();
+      var max = Math.max(DEFAULT_MAX, urlMax);
+
       var versionNumber = randomIntInclusive(max);
       var target = "https://sktoushi.github.io/su/allv" + String(versionNumber) + ".html";
 
