@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Redirect — Learning-Optimized (No-Collision Keys)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Seed items: central source of truth (initial load only).
+       After first run, weights are loaded/adjusted from IndexedDB. -->
+  <script type="application/json" id="urlProbability">
+  {
+    "items": [
+      { "probabilityWeight": 50,  "url": "https://sktoushi.github.io/su/skyway-scheduler1.html" }, 
+      { "probabilityWeight": 25,  "url": "https://sktoushi.github.io/su/all503020.html" },
+      { "probabilityWeight": 8,   "url": "https://sktoushi.github.io/su/ryspare-psei-202510.html" },
+      { "probabilityWeight": 12,  "url": "https://sktoushi.github.io/su/allrecentbooks445.html" },
+      { "probabilityWeight": 8,   "url": "https://sktoushi.github.io/su/berkshire-transcripts.html" },
+      { "probabilityWeight": 5,   "url": "https://sktoushi.github.io/su/lc300.html?target=indexedDb-solomon-verses.csv" },
+      { "probabilityWeight": 4,   "url": "https://sktoushi.github.io/su/canonical-stash3.html" }, 
+      { "probabilityWeight": 15,  "url": "https://sktoushi.github.io/su/allrecent100books.html" },
+      { "probabilityWeight": 7,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-math.html" },
+      { "probabilityWeight": 7,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-mood.html" }
+    ]
+  }
+  </script>
+
+  <style>
+    :root { --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342; --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .hidden{display:none!important;}
+    .wrap{display:grid; place-items:center; height:100vh; text-align:center; gap:1rem;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:inline-flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:center;}
+    .btn{border:1px solid #111; background:var(--btn); color:var(--fg); padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease; box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;}
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .badge{font-size:.8rem; padding:.25rem .5rem; border-radius:.4rem; background:#1c313a; color:#b2dfdb;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
+  </style>
+
+  <script>
+    /************ Utilities available before namespacing ************/
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      return r[0] / 4294967296;
+    }
+    function hexFromBytes(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+    function isValidHttpUrl(str) {
+      try { const u = new URL(str); return u.protocol === 'http:' || u.protocol === 'https:'; }
+      catch { return false; }
+    }
+    function safeParseSeed() {
+      const raw = document.getElementById('urlProbability')?.textContent ?? '';
+      try { return JSON.parse(raw); }
+      catch {
+        const cleaned = raw.replace(/,\s*([\]}])/g, '$1').replace(/\/\/.*$/gm, '');
+        try { return JSON.parse(cleaned); } catch { return { items: [] }; }
+      }
+    }
+    function canonicalSeedString(seed) {
+      const items = Array.isArray(seed?.items) ? seed.items.slice() : [];
+      items.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
+      const canon = { items: items.map(it => ({ url: String(it.url || ''), probabilityWeight: Number(it.probabilityWeight || 0) }))};
+      return JSON.stringify(canon);
+    }
+    function domainOf(url) {
+      try { return new URL(url).hostname || ''; } catch { return ''; }
+    }
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function downloadHTML(filename) {
+      try {
+        const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    function fmtDateStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+
+    /************ Strong namespace (no-collision) ************/
+    // 1) Compute a seed signature from the embedded JSON
+    const RAW_SEED = safeParseSeed();
+    const SEED_SIG = fnv1aHex(canonicalSeedString(RAW_SEED));
+
+    // 2) Per-install 128-bit ID persisted in localStorage under a simple bootstrap key
+    (function ensureInstallId() {
+      const baseKey = '__rrsrs_install_v1_' + fnv1aHex(location.origin + '|' + location.pathname);
+      let id = localStorage.getItem(baseKey);
+      if (!id) {
+        const b = new Uint8Array(16);
+        crypto.getRandomValues(b);
+        id = hexFromBytes(b);
+        try { localStorage.setItem(baseKey, id); } catch {}
+      }
+      window.__RRSRS_INSTALL_ID__ = id || 'no-ls';
+      window.__RRSRS_INSTALL_BOOTKEY__ = baseKey;
+    })();
+
+    // 3) Final namespace: origin + path + SEED_SIG + INSTALL_ID
+    const NS = fnv1aHex([location.origin, location.pathname, SEED_SIG, window.__RRSRS_INSTALL_ID__].join('|'));
+
+    // 4) Namespacing helper that bakes NS into every key
+    function obf(scope, name) {
+      return `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
+    }
+    function lsKey(name) { return `rrsrs_${name}_${NS}`; }
+
+    /************ Constants (fully namespaced) ************/
+    const DB_NAME  = `rrsrs_db_${NS}`;
+    const DB_STORE = `rrsrs_store_${NS}`;
+    const DB_VER   = 1; // DB name itself is namespaced, so version can stay 1
+
+    const IDX_EFFECTIVE = `rrsrs_idx_effective_${NS}`;
+    const META_STORE = `rrsrs_meta_${NS}`;
+
+    // Meta keys (also go through meta store)
+    const KEY_SEED_SIG = obf('k', 'seed_signature');
+    const KEY_VISIT_COUNT        = obf('k', 'visit_count');
+    const KEY_SEGMENT_START_MS   = obf('k', 'segment_start_ms');
+    const KEY_SEGMENT_100_MS     = obf('k', 'segment_100_ms');
+    const KEY_WILDCARD_LIST      = obf('k', 'wildcards_v1');
+
+    // LocalStorage keys (namespaced)
+    const LS_WATCHDOG = lsKey('watchdog');
+
+    // Spaced repetition constants
+    const SRS_INITIAL_INTERVAL_MS = 12 * 60 * 60 * 1000;   // 12h
+    const SRS_MAX_INTERVAL_MS     = 180 * 24 * 60 * 60 * 1000; // ~6 months
+    const RECENCY_SOFT_MS         = 2 * 60 * 60 * 1000;    // 2h
+    const SAME_DOMAIN_PENALTY     = 0.8;
+    const NOVELTY_BONUS           = 1.08;
+    const URGENCY_FLOOR           = 0.25;
+    const URGENCY_CEIL            = 4.0;
+
+    // Explore/edit/wildcard mixing
+    const EDIT_URL = "https://github.com/sktoushi/su/edit/in/skyway-scheduler1.html";
+    const RANDOM_PDF_MAX = 27;
+    const SAFETY_FALLBACK_URL = "https://sktoushi.github.io/su/allrecent100.html";
+    const MIX_PROB_EDIT = 0.02;
+    const MIX_PROB_EXPLORE = 0.10;
+    const MIX_PROB_WILDCARD = 0.10;
+
+    /************ IndexedDB helpers ************/
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            const store = db.createObjectStore(DB_STORE, { keyPath: 'url' });
+            if (![...store.indexNames].includes(IDX_EFFECTIVE)) {
+              store.createIndex(IDX_EFFECTIVE, 'effectiveWeight', { unique: false });
+            }
+          }
+          if (!db.objectStoreNames.contains(META_STORE)) {
+            db.createObjectStore(META_STORE); // simple KV: key -> value
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function txStore(db, mode='readonly') {
+      const tx = db.transaction(DB_STORE, mode);
+      return [tx, tx.objectStore(DB_STORE)];
+    }
+    function getAll(db) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function getOne(db, key) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function putMany(db, records) {
+      return new Promise((resolve, reject) => {
+        const [tx, store] = txStore(db, 'readwrite');
+        records.forEach(rec => store.put(rec));
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    function metaGet(db, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readonly');
+        const st = tx.objectStore(META_STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    function metaSet(db, key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(META_STORE, 'readwrite');
+        const st = tx.objectStore(META_STORE);
+        const r = st.put(value, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    /************ Weighted + SRS chooser ************/
+    function chooseWeighted(items) {
+      let total = 0;
+      for (const it of items) {
+        const base = Number(it.baseWeight || 0) || 0;
+        const dlt  = Number(it.delta || 0) || 0;
+        const w = Math.max(0, base + dlt);
+        it.effectiveWeight = w;
+        total += w;
+      }
+      if (total <= 0) {
+        total = items.reduce((s, it) => s + (Number(it.baseWeight || 0) || 0), 0) || 1;
+        let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
+        for (const it of items) {
+          acc += (Number(it.baseWeight || 0) || 0);
+          if (threshold < acc) return it;
+        }
+        return items[0];
+      }
+      let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
+      for (const it of items) {
+        acc += it.effectiveWeight;
+        if (threshold < acc) return it;
+      }
+      return items[0];
+    }
+    function ensureSRSDefaults(rec, now) {
+      if (!Number.isFinite(rec.srsReps)) rec.srsReps = 0;
+      if (!Number.isFinite(rec.srsEase)) rec.srsEase = 2.5;
+      if (!Number.isFinite(rec.srsIntervalMs)) rec.srsIntervalMs = SRS_INITIAL_INTERVAL_MS;
+      if (!Number.isFinite(rec.srsDueAtMs)) rec.srsDueAtMs = now;
+      if (!Number.isFinite(rec.lastSeenAtMs)) rec.lastSeenAtMs = 0;
+      if (!Number.isFinite(rec.srsLapses)) rec.srsLapses = 0;
+      return rec;
+    }
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+    function scoreRecord(rec, now, prevDomain) {
+      const base = Number(rec.baseWeight || 0) || 0;
+      const delta = Number(rec.delta || 0) || 0;
+      const w = Math.max(0, base + delta);
+      if (w <= 0) return 0;
+
+      ensureSRSDefaults(rec, now);
+
+      const i = Math.max(60_000, Number(rec.srsIntervalMs || 0));
+      const due = Number(rec.srsDueAtMs || 0);
+      const last = Number(rec.lastSeenAtMs || 0);
+      const reps = Number(rec.srsReps || 0);
+
+      const lateness = (now - due) / i;
+      let urgency = lateness >= 0 ? 1 + Math.min(3, lateness) : 0.25 + 0.75 * Math.max(0, 1 + lateness);
+      urgency = clamp(urgency, URGENCY_FLOOR, URGENCY_CEIL);
+
+      const since = Math.max(0, now - last);
+      const recencyFactor = clamp(since / RECENCY_SOFT_MS, 0.05, 1.0);
+
+      const sameDomain = prevDomain && (domainOf(rec.url) === prevDomain);
+      const domainFactor = sameDomain ? 0.8 : 1.0;
+
+      const novelty = (reps === 0) ? NOVELTY_BONUS : 1.0;
+      const noise = 0.97 + secureRandomFloat01() * 0.06;
+
+      return w * urgency * recencyFactor * domainFactor * novelty * noise;
+    }
+    function chooseByScore(records, now, prevDomain) {
+      let total = 0;
+      const scores = new Array(records.length);
+      for (let i = 0; i < records.length; i++) {
+        const s = scoreRecord(records[i], now, prevDomain);
+        scores[i] = s; total += s;
+      }
+      if (!(total > 0)) return chooseWeighted(records);
+      let threshold = secureRandomFloat01() * total;
+      for (let i = 0; i < records.length; i++) {
+        threshold -= scores[i];
+        if (threshold <= 0) return records[i];
+      }
+      return records[0];
+    }
+    function srsReviewUpdate(rec, now) {
+      ensureSRSDefaults(rec, now);
+      const i = Math.max(60_000, Number(rec.srsIntervalMs || SRS_INITIAL_INTERVAL_MS));
+      const due = Number(rec.srsDueAtMs || now);
+      const e0  = Number(rec.srsEase || 2.5);
+      let reps  = Number(rec.srsReps || 0);
+      let e = e0;
+      let lapses = Number(rec.srsLapses || 0);
+
+      const lateness = (now - due) / i;
+      const veryLate = lateness >= 3.0;
+
+      let newI;
+      if (veryLate) {
+        e = Math.max(1.3, e - 0.2);
+        newI = Math.max(SRS_INITIAL_INTERVAL_MS, i * 0.6);
+        reps = Math.max(1, reps);
+        lapses += 1;
+      } else if (lateness >= 0) {
+        const growth = e - 1.0;
+        const latenessBoost = Math.min(0.35, 0.12 * lateness);
+        newI = i * (1.0 + 0.5 * growth + latenessBoost);
+        e = Math.min(3.0, e + 0.03 + 0.05 * Math.min(1, lateness));
+        reps += 1;
+      } else {
+        newI = Math.max(i * 1.05, i + 30 * 60 * 1000);
+        e = Math.min(3.0, e + 0.01);
+        reps += 1;
+      }
+
+      newI = Math.min(SRS_MAX_INTERVAL_MS, Math.max(60_000, newI));
+      rec.srsIntervalMs = Math.round(newI);
+      rec.srsEase = e;
+      rec.srsReps = reps;
+      rec.srsLapses = lapses;
+      rec.srsDueAtMs = now + rec.srsIntervalMs;
+      rec.lastSeenAtMs = now;
+
+      const base = Number(rec.baseWeight || 0) || 0;
+      const dlt  = Number(rec.delta || 0) || 0;
+      rec.effectiveWeight = Math.max(0, base + dlt);
+      return rec;
+    }
+
+    /************ Bootstrap & seed sync ************/
+    async function bootstrapDB(db) {
+      const seedMap = new Map((RAW_SEED.items || []).map(it => [it.url, Number(it.probabilityWeight || 0)]));
+      const existing = await getAll(db);
+      const byUrl = new Map(existing.map(r => [r.url, r]));
+      const toPut = [];
+
+      // Store the seed signature in meta (namespaced key) for optional diagnostics
+      const prevSig = await metaGet(db, KEY_SEED_SIG);
+      if (prevSig !== SEED_SIG) {
+        await metaSet(db, KEY_SEED_SIG, SEED_SIG);
+      }
+
+      // Merge/initialize
+      for (const [url, baseWeight] of seedMap.entries()) {
+        const rec = byUrl.get(url);
+        if (rec) {
+          const bw = Number(baseWeight) || 0;
+          const dl = Number(rec.delta || 0) || 0;
+          toPut.push({ ...rec, baseWeight: bw, effectiveWeight: Math.max(0, bw + dl) });
+          byUrl.delete(url);
+        } else {
+          const bw = Number(baseWeight) || 0;
+          toPut.push({ url, baseWeight: bw, delta: 0, effectiveWeight: bw });
+        }
+      }
+      // Preserve non-seed records unchanged
+      for (const rec of byUrl.values()) { toPut.push(rec); }
+
+      await putMany(db, toPut);
+      return toPut;
+    }
+
+    /************ Wildcards (optional) ************/
+    async function getWildcards(db) {
+      const list = await metaGet(db, KEY_WILDCARD_LIST);
+      return Array.isArray(list) ? list.filter(isValidHttpUrl) : [];
+    }
+
+    /************ Main flow ************/
+    async function main() {
+      const watchdog = setTimeout(() => {
+        try { window.location.assign(SAFETY_FALLBACK_URL); } catch {}
+      }, 5000);
+
+      try {
+        const db = await openDB();
+        const records = await bootstrapDB(db);
+        const wildcardList = await getWildcards(db);
+
+        // Visit tracking w/ rolling receipts
+        const now = Date.now();
+        const rawCount = Number(await metaGet(db, KEY_VISIT_COUNT)) || 0;
+        const newCount = rawCount + 1;
+        if ((newCount % 100) === 1 && newCount > 1) {
+          const segStart = Number(await metaGet(db, KEY_SEGMENT_START_MS));
+          const seg100   = Number(await metaGet(db, KEY_SEGMENT_100_MS));
+          if (Number.isFinite(segStart) && Number.isFinite(seg100) && seg100 >= segStart) {
+            const durMs = seg100 - segStart;
+            const pretty = (function(ms){
+              const mins = ms / 60000;
+              if (mins < 60) return `${Math.round(mins)} minute${Math.round(mins)===1?'':'s'}`;
+              const hours = ms / 3600000;
+              if (hours < 24) return `${Math.round(hours)} hour${Math.round(hours)===1?'':'s'}`;
+              const days = Math.floor(ms / 86400000);
+              let remH = Math.round((ms % 86400000) / 3600000);
+              if (remH === 24) remH = 0;
+              return `${days} day${days===1?'':'s'} ${remH} hour${remH===1?'':'s'}`;
+            })(durMs);
+            const rangeFrom = new Date(segStart).toISOString();
+            const rangeTo   = new Date(seg100).toISOString();
+            const windowStartVisit = newCount - 100;
+            const windowEndVisit   = newCount - 1;
+            const receipt =
+`Page Visit Receipt
+Namespace: ${NS}
+SeedSig:   ${SEED_SIG}
+InstallId: ${window.__RRSRS_INSTALL_ID__}
+Window:    visits ${windowStartVisit} to ${windowEndVisit}
+From:      ${rangeFrom}
+To:        ${rangeTo}
+Duration:  ${pretty}`;
+            downloadText(`visit-receipt-${fmtDateStamp()}.txt`, receipt);
+            try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(receipt); } } catch {}
+            try { alert(`Visit receipt copied to clipboard:\n\n${receipt}`); } catch {}
+          }
+        }
+        if ((newCount % 100) === 1) { await metaSet(db, KEY_SEGMENT_START_MS, now); }
+        if ((newCount % 100) === 0) { await metaSet(db, KEY_SEGMENT_100_MS, now); }
+        await metaSet(db, KEY_VISIT_COUNT, newCount);
+
+        // Download buttons
+        document.getElementById('downloadBtn')?.addEventListener('click', async () => {
+          const all = await getAll(db);
+          const items = all.map(r => ({
+            probabilityWeight: Math.max(0, Math.round((Number(r.baseWeight) || 0) + (Number(r.delta) || 0))),
+            url: r.url
+          }));
+          downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
+        });
+        document.getElementById('downloadHtmlBtn')?.addEventListener('click', () => {
+          downloadHTML(`random-redirect-srs-ns-${fmtDateStamp()}.html`);
+        });
+
+        // ===== Decide next URL using the learning-optimized picker =====
+        let nextUrl = null;
+        const u = secureRandomFloat01();
+
+        if (u < MIX_PROB_EDIT) {
+          nextUrl = EDIT_URL;
+        } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
+          if (secureRandomFloat01() < 0.5) {
+            nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
+          } else {
+            const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+            nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+          }
+        } else if (wildcardList.length > 0 && secureRandomFloat01() < MIX_PROB_WILDCARD) {
+          const idx = Math.floor(secureRandomFloat01() * wildcardList.length);
+          nextUrl = wildcardList[idx];
+        } else {
+          const prevDomain = null;
+          const chosen = chooseByScore(records.length ? records : (RAW_SEED.items || []).map(it => ({
+            url: it.url, baseWeight: it.probabilityWeight, delta: 0
+          })), now, prevDomain);
+          nextUrl = chosen.url;
+
+          // Update SRS stats for the chosen record before redirect
+          const rec = await getOne(db, chosen.url);
+          const updated = srsReviewUpdate(rec || chosen, now);
+          await putMany(db, [updated]);
+        }
+
+        clearTimeout(watchdog);
+        window.location.replace(nextUrl);
+      } catch (err) {
+        console.error('Redirect flow failed:', err);
+        window.location.assign(SAFETY_FALLBACK_URL);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', main);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div><div class="badge">Random Redirect</div></div>
+    <div class="small">Learning-optimized picker with collision-proof storage namespace.</div>
+    <div class="toolbar">
+      <button id="downloadBtn" class="btn btn-accent">Download updated <span class="mono">items</span> JSON</button>
+      <button id="downloadHtmlBtn" class="btn">Download this HTML</button>
+    </div>
+    <div class="small url-line">Keys include origin, path, seed signature & a per-install ID to avoid collisions.</div>
+  </div>
+
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://instagram.com/reels" />
+    <style>body{font-family:sans-serif; padding:2rem;}</style>
+    <p>If you’re seeing this, JavaScript is disabled. You’ll be sent to Instagram Reels in a moment.</p>
+  </noscript>
+</body>
+</html>
