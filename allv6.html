@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Repository Issue Randomizer · Cognition Revamp</title>
+
+  <!-- Optional: external helper; local fallback below keeps things safe if 404 -->
+  <script src="common/random-utils.js"></script>
+
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+      --border:#1b2328;
+    }
+    html, body {
+      margin:0; padding:0; background:var(--bg); color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    main { margin: 2rem; }
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;
+    }
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-ghost{background:transparent;}
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+
+    dialog{
+      border:none; border-radius:12px; padding:0; background:#11161a; color:var(--fg);
+      width:min(680px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+    .modal{padding:1.1rem 1.25rem 1rem;}
+    .modal h2{margin:.1rem 0 .25rem 0; font-weight:700; font-size:1.2rem;}
+    .modal p{margin:0 0 .9rem 0; color:var(--muted);}
+    .grid-5{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.5rem;}
+
+    .mix-summary{
+      display:flex; align-items:center; justify-content:space-between;
+      margin:.25rem 0 0.75rem 0; color:var(--muted);
+    }
+    .pill{
+      font-size:.85rem; padding:.2rem .5rem; border-radius:.9rem;
+      background:#1c313a; color:#b2dfdb; border:1px solid rgba(255,255,255,.06);
+    }
+    .mix-rows{display:block; border-top:1px dashed rgba(255,255,255,.08);}
+    .mix-row{
+      display:grid; grid-template-columns:1fr auto auto auto; gap:.5rem; align-items:center;
+      padding:.55rem .25rem; border-bottom:1px dashed rgba(255,255,255,.08);
+    }
+    .mix-name{font-weight:700;}
+    .mix-count{
+      min-width:2.8rem; text-align:center; padding:.35rem .5rem; border-radius:.4rem;
+      background:#0f1519; border:1px solid rgba(255,255,255,.07);
+      font-variant-numeric: tabular-nums;
+    }
+    .modal-header{
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:.25rem;
+    }
+    .x-btn{border:none; background:transparent; color:var(--muted); font-size:1.1rem; cursor:pointer;}
+    .x-btn:hover{color:var(--fg);}
+    pre.diag{
+      background:#111116; border:1px solid var(--border);
+      border-radius:10px; padding:1rem; color:#dfe1e6; overflow:auto;
+    }
+    code{background:#0f1519; padding:0 .35rem; border-radius:.3rem;}
+
+    .freqrow{display:flex; align-items:center; gap:.5rem;}
+    .freqbadge{
+      padding:.35rem .6rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem;
+      background:#0f1519; color:var(--fg); font-variant-numeric:tabular-nums;
+      min-width:7ch; text-align:center;
+    }
+  </style>
+</head>
+<body>
+<main id="app"></main>
+
+<dialog id="mixDialog" aria-labelledby="mixTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="mixTitle">Formula Mix · Current Counts</h2>
+      <button class="x-btn" id="closeModalBtn" aria-label="Close">✕</button>
+    </div>
+    <p>
+      Adjust how often each <em>family</em> is used. Counts are non-negative and saved instantly.
+      At least <code>one</code> family always remains at <code>1</code>.
+    </p>
+
+    <div class="mix-summary">
+      <span class="small">Your current distribution across families</span>
+      <span>Total: <span class="pill" id="totalCountPill">0</span></span>
+    </div>
+
+    <div id="mixRows" class="mix-rows"></div>
+
+    <div class="field" style="margin-top:1rem; display:grid; grid-template-columns:1fr auto; gap:.5rem; align-items:center;">
+      <label class="small">Modal frequency</label>
+      <div class="freqrow">
+        <button id="freqDec" type="button" class="btn btn-small" aria-label="Decrease by 5 minutes">−5m</button>
+        <span id="freqValue" class="freqbadge small">10 min</span>
+        <button id="freqInc" type="button" class="btn btn-small" aria-label="Increase by 5 minutes">+5m</button>
+      </div>
+    </div>
+    <div class="small" style="margin:.25rem 0 .5rem 0;">We’ll still show this at least once every 15 minutes.</div>
+
+    <div class="toolbar" style="margin-top:1rem;">
+      <button class="btn btn-small" id="resetDefaultsBtn" title="Reset to built-in defaults">Reset</button>
+      <button class="btn btn-small" id="zeroAllBtn" title="Set all to 0 except one kept at 1">Almost zero</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-accent btn-small" id="saveAndGoBtn">Save & Continue</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ===========================
+   Cognition Revamp Sampler
+   =========================== */
+
+/* ========= HARDENING ========= */
+const NS = 'rrx_revamp_v5_2025_11';
+
+const DB_NAME = `${NS}_db`;
+const DB_VERSION = 1;
+const STORE_CONFIG = `${NS}_cfg`;
+const STORE_SETTINGS = `${NS}_settings`;
+const STORE_META = `${NS}_meta`;
+
+/* Local fallback for a crypto RNG if external file is missing */
+function getSecureRandom01() {
+  const u = new Uint32Array(1);
+  (window.crypto || window.msCrypto).getRandomValues(u);
+  return u[0] / 0xffffffff;
+}
+if (typeof window.getSecureRandomNumber !== 'function') {
+  window.getSecureRandomNumber = () => getSecureRandom01();
+}
+
+/* ---------- IndexedDB helpers ---------- */
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if (!db.objectStoreNames.contains(STORE_CONFIG)) db.createObjectStore(STORE_CONFIG);
+      if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
+      if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbGet(store, key) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const st = tx.objectStore(store);
+    const r = st.get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  }));
+}
+function idbSet(store, key, value) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const st = tx.objectStore(store);
+    const r = st.put(value, key);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  }));
+}
+
+/* ================== Visible families, adaptive expansion ================== */
+const VISIBLE_FAMILIES = [
+  'random',     // balanced exploration
+  'recency',    // emphasize newer items
+  'oldest',     // emphasize oldest items
+  'bell',       // center-loaded practice
+  'spaced',     // due/overdue SRS focus
+  'interleave', // pattern breaks, alternation
+  'novelty'     // unseen & surprisingness
+];
+
+/* default knobs exposed to user */
+const DEFAULT_MIX = {
+  random: 1,
+  recency: 2,
+  oldest: 1,
+  bell: 1,
+  spaced: 2,
+  interleave: 1,
+  novelty: 1
+};
+
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+const MODAL_SHOW_PROBABILITY = 0.15;
+const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+const USER_MIN_FREQ_MINUTES = 5;
+const STEP_MINUTES = 5;
+
+/* ================== Modal UI wires ================== */
+const mixDialog = document.getElementById('mixDialog');
+const mixRowsContainer = document.getElementById('mixRows');
+const totalCountPill = document.getElementById('totalCountPill');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+const zeroAllBtn = document.getElementById('zeroAllBtn');
+const saveAndGoBtn = document.getElementById('saveAndGoBtn');
+
+const freqDecBtn = document.getElementById('freqDec');
+const freqIncBtn = document.getElementById('freqInc');
+const freqValueEl = document.getElementById('freqValue');
+
+let currentMix = { ...DEFAULT_MIX };
+let currentFreqMinutes = DEFAULT_USER_INTERVAL_MS / 60000;
+let modalTimeoutId = null;
+
+function openModal() { try { mixDialog.showModal(); } catch { mixDialog.show(); } }
+function closeModal() { try { mixDialog.close(); } catch { mixDialog.open = false; } }
+
+function sumMix(mix) {
+  return Object.values(mix).reduce((a,b)=>a + (Number(b)||0), 0);
+}
+function weightedChoiceFromMix(mix, fallbackList) {
+  const entries = Object.entries(mix).filter(([k,v]) => (Number(v)||0) > 0);
+  const total = entries.reduce((a,[,v]) => a + Number(v), 0);
+  if (total <= 0) {
+    const list = Array.isArray(fallbackList) && fallbackList.length ? fallbackList : VISIBLE_FAMILIES;
+    const idx = Math.floor(getSecureRandom01() * list.length);
+    return list[idx];
+  }
+  let r = getSecureRandom01() * total;
+  for (const [name, wRaw] of entries) {
+    const w = Number(wRaw);
+    if (r < w) return name;
+    r -= w;
+  }
+  return entries[entries.length - 1][0];
+}
+
+function isLastNonZero(name) {
+  let nonZero = VISIBLE_FAMILIES.filter(k => (Number(currentMix[k])||0) > 0);
+  return nonZero.length === 1 && nonZero[0] === name;
+}
+function nextMinusAllowed(name) {
+  const v = Number(currentMix[name])||0;
+  if (v <= 0) return false;
+  if (isLastNonZero(name) && v <= 1) return false;
+  return true;
+}
+function renderMixRows() {
+  mixRowsContainer.innerHTML = '';
+  VISIBLE_FAMILIES.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'mix-row';
+
+    const label = document.createElement('div');
+    label.className = 'mix-name';
+    label.textContent = name;
+
+    const minus = document.createElement('button');
+    minus.className = 'btn btn-small';
+    minus.textContent = '–';
+
+    const count = document.createElement('div');
+    count.className = 'mix-count';
+    count.id = `count-${name}`;
+    count.textContent = String(Number(currentMix[name]) || 0);
+
+    const plus = document.createElement('button');
+    plus.className = 'btn btn-small';
+    plus.textContent = '+';
+
+    const refreshDisabled = () => { minus.disabled = !nextMinusAllowed(name); };
+    refreshDisabled();
+
+    minus.addEventListener('click', async () => {
+      if (!nextMinusAllowed(name)) return;
+      currentMix[name] = Math.max(0, (Number(currentMix[name])||0) - 1);
+      await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+      count.textContent = String(currentMix[name]);
+      updateTotalsAndButtons();
+    });
+
+    plus.addEventListener('click', async () => {
+      currentMix[name] = Math.max(0, (Number(currentMix[name])||0) + 1);
+      await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+      count.textContent = String(currentMix[name]);
+      updateTotalsAndButtons();
+    });
+
+    row.appendChild(label);
+    row.appendChild(minus);
+    row.appendChild(count);
+    row.appendChild(plus);
+    mixRowsContainer.appendChild(row);
+  });
+  updateTotalsAndButtons();
+}
+function updateTotalsAndButtons() {
+  VISIBLE_FAMILIES.forEach(name => {
+    const el = document.getElementById(`count-${name}`);
+    if (el) el.textContent = String(Number(currentMix[name]) || 0);
+  });
+  totalCountPill.textContent = String(sumMix(currentMix));
+  const rows = mixRowsContainer.querySelectorAll('.mix-row');
+  rows.forEach((row, idx) => {
+    const name = VISIBLE_FAMILIES[idx];
+    const minusBtn = row.querySelector('.btn.btn-small');
+    if (minusBtn) minusBtn.disabled = !nextMinusAllowed(name);
+  });
+  if (freqValueEl) freqValueEl.textContent = `${currentFreqMinutes} min`;
+}
+
+closeModalBtn.addEventListener('click', async () => {
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
+  closeModal();
+});
+resetDefaultsBtn.addEventListener('click', async () => {
+  currentMix = { ...DEFAULT_MIX };
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  renderMixRows();
+});
+zeroAllBtn.addEventListener('click', async () => {
+  const preserved = VISIBLE_FAMILIES.includes('random') ? 'random' : VISIBLE_FAMILIES[0];
+  const z = {};
+  VISIBLE_FAMILIES.forEach(n => z[n] = (n === preserved ? 1 : 0));
+  currentMix = z;
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  renderMixRows();
+});
+saveAndGoBtn.addEventListener('click', async () => {
+  if (modalTimeoutId !== null) { clearTimeout(modalTimeoutId); modalTimeoutId = null; }
+  if (VISIBLE_FAMILIES.every(n => (Number(currentMix[n])||0) === 0)) {
+    currentMix['random'] = 1;
+  }
+  await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, roundToStep(currentFreqMinutes));
+  await idbSet(STORE_META, 'lastModalShown', Date.now());
+  closeModal();
+  proceedAfterMixSaved().catch(err => {
+    document.body.innerHTML = '<pre class="diag"></pre>';
+    document.querySelector('pre.diag').textContent = String(err && err.message || err);
+  });
+});
+function wireFrequencyControls() {
+  if (!freqDecBtn || !freqIncBtn || !freqValueEl) return;
+  freqDecBtn.onclick = () => {
+    currentFreqMinutes = Math.max(USER_MIN_FREQ_MINUTES, currentFreqMinutes - STEP_MINUTES);
+    updateTotalsAndButtons();
+  };
+  freqIncBtn.onclick = () => {
+    currentFreqMinutes = currentFreqMinutes + STEP_MINUTES;
+    updateTotalsAndButtons();
+  };
+}
+function roundToStep(valueMinutes) {
+  return Math.max(USER_MIN_FREQ_MINUTES, Math.round(valueMinutes / STEP_MINUTES) * STEP_MINUTES);
+}
+
+/* ================== SRS Model (local) ================== */
+const SRS_KEY = `${NS}_srs_v1`;
+function readSrs() {
+  try { return JSON.parse(localStorage.getItem(SRS_KEY) || '{}'); } catch { return {}; }
+}
+function writeSrs(obj) {
+  try { localStorage.setItem(SRS_KEY, JSON.stringify(obj)); } catch {}
+}
+/* mark a URL as studied; advance interval on an easy default ladder */
+function srsMarkStudied(url) {
+  const srs = readSrs();
+  const now = Date.now();
+  const day = 86400000;
+
+  const rec = srs[url] || { ease: 2.3, intervalDays: 0, streak: 0, reps: 0 };
+  const seq = [0, 1, 3, 7, 16, 35]; // simple growth
+  const nextIndex = Math.min(seq.length - 1, (rec.streak||0) + 1);
+  const nextInterval = seq[nextIndex];
+
+  srs[url] = {
+    ...rec,
+    reps: (rec.reps||0) + 1,
+    streak: (rec.streak||0) + 1,
+    intervalDays: nextInterval,
+    lastTs: now,
+    dueTs: now + nextInterval * day
+  };
+  writeSrs(srs);
+}
+
+/* ================== History/Fairness Memory ================== */
+const MEM_KEY = `${NS}_mem_v2`;
+function readMem() {
+  try { return JSON.parse(localStorage.getItem(MEM_KEY) || '{}'); } catch { return {}; }
+}
+function writeMem(obj) {
+  try { localStorage.setItem(MEM_KEY, JSON.stringify(obj)); } catch {}
+}
+
+/* ================== Revamped Sampler ==================
+   - Feature kernels over index position and per-URL SRS state
+   - Adaptive coefficients per family + environment (overdue/fresh mix)
+   - Softmax with temperature (explore/exploit control)
+   - Fairness (under-sampled boost) and recency gating
+*/
+function computeFeatures(n, issues) {
+  const srs = readSrs();
+  const mem = readMem();
+  const now = Date.now();
+  const day = 86400000;
+
+  const x = new Array(n).fill(0).map((_,i)=> n<=1 ? 0 : i/(n-1)); // [0..1]
+
+  // basic positional kernels
+  const recency = x.slice();               // newer to the right
+  const oldest = x.map(v => 1 - v);        // older to the left
+  const gaussian = (mu, sigma) => x.map(v => Math.exp(-0.5*Math.pow((v-mu)/(sigma||1e-6),2)));
+  const bell = gaussian(0.5, 0.18);
+  const edges = x.map((v, i) => Math.max(Math.exp(-0.5*Math.pow(v/0.14,2)), Math.exp(-0.5*Math.pow((1-v)/0.14,2))));
+
+  // interleave/alternation kernels
+  const alt = new Array(n).fill(0).map((_,i)=> (i % 2 === 0 ? 1 : 0));
+  const blocks = (() => {
+    const size = Math.max(3, Math.floor(Math.sqrt(Math.max(1,n))));
+    return new Array(n).fill(0).map((_,i)=> (i%size===0 || i%size===size-1) ? 1 : 0.3);
+  })();
+
+  // per-URL derived kernels
+  const srsData = issues.map(u => srs[u]);
+  const memCounts = issues.map(u => (mem.counts && mem.counts[u]) || 0);
+  const memLast = issues.map(u => (mem.last && mem.last[u]) || 0);
+
+  // novelty: unseen or low reps
+  const novelty = srsData.map(r => r ? Math.max(0.2, 1 - Math.min(1, (r.reps||0)/5)) : 1.0);
+
+  // due/overdue: tanh curve (caps), negative if far future
+  const due = srsData.map(r => {
+    if (!r) return 0.6; // prefer introducing new but not dominate
+    const dts = (now - (r.dueTs||now)) / day; // days overdue (neg = not due yet)
+    if (dts >= 0) return 0.8 + 0.7*Math.tanh(dts/3);
+    const until = -dts;
+    if (until < 1) return 0.35;           // close to due
+    if (until < Math.max(2, 0.75*(r.intervalDays||1))) return 0.15;
+    return -0.15; // far future
+  });
+
+  // difficulty proxy from ease (lower ease => harder)
+  const difficulty = srsData.map(r => r ? (0.9 - 0.25 * Math.min(1.6, Math.max(0, (r.ease||2.3)-1.3))) : 0.5);
+
+  // recency gate: suppress if seen too recently, boost if long not seen
+  const deltas = memLast.map(ts => ts ? now - ts : Infinity);
+  const finiteDeltas = deltas.filter(d => Number.isFinite(d));
+  const meanDelta = finiteDeltas.length ? finiteDeltas.reduce((a,b)=>a+b,0)/finiteDeltas.length : 6*3600*1000;
+  const recencyGate = deltas.map(d => {
+    if (!Number.isFinite(d)) return 1.08;        // never seen -> slight bump
+    if (d < 60*60*1000) return 0.25;            // seen within 1h
+    const x = (d - meanDelta) / (0.6*meanDelta || 1);
+    return 1 + 0.6*Math.exp(-x*x);              // around "due to revisit" window
+  });
+
+  // fairness: inverse count (under-sampled gets more)
+  const fairness = memCounts.map(c => 1 / (1 + c));
+
+  // entropy-balancing hint: reward options that reduce distribution collapse
+  // approximate: prefer mid-prob mass by a gentle bell around median index
+  const entropyShape = gaussian(0.5, 0.28);
+
+  return { recency, oldest, bell, edges, alt, blocks, novelty, due, difficulty, recencyGate, fairness, entropyShape };
+}
+
+const FAMILY_COEFS = {
+  random:     { bias:0.0, recency:0.2, oldest:0.2, bell:0.2, edges:0.1, interleave:0.2, spaced:0.2, novelty:0.3, fairness:0.6, due:0.2, difficulty:0.15, entropy:0.2 },
+  recency:    { bias:0.0, recency:1.2, oldest:0.0, bell:0.2, edges:0.1, interleave:0.2, spaced:0.5, novelty:0.3, fairness:0.4, due:0.6, difficulty:0.2, entropy:0.15 },
+  oldest:     { bias:0.0, recency:-0.2, oldest:1.2, bell:0.2, edges:0.2, interleave:0.1, spaced:0.5, novelty:0.2, fairness:0.7, due:0.5, difficulty:0.25, entropy:0.15 },
+  bell:       { bias:0.0, recency:0.1, oldest:0.1, bell:1.3, edges:0.4, interleave:0.1, spaced:0.4, novelty:0.2, fairness:0.4, due:0.5, difficulty:0.2, entropy:0.25 },
+  spaced:     { bias:0.0, recency:-0.2, oldest:0.3, bell:0.1, edges:0.1, interleave:0.1, spaced:1.3, novelty:0.2, fairness:0.4, due:1.0, difficulty:0.3, entropy:0.1 },
+  interleave: { bias:0.0, recency:0.2, oldest:0.2, bell:0.1, edges:0.1, interleave:1.1, spaced:0.5, novelty:0.2, fairness:0.8, due:0.4, difficulty:0.2, entropy:0.2 },
+  novelty:    { bias:0.0, recency:0.5, oldest:0.0, bell:0.2, edges:0.2, interleave:0.2, spaced:0.3, novelty:1.3, fairness:0.5, due:0.3, difficulty:0.15, entropy:0.2 }
+};
+
+/* Adaptive coefficient nudges based on environment */
+function adaptCoefs(base, env) {
+  const c = { ...base };
+  if (env.fracOverdue > 0.2) { c.due = (c.due||0) + 0.5; c.spaced = (c.spaced||0) + 0.5; }
+  if (env.fracFresh  > 0.4) { c.novelty = (c.novelty||0) + 0.4; c.recency = (c.recency||0) + 0.2; }
+  if (env.lowFairness) { c.fairness = (c.fairness||0) + 0.3; }
+  return c;
+}
+
+/* Build scores for a given family */
+function buildScoresForFamily(family, issues) {
+  const n = issues.length;
+  if (!n) return { probs: [], diag: { reason:'no-issues' } };
+
+  // environment scan
+  const srs = readSrs();
+  const now = Date.now();
+  const day = 86400000;
+  let fresh=0, overdue=0, seen=0;
+  for (const u of issues) {
+    const r = srs[u];
+    if (!r) fresh++;
+    else {
+      seen++;
+      if ((now - (r.dueTs||now)) >= 0) overdue++;
+    }
+  }
+  const fracFresh = fresh/n;
+  const fracOverdue = overdue/n;
+
+  // fairness signal
+  const mem = readMem();
+  const counts = (mem.counts)||{};
+  const values = issues.map(u => counts[u]||0);
+  const mean = values.reduce((a,b)=>a+b,0)/Math.max(1,values.length);
+  const variance = values.reduce((a,b)=>a+Math.pow(b-mean,2),0)/Math.max(1,values.length);
+  const lowFairness = variance > 2.5; // arbitrary but effective threshold
+
+  const features = computeFeatures(n, issues);
+
+  // choose coefficients
+  const base = FAMILY_COEFS[family] || FAMILY_COEFS.random;
+  const coefs = adaptCoefs(base, { fracFresh, fracOverdue, lowFairness });
+
+  // combine into log-scores (linear mixture before softmax)
+  const z = new Array(n).fill(0).map((_,i)=>{
+    const interleave = 0.6*features.alt[i] + 0.4*features.blocks[i];
+    const spacedSignal = features.due[i] * features.recencyGate[i]; // compound spacing signal
+
+    return (coefs.bias||0)
+      + (coefs.recency||0)    * features.recency[i]
+      + (coefs.oldest||0)     * features.oldest[i]
+      + (coefs.bell||0)       * features.bell[i]
+      + (coefs.edges||0)      * features.edges[i]
+      + (coefs.interleave||0) * interleave
+      + (coefs.spaced||0)     * spacedSignal
+      + (coefs.novelty||0)    * features.novelty[i]
+      + (coefs.fairness||0)   * features.fairness[i]
+      + (coefs.due||0)        * features.due[i]
+      + (coefs.difficulty||0) * features.difficulty[i]
+      + (coefs.entropy||0)    * features.entropyShape[i];
+  });
+
+  // adaptive temperature: exploit more when lots is overdue; explore when mostly fresh
+  let T = 3.0;
+  if (fracOverdue > 0.35) T = 2.2;
+  else if (fracFresh > 0.5) T = 3.8;
+
+  // small Gaussian noise to avoid ties & encourage diversity
+  for (let i=0;i<n;i++) {
+    // Box–Muller
+    let u1=0,u2=0;
+    while(u1===0) u1=getSecureRandom01();
+    while(u2===0) u2=getSecureRandom01();
+    const g = Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+    z[i] += g * 0.05;
+  }
+
+  // softmax with temperature
+  const zScaled = z.map(v => v * T);
+  const maxZ = Math.max.apply(null, zScaled);
+  const expZ = zScaled.map(v => Math.exp(Math.min(50, v - maxZ))); // numerical safety
+  const sumExp = expZ.reduce((a,b)=>a+b,0) || 1;
+  const probs = expZ.map(v => v / sumExp);
+
+  return {
+    probs,
+    diag: { family, T, fracFresh: Number(fracFresh.toFixed(3)), fracOverdue: Number(fracOverdue.toFixed(3)), lowFairness }
+  };
+}
+
+/* Sample index from distribution and update fairness memory */
+function sampleIndex(probs, issues) {
+  const r = getSecureRandom01();
+  let acc = 0, idx = probs.length - 1;
+  for (let i=0;i<probs.length;i++) { acc += probs[i]; if (r < acc) { idx = i; break; } }
+  // update memory counts/last
+  const mem = readMem();
+  const url = issues[idx];
+  mem.counts = mem.counts || {};
+  mem.last = mem.last || {};
+  mem.counts[url] = (mem.counts[url]||0) + 1;
+  mem.last[url] = Date.now();
+  mem.lastRun = Date.now();
+  writeMem(mem);
+  return idx;
+}
+
+/* ================== Boot ================== */
+(async () => {
+  try {
+    // Load or seed settings
+    let existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');
+    if (!existingMix) await idbSet(STORE_SETTINGS, 'formulaMix', { ...DEFAULT_MIX });
+    currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
+
+    let storedFreq = await idbGet(STORE_SETTINGS, KEY_FREQ_MINUTES);
+    if (typeof storedFreq !== 'number' || !Number.isFinite(storedFreq) || storedFreq <= 0) {
+      storedFreq = DEFAULT_USER_INTERVAL_MS / 60000;
+    }
+    currentFreqMinutes = roundToStep(storedFreq);
+    await idbSet(STORE_SETTINGS, KEY_FREQ_MINUTES, currentFreqMinutes);
+
+    // Config (safer relative fetch)
+    const configUrl = new URL('./config/all.json', window.location.href).toString();
+
+    let cfg = await idbGet(STORE_CONFIG, 'all');
+    if (!cfg) {
+      const res = await fetch(configUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to load config (${res.status})`);
+      cfg = await res.json();
+      await idbSet(STORE_CONFIG, 'all', cfg);
+    }
+
+    const repos = cfg.repositories || {};
+    const issues = [];
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+    const n = issues.length;
+
+    // Modal cadence
+    const lastShown = await idbGet(STORE_META, 'lastModalShown');
+    const now = Date.now();
+    const elapsed = lastShown ? (now - Number(lastShown)) : Infinity;
+
+    const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS;
+    const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
+    const wantsSoftShow = eligibleByUser && (getSecureRandom01() < MODAL_SHOW_PROBABILITY);
+    const wantShow = mustShow || wantsSoftShow;
+
+    renderMixRows();
+    wireFrequencyControls();
+    updateTotalsAndButtons();
+
+    if (wantShow) {
+      await idbSet(STORE_META, 'lastModalShown', now);
+      openModal();
+      modalTimeoutId = setTimeout(() => {
+        closeModal();
+        proceedAfterMixSaved().catch(err => {
+          document.body.innerHTML = '<pre class="diag"></pre>';
+          document.querySelector('pre.diag').textContent = String(err && err.message || err);
+        });
+      }, 30_000);
+      return;
+    }
+
+    await proceedAfterMixSaved();
+
+  } catch (e) {
+    document.body.innerHTML = '<main><pre class="diag"></pre></main>';
+    document.querySelector('pre.diag').textContent = e && e.message ? e.message : String(e);
+  }
+})();
+
+async function proceedAfterMixSaved() {
+  currentMix = (await idbGet(STORE_SETTINGS, 'formulaMix')) || { ...DEFAULT_MIX };
+  if (VISIBLE_FAMILIES.every(n => (Number(currentMix[n])||0) === 0)) {
+    currentMix['random'] = 1;
+    await idbSet(STORE_SETTINGS, 'formulaMix', currentMix);
+  }
+
+  const cfg = await idbGet(STORE_CONFIG, 'all');
+  const repos = cfg.repositories || {};
+  const issues = [];
+  for (const [repo, info] of Object.entries(repos)) {
+    const start = Number(info.issueStartNumber);
+    const end = Number(info.issueEndNumber);
+    const user = info.username;
+    for (let i = start; i <= end; i++) {
+      issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+    }
+  }
+
+  // 1) choose a family from the user-exposed mix
+  const chosenFamily = weightedChoiceFromMix(currentMix, VISIBLE_FAMILIES);
+
+  // 2) compute distribution with the revamped sampler
+  const { probs, diag } = buildScoresForFamily(chosenFamily, issues);
+  if (!probs || probs.length === 0) throw new Error('No issues available.');
+
+  // 3) sample one index, update fairness memory
+  const idx = sampleIndex(probs, issues);
+  const chosen = issues[idx];
+
+  // 4) mark SRS (so every iteration refers to an SRS entry)
+  srsMarkStudied(chosen);
+
+  // 5) go
+  location.href = chosen;
+
+  // Optional diag (will only appear if navigation is blocked/slow)
+  document.addEventListener('DOMContentLoaded', () => {
+    const pre = document.createElement('pre');
+    pre.className = 'diag';
+    const top5 = probs
+      .map((p,i) => ({ p, i }))
+      .sort((a,b)=>b.p-a.p)
+      .slice(0,5)
+      .map(o => `${o.i}:${o.p.toFixed(4)}`)
+      .join(', ');
+    pre.textContent =
+`Family: ${diag.family}
+Temp: ${diag.T}
+Fresh: ${diag.fracFresh}, Overdue: ${diag.fracOverdue}, LowFairness: ${diag.lowFairness}
+Top5 (idx:prob): ${top5}
+Selected: ${chosen}`;
+    document.getElementById('app').appendChild(pre);
+  });
+}
+</script>
+</body>
+</html>
