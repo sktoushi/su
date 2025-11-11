@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pure Uniform Random Redirect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html,body{height:100%;margin:0;background:#0b0c10;color:#cfd8dc;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{display:grid;place-items:center;height:100vh;text-align:center;gap:.5rem}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    .small{opacity:.8}
+    a{color:#7cb342}
+  </style>
+  <script>
+    // List your URLs here. All have equal probability.
+    const URLS = [
+      "https://sktoushi.github.io/su/vsc5.html",
+      "https://sktoushi.github.io/su/vsc5.html"
+    ];
+
+    // Cryptographically-strong uniform integer in [0, n)
+    function randIndex(n){
+      if (n <= 1) return 0;
+      const u32 = new Uint32Array(1);
+      const limit = Math.floor(0x100000000 / n) * n; // rejection sampling
+      let x;
+      do { crypto.getRandomValues(u32); x = u32[0]; } while (x >= limit);
+      return x % n;
+    }
+
+    function go(){
+      const fallback = "https://sktoushi.github.io/su/allrecent100.html";
+      const list = Array.from(new Set(URLS.filter(Boolean))); // de-dup and sanitize
+      const target = list.length ? list[randIndex(list.length)] : fallback;
+
+      // Show the chosen link (helps if redirects are blocked)
+      const a = document.getElementById("chosen");
+      if (a){ a.textContent = target; a.href = target; }
+
+      // Redirect now
+      try { window.location.replace(target); }
+      catch { window.location.assign(target); }
+    }
+
+    document.addEventListener("DOMContentLoaded", go);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="small">Choosing a random destination…</div>
+    <div class="mono"><a id="chosen" href="#" rel="noreferrer noopener">Preparing…</a></div>
+    <div class="small">If auto-redirect is blocked, click the link above.</div>
+  </div>
+
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://sktoushi.github.io/su/allrecent100.html" />
+    <div class="wrap"><p class="small">JavaScript is disabled. Redirecting…</p></div>
+  </noscript>
+</body>
+</html>
