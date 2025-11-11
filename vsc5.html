@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Random Redirect</title>
+<script>
+  // Given prefix (with trailing %)
+  const prefix = "https://github.com/sktoushi/vsc5/blob/main/%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%BC%E3%83%B3%E3%82%B7%E3%83%A7%E3%83%83%E3%83%88%202025-11-11%";
+
+  // Always convert trailing '%' → '%20'
+  const fixedPrefix = prefix.replace(/%$/, '%20');
+
+  const suffixes = [
+"210123.png","210129.png","210134.png","210138.png","210143.png","210149.png","210154.png","210200.png","210205.png","210213.png","210218.png","210230.png","210234.png","210238.png","210242.png","210246.png","210253.png","210258.png","210302.png","210307.png","210312.png","210317.png","210321.png","210329.png","210333.png","210338.png","210343.png","210349.png","210356.png","210400.png","210405.png","210410.png","210415.png","210418.png","210423.png","210427.png","210438.png","210443.png","210448.png","210453.png","210457.png","210505.png","210509.png","210513.png","204710.png","204721.png","204743.png","204753.png","204800.png","204814.png","204823.png","204835.png","204842.png","204849.png","204856.png","204904.png","204917.png","205000.png","205140.png","205149.png","205159.png","205216.png","205224.png","205235.png","205244.png","205251.png","205259.png","205305.png","205311.png","205316.png","205328.png","205334.png","205340.png","205419.png","205425.png","205432.png","205436.png","205441.png","205445.png","205450.png","205458.png","205506.png","205512.png","205517.png","205524.png","205530.png","205536.png","205543.png","205548.png","205556.png","205615.png","205621.png","205626.png","205630.png","205637.png","205644.png","205702.png","205708.png","205715.png","205722.png","205727.png","205738.png","205743.png","205748.png","205754.png","205757.png","205834.png","205839.png","205843.png","205854.png","205900.png","205910.png","205915.png","205923.png","205927.png","205933.png","205939.png","205944.png","205950.png","205955.png","205959.png","210007.png","210012.png","210017.png","210022.png","210028.png","210035.png","210042.png","210049.png","204414.png","204419.png","204443.png","204449.png","204505.png","204513.png","204530.png","204535.png","204541.png","204547.png","204558.png","204617.png","204629.png","204638.png","204648.png","204655.png","204703.png","210057.png","210102.png","210110.png","210116.png"
+  ];
+
+  (function go() {
+    const r = Math.floor(Math.random() * suffixes.length);
+    const url = fixedPrefix + suffixes[r];
+    // Redirect (sample correct form like ...%20205959.png)
+    location.replace(url);
+  })();
+</script>
