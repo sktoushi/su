@@ -6,6 +6,14 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const urls = [
+        "https://github.com/mdr19ganseki95cf/log/issues/128",
+        "https://github.com/mdr19ganseki95cf/log/issues/124",
+        "https://github.com/mdr19ganseki95cf/log/issues/123",
+        "https://github.com/mdr19ganseki95cf/log/issues/122",
+        "https://github.com/mdr19ganseki95cf/log/issues/120",
+        "https://github.com/mdr19ganseki95cf/log/issues/117",
+        "https://github.com/mdr19ganseki95cf/log/issues/116",
+
         "https://github.com/mdr19ganseki95cf/log/issues/115", 
         "https://github.com/mdr19ganseki95cf/log/issues/112",
         "https://github.com/mdr19ganseki95cf/log/issues/108",
@@ -32,7 +40,6 @@
         "https://github.com/mdr19ganseki95cf/log/issues/62",
         "https://github.com/mdr19ganseki95cf/log/issues/58",
         "https://github.com/mdr19ganseki95cf/log/issues/52",
-        "https://github.com/mdr19ganseki95cf/log/issues/52",
         "https://github.com/mdr19ganseki95cf/log/issues/42",
         "https://github.com/mdr19ganseki95cf/log/issues/39",
         "https://github.com/mdr19ganseki95cf/log/issues/38",
@@ -47,6 +54,7 @@
         "https://github.com/mdr19ganseki95cf/log/issues/23",
         "https://github.com/mdr19ganseki95cf/log/issues/20",
         "https://github.com/mdr19ganseki95cf/log/issues/19",
+
         "https://github.com/mdr19ganseki95cf/stash/issues/1517",
         "https://github.com/mdr19ganseki95cf/stash/issues/1480",
         "https://github.com/mdr19ganseki95cf/stash/issues/1072",
@@ -63,22 +71,19 @@
         "https://github.com/mdr19ganseki95cf/stash/issues/2058",
         "https://github.com/mdr19ganseki95cf/stash/issues/1889",
         "https://github.com/mdr19ganseki95cf/stash/issues/1516",
+
         "https://github.com/sktoushi/stash2/issues/1410",
         "https://github.com/sktoushi/stash2/issues/2696",
-        "https://github.com/sktoushi/stash2/issues/2696",
-        "https://github.com/sktoushi/stash2/issues/2696",
-        "https://github.com/sktoushi/stash2/issues/2419",
-        "https://github.com/sktoushi/stash2/issues/2419",
         "https://github.com/sktoushi/stash2/issues/2419",
         "https://github.com/sktoushi/stash2/issues/2059",
         "https://github.com/sktoushi/stash2/issues/2058",
         "https://github.com/sktoushi/stash2/issues/1867",
         "https://github.com/sktoushi/stash2/issues/1730",
+
         "https://github.com/mdr19ganseki95cf/stash3/issues/4231",
         "https://github.com/mdr19ganseki95cf/stash3/issues/3982",
         "https://github.com/mdr19ganseki95cf/stash3/issues/3465",
         "https://github.com/mdr19ganseki95cf/stash3/issues/3483",
-        "https://github.com/mdr19ganseki95cf/stash3/issues/3465",
         "https://github.com/mdr19ganseki95cf/stash3/issues/2187",
         "https://github.com/mdr19ganseki95cf/stash3/issues/1812",
         "https://github.com/mdr19ganseki95cf/stash3/issues/1756",
@@ -86,21 +91,26 @@
         "https://github.com/mdr19ganseki95cf/stash3/issues/1331"
       ];
 
-      // Pick a random index
-      const randomIndex = Math.floor(Math.random() * urls.length);
-      const selected = urls[randomIndex];
-      
-      // Redirect
+      const selected = urls[Math.floor(Math.random() * urls.length)];
       window.location.href = selected;
     });
   </script>
 </head>
 <body>
-  <p>Redirecting you to a random item… If you are not redirected automatically, <a id="fallback" href="#">click here</a>.</p>
+  <p>Redirecting you to a random item… If not redirected, <a id="fallback" href="#">click here</a>.</p>
+
   <script>
     document.getElementById("fallback").href = (() => {
       const urls = [
-        /* same array again or reuse above variable */
+        "https://github.com/mdr19ganseki95cf/log/issues/128",
+        "https://github.com/mdr19ganseki95cf/log/issues/124",
+        "https://github.com/mdr19ganseki95cf/log/issues/123",
+        "https://github.com/mdr19ganseki95cf/log/issues/122",
+        "https://github.com/mdr19ganseki95cf/log/issues/120",
+        "https://github.com/mdr19ganseki95cf/log/issues/117",
+        "https://github.com/mdr19ganseki95cf/log/issues/116",
+
+        /* same list as above … */
       ];
       return urls[Math.floor(Math.random() * urls.length)];
     })();
