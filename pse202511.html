@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Random Redirect</title>
+  <script>
+    (function () {
+      // 1) Paste your URLs between the backticks (keep one URL per line)
+      const RAW_URLS = `
+PASTE YOUR URLS HERE (one per line)
+`.trim();
+
+      // 2) Turn that into a clean array
+      const urls = RAW_URLS
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!urls.length) {
+        document.addEventListener("DOMContentLoaded", () => {
+          document.body.innerHTML = "<p><b>Error:</b> No URLs found. Paste your list into RAW_URLS.</p>";
+        });
+        return;
+      }
+
+      // 3) Pick + redirect immediately
+      const picked = urls[Math.floor(Math.random() * urls.length)];
+      // encodeURI helps if any URLs contain spaces/brackets, etc.
+      const target = encodeURI(picked);
+
+      // Expose for fallback link if redirect is blocked
+      window.__pickedTarget = target;
+
+      // "replace" avoids adding the randomizer page to browser history
+      window.location.replace(target);
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting…</p>
+  <p>If you aren’t redirected, <a id="fallback" href="#">click here</a>.</p>
+
+  <script>
+    // If redirect is blocked, this link lets the user proceed
+    (function () {
+      const a = document.getElementById("fallback");
+      if (a && window.__pickedTarget) a.href = window.__pickedTarget;
+    })();
+  </script>
+
+  <noscript>
+    <p>This page needs JavaScript enabled to pick a random URL and redirect.</p>
+  </noscript>
+</body>
+</html>
