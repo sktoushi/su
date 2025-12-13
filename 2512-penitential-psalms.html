@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seven Penitential Psalms • Litany of the Saints • Pater Noster</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0f0f12;
+      --card:#15151c;
+      --muted:#a8a8b3;
+      --en:#b9c2ff;
+      --la:#e9e9ef;
+      --rule:#2a2a35;
+      --accent:#7ee0c7;
+    }
+    body{ background:var(--bg); color:var(--la); }
+    .container{ max-width: 860px; }
+    .topbar{
+      position: sticky; top: 0; z-index: 1030;
+      backdrop-filter: blur(10px);
+      background: color-mix(in srgb, var(--bg) 80%, transparent);
+      border-bottom: 1px solid var(--rule);
+    }
+    .brand-dot{
+      width:10px; height:10px; border-radius:50%;
+      display:inline-block; background:var(--accent); margin-right:.5rem;
+    }
+    .section-title{
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: .5rem;
+      margin-top: 2.25rem;
+      margin-bottom: 1rem;
+    }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--rule);
+    }
+    .line{
+      padding: .8rem .9rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    .line:last-child{ border-bottom: 0; }
+    .en{
+      color: var(--en);
+      font-size: .96rem;
+      line-height: 1.35;
+    }
+    .la{
+      color: var(--la);
+      font-size: 1.02rem;
+      line-height: 1.35;
+      font-weight: 550;
+    }
+    .vnum{
+      color: var(--muted);
+      font-size: .82rem;
+      margin-right: .5rem;
+    }
+    .pill{
+      border:1px solid var(--rule);
+      background: transparent;
+      color: var(--la);
+    }
+    .pill.active{
+      border-color: color-mix(in srgb, var(--accent) 50%, var(--rule));
+      box-shadow: 0 0 0 .15rem color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .small-note{
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .searchbox input{
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--la);
+    }
+    .searchbox input::placeholder{ color: color-mix(in srgb, var(--muted) 80%, transparent); }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      border:1px solid var(--rule);
+      padding:.1rem .35rem;
+      border-radius:.35rem;
+      color: var(--muted);
+      font-size:.85rem;
+    }
+    .footer{
+      color: var(--muted);
+      border-top:1px solid var(--rule);
+      margin-top:2.5rem;
+      padding-top:1.25rem;
+      padding-bottom:1.25rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Sticky top bar -->
+  <div class="topbar py-3">
+    <div class="container">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="fw-semibold">
+          <span class="brand-dot"></span>
+          Seven Penitential Psalms • Litany • Pater Noster
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+          <div class="btn-group" role="group" aria-label="Display mode">
+            <button class="btn btn-sm pill active" id="modeBoth" type="button">English + Latin</button>
+            <button class="btn btn-sm pill" id="modeEn" type="button">English only</button>
+            <button class="btn btn-sm pill" id="modeLa" type="button">Latin only</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="searchbox mt-2">
+        <input id="search" class="form-control form-control-sm" type="search"
+               placeholder="Search within the text… (tip: press / to focus)"
+               aria-label="Search">
+        <div class="small-note mt-1">
+          Tip: <span class="kbd">/</span> focus search • matches highlight by filtering lines
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container py-4">
+    <div class="small-note">
+      Layout: each verse is paired “Musixmatch-style” — English above Latin.
+    </div>
+
+    <div id="content"></div>
+
+    <div class="footer">
+      <div class="small-note">
+        If you want: (1) a “scroll-synced” dual-column mode, (2) night/day themes, or (3) offline PWA support, tell me.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data: verse-paired English (Douay-Rheims style) + Latin (Vulgate style)
+    // Shown by verse. (Titles included where traditional.)
+    const sections = [
+      {
+        id: "ps6",
+        title: "Psalm 6 (Vulgate 6) — Domine, ne in furore tuo",
+        lines: [
+          { v:"1", en:"Unto the end, in verses, a psalm for David, for the octave.", la:"In finem, in carminibus. Psalmus David. Pro octava." },
+          { v:"2", en:"O Lord, rebuke me not in thy indignation, nor chastise me in thy wrath.", la:"Domine, ne in furore tuo arguas me, neque in ira tua corripias me." },
+          { v:"3", en:"Have mercy on me, O Lord, for I am weak: heal me, O Lord, for my bones are troubled.", la:"Miserere mei, Domine, quoniam infirmus sum; sana me, Domine, quoniam conturbata sunt ossa mea." },
+          { v:"4", en:"And my soul is troubled exceedingly: but thou, O Lord, how long?", la:"Et anima mea turbata est valde; sed tu, Domine, usquequo?" },
+          { v:"5", en:"Turn to me, O Lord, and deliver my soul: O save me for thy mercy’s sake.", la:"Convertere, Domine, et eripe animam meam; salvum me fac propter misericordiam tuam." },
+          { v:"6", en:"For there is no one in death that is mindful of thee: and who shall confess to thee in hell?", la:"Quoniam non est in morte qui memor sit tui; in inferno autem quis confitebitur tibi?" },
+          { v:"7", en:"I have laboured in my groanings, every night I will wash my bed: I will water my couch with my tears.", la:"Laboravi in gemitu meo; lavabo per singulas noctes lectum meum; lacrimis meis stratum meum rigabo." },
+          { v:"8", en:"My eye is troubled through indignation: I have grown old amongst all my enemies.", la:"Turbatus est a furore oculus meus; inveteravi inter omnes inimicos meos." },
+          { v:"9", en:"Depart from me, all ye workers of iniquity: for the Lord hath heard the voice of my weeping.", la:"Discedite a me, omnes qui operamini iniquitatem; quoniam exaudivit Dominus vocem fletus mei." },
+          { v:"10", en:"The Lord hath heard my supplication: the Lord hath received my prayer.", la:"Exaudivit Dominus deprecationem meam; Dominus orationem meam suscepit." },
+          { v:"11", en:"Let all my enemies be ashamed, and be very much troubled: let them be turned back, and be ashamed very speedily.", la:"Erubescant, et conturbentur vehementer omnes inimici mei; convertantur et erubescant valde velociter." },
+        ]
+      },
+
+      {
+        id: "ps31",
+        title: "Psalm 31 (Vulgate 31 / Hebrew 32) — Beati quorum",
+        lines: [
+          { v:"1", en:"Blessed are they whose iniquities are forgiven, and whose sins are covered.", la:"Beati quorum remissae sunt iniquitates, et quorum tecta sunt peccata." },
+          { v:"2", en:"Blessed is the man to whom the Lord hath not imputed sin, and in whose spirit there is no guile.", la:"Beatus vir cui non imputavit Dominus peccatum, nec est in spiritu eius dolus." },
+          { v:"3", en:"Because I was silent my bones grew old; whilst I cried out all the day long.", la:"Quoniam tacui, inveteraverunt ossa mea, dum clamarem tota die." },
+          { v:"4", en:"For day and night thy hand was heavy upon me: I am turned in my anguish, whilst the thorn is fastened.", la:"Quoniam die ac nocte gravata est super me manus tua; conversus sum in aerumna mea, dum configitur spina." },
+          { v:"5", en:"I have acknowledged my sin to thee, and my injustice I have not concealed. I said: I will confess against myself my injustice to the Lord: and thou hast forgiven the wickedness of my sin.", la:"Delictum meum cognitum tibi feci, et iniustitiam meam non abscondi. Dixi: Confitebor adversum me iniustitiam meam Domino; et tu remisisti impietatem peccati mei." },
+          { v:"6", en:"For this shall every one that is holy pray to thee in a seasonable time. And yet in a flood of many waters, they shall not come nigh unto him.", la:"Pro hac orabit ad te omnis sanctus, in tempore opportuno. Verumtamen in diluvio aquarum multarum ad eum non approximabunt." },
+          { v:"7", en:"Thou art my refuge from the trouble which hath encompassed me: my joy, deliver me from them that surround me.", la:"Tu es refugium meum a tribulatione quae circumdedit me; exsultatio mea, erue me a circumdantibus me." },
+          { v:"8", en:"I will give thee understanding, and I will instruct thee in this way, in which thou shalt go: I will fix my eyes upon thee.", la:"Intellectum tibi dabo, et instruam te in via hac, qua gradieris; firmabo super te oculos meos." },
+          { v:"9", en:"Do not become like the horse and the mule, who have no understanding. With bit and bridle bind fast their jaws, who come not near unto thee.", la:"Nolite fieri sicut equus et mulus, quibus non est intellectus. In camo et freno maxillas eorum constringe, qui non approximant ad te." },
+          { v:"10", en:"Many are the scourges of the sinner, but mercy shall encompass him that hopeth in the Lord.", la:"Multa flagella peccatoris; sperantem autem in Domino misericordia circumdabit." },
+          { v:"11", en:"Be glad in the Lord, and rejoice, ye just, and glory, all ye right of heart.", la:"Laetamini in Domino et exsultate, iusti, et gloriamini, omnes recti corde." },
+        ]
+      },
+
+      {
+        id: "ps37",
+        title: "Psalm 37 (Vulgate 37 / Hebrew 38) — Domine, ne in furore tuo",
+        lines: [
+          { v:"1", en:"A psalm for David, for a remembrance concerning the sabbath.", la:"Psalmus David, in rememorationem pro sabbato." },
+          { v:"2", en:"O Lord, rebuke me not in thy indignation, nor chastise me in thy wrath.", la:"Domine, ne in furore tuo arguas me, neque in ira tua corripias me." },
+          { v:"3", en:"For thy arrows are fastened in me: and thy hand hath been strong upon me.", la:"Quoniam sagittae tuae infixae sunt mihi, et confirmasti super me manum tuam." },
+          { v:"4", en:"There is no health in my flesh, because of thy wrath: there is no peace for my bones, because of my sins.", la:"Non est sanitas in carne mea a facie irae tuae; non est pax ossibus meis a facie peccatorum meorum." },
+          { v:"5", en:"For my iniquities are gone over my head: and as a heavy burden are become heavy upon me.", la:"Quoniam iniquitates meae supergressae sunt caput meum; et sicut onus grave gravatae sunt super me." },
+          { v:"6", en:"My sores are putrefied and corrupted, because of my foolishness.", la:"Putruerunt et corruptae sunt cicatrices meae a facie insipientiae meae." },
+          { v:"7", en:"I am become miserable, and am bowed down even to the end: I walked sorrowful all the day long.", la:"Miser factus sum, et curvatus sum usque in finem; tota die contristatus ingrediebar." },
+          { v:"8", en:"For my loins are filled with illusions: and there is no health in my flesh.", la:"Quoniam lumbi mei impleti sunt illusionibus, et non est sanitas in carne mea." },
+          { v:"9", en:"I am afflicted and humbled exceedingly: I roared for the groaning of my heart.", la:"Afflictus sum et humiliatus sum nimis; rugiebam a gemitu cordis mei." },
+          { v:"10", en:"Lord, all my desire is before thee, and my groaning is not hidden from thee.", la:"Domine, ante te omne desiderium meum, et gemitus meus a te non est absconditus." },
+          { v:"11", en:"My heart is troubled, my strength hath left me, and the light of my eyes itself is not with me.", la:"Cor meum conturbatum est, dereliquit me virtus mea, et lumen oculorum meorum et ipsum non est mecum." },
+          { v:"12", en:"My friends and my neighbours have drawn near, and stood against me. And they that were near me stood afar off.", la:"Amici mei et proximi mei adversum me appropinquaverunt et steterunt, et qui iuxta me erant de longe steterunt." },
+          { v:"13", en:"And they that sought my soul used violence: and they that sought evils to me spoke vain things, and studied deceits all the day long.", la:"Et vim faciebant qui quaerebant animam meam; et qui inquirebant mala mihi locuti sunt vanitates, et dolos tota die meditabantur." },
+          { v:"14", en:"But I, as a deaf man, heard not: and as a dumb man not opening his mouth.", la:"Ego autem tamquam surdus non audiebam, et sicut mutus non aperiens os suum." },
+          { v:"15", en:"And I became as a man that heareth not: and that hath no reproofs in his mouth.", la:"Et factus sum sicut homo non audiens, et non habens in ore suo redargutiones." },
+          { v:"16", en:"For in thee, O Lord, have I hoped: thou wilt hear me, O Lord my God.", la:"Quoniam in te, Domine, speravi; tu exaudies me, Domine Deus meus." },
+          { v:"17", en:"For I said: Lest at any time my enemies rejoice over me: and while my feet are moved, they speak great things against me.", la:"Quia dixi: Nequando supergaudeant mihi inimici mei; et dum commoventur pedes mei, super me magna locuti sunt." },
+          { v:"18", en:"For I am ready for scourges: and my sorrow is continually before me.", la:"Quoniam ego in flagella paratus sum, et dolor meus in conspectu meo semper." },
+          { v:"19", en:"For I will declare my iniquity: and I will think for my sin.", la:"Quoniam iniquitatem meam annuntiabo, et cogitabo pro peccato meo." },
+          { v:"20", en:"But my enemies live, and are stronger than I: and they that hate me wrongfully are multiplied.", la:"Inimici autem mei vivunt, et confirmati sunt super me; et multiplicati sunt qui oderunt me inique." },
+          { v:"21", en:"They that render evil for good, have detracted me, because I followed goodness.", la:"Qui reddunt mala pro bonis detrahebant mihi, quoniam sequebar bonitatem." },
+          { v:"22", en:"Forsake me not, O Lord my God: do not thou depart from me.", la:"Ne derelinquas me, Domine Deus meus; ne discesseris a me." },
+          { v:"23", en:"Attend unto my help, O Lord, the God of my salvation.", la:"Intende in adiutorium meum, Domine Deus salutis meae." },
+        ]
+      },
+
+      {
+        id: "ps50",
+        title: "Psalm 50 (Vulgate 50 / Hebrew 51) — Miserere",
+        lines: [
+          { v:"1", en:"Unto the end, a psalm for David, when Nathan the prophet came to him, after he had sinned with Bethsabee.", la:"In finem. Psalmus David, cum venit ad eum Nathan propheta, quando intravit ad Bethsabee." },
+          { v:"2", en:"Have mercy on me, O God, according to thy great mercy.", la:"Miserere mei, Deus, secundum magnam misericordiam tuam." },
+          { v:"3", en:"And according to the multitude of thy tender mercies blot out my iniquity.", la:"Et secundum multitudinem miserationum tuarum, dele iniquitatem meam." },
+          { v:"4", en:"Wash me yet more from my iniquity, and cleanse me from my sin.", la:"Amplius lava me ab iniquitate mea, et a peccato meo munda me." },
+          { v:"5", en:"For I know my iniquity, and my sin is always before me.", la:"Quoniam iniquitatem meam ego cognosco, et peccatum meum contra me est semper." },
+          { v:"6", en:"To thee only have I sinned, and have done evil before thee: that thou mayst be justified in thy words, and mayst overcome when thou art judged.", la:"Tibi soli peccavi, et malum coram te feci; ut iustificeris in sermonibus tuis, et vincas cum iudicaris." },
+          { v:"7", en:"For behold I was conceived in iniquities; and in sins did my mother conceive me.", la:"Ecce enim in iniquitatibus conceptus sum, et in peccatis concepit me mater mea." },
+          { v:"8", en:"For behold thou hast loved truth: the uncertain and hidden things of thy wisdom thou hast made manifest to me.", la:"Ecce enim veritatem dilexisti; incerta et occulta sapientiae tuae manifestasti mihi." },
+          { v:"9", en:"Thou shalt sprinkle me with hyssop, and I shall be cleansed: thou shalt wash me, and I shall be made whiter than snow.", la:"Asperges me hyssopo, et mundabor; lavabis me, et super nivem dealbabor." },
+          { v:"10", en:"To my hearing thou shalt give joy and gladness: and the bones that have been humbled shall rejoice.", la:"Auditui meo dabis gaudium et laetitiam; et exsultabunt ossa humiliata." },
+          { v:"11", en:"Turn away thy face from my sins, and blot out all my iniquities.", la:"Averte faciem tuam a peccatis meis, et omnes iniquitates meas dele." },
+          { v:"12", en:"Create a clean heart in me, O God: and renew a right spirit within my bowels.", la:"Cor mundum crea in me, Deus, et spiritum rectum innova in visceribus meis." },
+          { v:"13", en:"Cast me not away from thy face; and take not thy holy spirit from me.", la:"Ne proicias me a facie tua, et spiritum sanctum tuum ne auferas a me." },
+          { v:"14", en:"Restore unto me the joy of thy salvation, and strengthen me with a perfect spirit.", la:"Redde mihi laetitiam salutaris tui, et spiritu principali confirma me." },
+          { v:"15", en:"I will teach the unjust thy ways: and the wicked shall be converted to thee.", la:"Docebo iniquos vias tuas, et impii ad te convertentur." },
+          { v:"16", en:"Deliver me from blood, O God, thou God of my salvation: and my tongue shall extol thy justice.", la:"Libera me de sanguinibus, Deus, Deus salutis meae; et exsultabit lingua mea iustitiam tuam." },
+          { v:"17", en:"O Lord, thou wilt open my lips: and my mouth shall declare thy praise.", la:"Domine, labia mea aperies, et os meum annuntiabit laudem tuam." },
+          { v:"18", en:"For if thou hadst desired sacrifice, I would indeed have given it: with burnt offerings thou wilt not be delighted.", la:"Quoniam si voluisses sacrificium, dedissem utique; holocaustis non delectaberis." },
+          { v:"19", en:"A sacrifice to God is an afflicted spirit: a contrite and humbled heart, O God, thou wilt not despise.", la:"Sacrificium Deo spiritus contribulatus; cor contritum et humiliatum, Deus, non despicies." },
+          { v:"20", en:"Deal favourably, O Lord, in thy good will with Sion; that the walls of Jerusalem may be built up.", la:"Benigne fac, Domine, in bona voluntate tua Sion, ut aedificentur muri Ierusalem." },
+          { v:"21", en:"Then shalt thou accept the sacrifice of justice, oblations and whole burnt offerings: then shall they lay calves upon thy altar.", la:"Tunc acceptabis sacrificium iustitiae, oblationes et holocausta; tunc imponent super altare tuum vitulos." },
+        ]
+      },
+
+      {
+        id: "ps101",
+        title: "Psalm 101 (Vulgate 101 / Hebrew 102) — Domine, exaudi",
+        lines: [
+          { v:"1", en:"A prayer for the poor man, when he was anxious, and poured out his supplication before the Lord.", la:"Oratio pauperis, cum anxius fuerit, et in conspectu Domini effuderit precem suam." },
+          { v:"2", en:"Hear, O Lord, my prayer: and let my cry come to thee.", la:"Domine, exaudi orationem meam, et clamor meus ad te veniat." },
+          { v:"3", en:"Turn not away thy face from me: in the day when I am in trouble, incline thy ear to me. In what day soever I shall call upon thee, hear me speedily.", la:"Non avertas faciem tuam a me; in quacumque die tribulor, inclina ad me aurem tuam; in quacumque die invocavero te, velociter exaudi me." },
+          { v:"4", en:"For my days are vanished like smoke, and my bones are grown dry like fuel for the fire.", la:"Quia defecerunt sicut fumus dies mei, et ossa mea sicut cremium aruerunt." },
+          { v:"5", en:"I am smitten as grass, and my heart is withered: because I forgot to eat my bread.", la:"Percussus sum ut foenum, et aruit cor meum, quia oblitus sum comedere panem meum." },
+          { v:"6", en:"Through the voice of my groaning, my bone hath cleaved to my flesh.", la:"A voce gemitus mei, adhaesit os meum carni meae." },
+          { v:"7", en:"I am become like to a pelican of the wilderness: I am like a night raven in the house.", la:"Similis factus sum pellicano solitudinis; factus sum sicut nycticorax in domicilio." },
+          { v:"8", en:"I have watched, and am become as a sparrow all alone on the housetop.", la:"Vigilavi, et factus sum sicut passer solitarius in tecto." },
+          { v:"9", en:"All the day long my enemies reproached me: and they that praised me did swear against me.", la:"Tota die exprobrabant mihi inimici mei; et qui laudabant me, adversum me iurabant." },
+          { v:"10", en:"For I did eat ashes like bread, and mingled my drink with weeping.", la:"Quia cinerem tamquam panem manducabam, et potum meum cum fletu miscebam." },
+          { v:"11", en:"Because of thy anger and indignation: for having lifted me up thou hast thrown me down.", la:"A facie irae et indignationis tuae, quia elevans allisisti me." },
+          { v:"12", en:"My days have declined like a shadow, and I am withered like grass.", la:"Dies mei sicut umbra declinaverunt, et ego sicut foenum arui." },
+          { v:"13", en:"But thou, O Lord, endurest for ever: and thy memorial to all generations.", la:"Tu autem, Domine, in aeternum permanes, et memoriale tuum in generationem et generationem." },
+          { v:"14", en:"Thou shalt arise and have mercy on Sion: for it is time to have mercy on it, for the time is come.", la:"Tu exsurgens misereberis Sion, quia tempus miserendi eius, quia venit tempus." },
+          { v:"15", en:"For the stones thereof have pleased thy servants: and they shall have pity on the earth thereof.", la:"Quoniam placuerunt servis tuis lapides eius, et terrae eius miserebuntur." },
+          { v:"16", en:"And the Gentiles shall fear thy name, O Lord, and all the kings of the earth thy glory.", la:"Et timebunt gentes nomen tuum, Domine, et omnes reges terrae gloriam tuam." },
+          { v:"17", en:"For the Lord hath built up Sion: and he shall be seen in his glory.", la:"Quia aedificavit Dominus Sion, et videbitur in gloria sua." },
+          { v:"18", en:"He hath had regard to the prayer of the humble: and he hath not despised their petition.", la:"Respexit in orationem humilium, et non sprevit precem eorum." },
+          { v:"19", en:"Let these things be written unto another generation: and the people that shall be created shall praise the Lord:", la:"Scribantur haec in generatione altera, et populus qui creabitur laudabit Dominum." },
+          { v:"20", en:"Because he hath looked forth from his high sanctuary: from heaven the Lord hath looked upon the earth,", la:"Quia prospexit de excelso sancto suo; Dominus de caelo in terram aspexit," },
+          { v:"21", en:"That he might hear the groans of them that are in fetters: that he might release the children of the slain:", la:"Ut audiret gemitus compeditorum, ut solveret filios interemptorum," },
+          { v:"22", en:"That they may declare the name of the Lord in Sion: and his praise in Jerusalem;", la:"Ut annuntient in Sion nomen Domini, et laudem eius in Ierusalem," },
+          { v:"23", en:"When the people assemble together, and kings, to serve the Lord.", la:"In conveniendo populos in unum, et reges, ut serviant Domino." },
+          { v:"24", en:"He answered him in the way of his strength: Declare unto me the fewness of my days.", la:"Respondit ei in via virtutis suae: Paucitatem dierum meorum nuntia mihi." },
+          { v:"25", en:"Call me not away in the midst of my days: thy years are unto generation and generation.", la:"Ne revoces me in dimidio dierum meorum; in generationem et generationem anni tui." },
+          { v:"26", en:"In the beginning, O Lord, thou foundedst the earth: and the heavens are the works of thy hands.", la:"Initio tu, Domine, terram fundasti, et opera manuum tuarum sunt caeli." },
+          { v:"27", en:"They shall perish but thou remainest: and all of them shall grow old like a garment. And as a vesture thou shalt change them, and they shall be changed.", la:"Ipsi peribunt, tu autem permanes; et omnes sicut vestimentum veterascent, et sicut opertorium mutabis eos, et mutabuntur." },
+          { v:"28", en:"But thou art always the selfsame, and thy years shall not fail.", la:"Tu autem idem ipse es, et anni tui non deficient." },
+          { v:"29", en:"The children of thy servants shall continue: and their seed shall be directed for ever.", la:"Filii servorum tuorum habitabunt, et semen eorum in saeculum dirigetur." },
+        ]
+      },
+
+      {
+        id: "ps129",
+        title: "Psalm 129 (Vulgate 129 / Hebrew 130) — De profundis",
+        lines: [
+          { v:"1", en:"Out of the depths I have cried to thee, O Lord:", la:"De profundis clamavi ad te, Domine;" },
+          { v:"2", en:"Lord, hear my voice.", la:"Domine, exaudi vocem meam." },
+          { v:"3", en:"Let thy ears be attentive to the voice of my supplication.", la:"Fiant aures tuae intendentes in vocem deprecationis meae." },
+          { v:"4", en:"If thou, O Lord, wilt mark iniquities: Lord, who shall stand it?", la:"Si iniquitates observaveris, Domine: Domine, quis sustinebit?" },
+          { v:"5", en:"For with thee there is merciful forgiveness: and by reason of thy law, I have waited for thee, O Lord.", la:"Quia apud te propitiatio est, et propter legem tuam sustinui te, Domine." },
+          { v:"6", en:"My soul hath relied on his word: my soul hath hoped in the Lord.", la:"Sustinuit anima mea in verbo eius; speravit anima mea in Domino." },
+          { v:"7", en:"From the morning watch even until night, let Israel hope in the Lord.", la:"A custodia matutina usque ad noctem speret Israel in Domino." },
+          { v:"8", en:"Because with the Lord there is mercy: and with him plentiful redemption.", la:"Quia apud Dominum misericordia, et copiosa apud eum redemptio." },
+          { v:"9", en:"And he shall redeem Israel from all his iniquities.", la:"Et ipse redimet Israel ex omnibus iniquitatibus eius." },
+        ]
+      },
+
+      {
+        id: "ps142",
+        title: "Psalm 142 (Vulgate 142 / Hebrew 143) — Domine, exaudi",
+        lines: [
+          { v:"1", en:"A psalm for David, when his son pursued him.", la:"Psalmus David, quando persequebatur eum filius eius." },
+          { v:"2", en:"Hear, O Lord, my prayer: give ear to my supplication in thy truth: hear me in thy justice.", la:"Domine, exaudi orationem meam, auribus percipe obsecrationem meam in veritate tua; exaudi me in tua iustitia." },
+          { v:"3", en:"And enter not into judgment with thy servant: for in thy sight no man living shall be justified.", la:"Et non intres in iudicium cum servo tuo, quia non iustificabitur in conspectu tuo omnis vivens." },
+          { v:"4", en:"For the enemy hath persecuted my soul; he hath brought down my life to the earth; he hath made me to dwell in darkness as those that have been dead of old.", la:"Quia persecutus est inimicus animam meam; humiliavit in terra vitam meam; collocavit me in obscuris sicut mortuos saeculi." },
+          { v:"5", en:"And my spirit is in anguish within me: my heart within me is troubled.", la:"Et anxiatus est super me spiritus meus; in me turbatum est cor meum." },
+          { v:"6", en:"I remembered the days of old, I meditated on all thy works; I mused on the works of thy hands.", la:"Memor fui dierum antiquorum; meditatus sum in omnibus operibus tuis; in factis manuum tuarum meditabar." },
+          { v:"7", en:"I stretched forth my hands to thee: my soul is as earth without water unto thee.", la:"Expandi manus meas ad te; anima mea sicut terra sine aqua tibi." },
+          { v:"8", en:"Hear me speedily, O Lord: my spirit hath fainted away. Turn not away thy face from me, lest I be like unto them that go down into the pit.", la:"Velociter exaudi me, Domine; defecit spiritus meus. Non avertas faciem tuam a me, et similis ero descendentibus in lacum." },
+          { v:"9", en:"Cause me to hear thy mercy in the morning; for in thee have I hoped. Make the way known to me, wherein I should walk: for I have lifted up my soul to thee.", la:"Auditam fac mihi mane misericordiam tuam, quia in te speravi. Notam fac mihi viam in qua ambulem, quia ad te levavi animam meam." },
+          { v:"10", en:"Deliver me from my enemies, O Lord, to thee have I fled:", la:"Erue me de inimicis meis, Domine, ad te confugi." },
+          { v:"11", en:"Teach me to do thy will, for thou art my God. Thy good spirit shall lead me into the right land:", la:"Doce me facere voluntatem tuam, quia Deus meus es tu. Spiritus tuus bonus deducet me in terram rectam." },
+          { v:"12", en:"For thy name’s sake, O Lord, thou wilt quicken me in thy justice. Thou wilt bring my soul out of trouble:", la:"Propter nomen tuum, Domine, vivificabis me in iustitia tua; educes de tribulatione animam meam." },
+          { v:"13", en:"And in thy mercy thou wilt destroy my enemies. And thou wilt cut off all them that afflict my soul: for I am thy servant.", la:"Et in misericordia tua disperdes inimicos meos, et perdes omnes qui tribulant animam meam, quoniam ego servus tuus sum." },
+        ]
+      },
+
+      {
+        id: "litany",
+        title: "Litany of the Saints (Traditional Roman Form)",
+        lines: [
+          { v:"", en:"Lord, have mercy.", la:"Kyrie, eleison." },
+          { v:"", en:"Christ, have mercy.", la:"Christe, eleison." },
+          { v:"", en:"Lord, have mercy.", la:"Kyrie, eleison." },
+
+          { v:"", en:"Christ, hear us.", la:"Christe, audi nos." },
+          { v:"", en:"Christ, graciously hear us.", la:"Christe, exaudi nos." },
+
+          { v:"", en:"God the Father of Heaven, have mercy on us.", la:"Pater de caelis, Deus, miserere nobis." },
+          { v:"", en:"God the Son, Redeemer of the world, have mercy on us.", la:"Fili, Redemptor mundi, Deus, miserere nobis." },
+          { v:"", en:"God the Holy Ghost, have mercy on us.", la:"Spiritus Sancte, Deus, miserere nobis." },
+          { v:"", en:"Holy Trinity, one God, have mercy on us.", la:"Sancta Trinitas, unus Deus, miserere nobis." },
+
+          { v:"", en:"Holy Mary, pray for us.", la:"Sancta Maria, ora pro nobis." },
+          { v:"", en:"Holy Mother of God, pray for us.", la:"Sancta Dei Genitrix, ora pro nobis." },
+          { v:"", en:"Holy Virgin of virgins, pray for us.", la:"Sancta Virgo virginum, ora pro nobis." },
+
+          { v:"", en:"Saint Michael, pray for us.", la:"Sancte Michael, ora pro nobis." },
+          { v:"", en:"Saint Gabriel, pray for us.", la:"Sancte Gabriel, ora pro nobis." },
+          { v:"", en:"Saint Raphael, pray for us.", la:"Sancte Raphael, ora pro nobis." },
+          { v:"", en:"All ye holy Angels and Archangels, pray for us.", la:"Omnes sancti Angeli et Archangeli, orate pro nobis." },
+          { v:"", en:"All ye holy orders of blessed Spirits, pray for us.", la:"Omnes sancti beatorum Spirituum ordines, orate pro nobis." },
+
+          { v:"", en:"Saint John the Baptist, pray for us.", la:"Sancte Ioannes Baptista, ora pro nobis." },
+          { v:"", en:"Saint Joseph, pray for us.", la:"Sancte Ioseph, ora pro nobis." },
+          { v:"", en:"All ye holy Patriarchs and Prophets, pray for us.", la:"Omnes sancti Patriarchae et Prophetae, orate pro nobis." },
+
+          { v:"", en:"Saint Peter, pray for us.", la:"Sancte Petre, ora pro nobis." },
+          { v:"", en:"Saint Paul, pray for us.", la:"Sancte Paule, ora pro nobis." },
+          { v:"", en:"Saint Andrew, pray for us.", la:"Sancte Andrea, ora pro nobis." },
+          { v:"", en:"Saint James, pray for us.", la:"Sancte Iacobe, ora pro nobis." },
+          { v:"", en:"Saint John, pray for us.", la:"Sancte Ioannes, ora pro nobis." },
+          { v:"", en:"Saint Thomas, pray for us.", la:"Sancte Thoma, ora pro nobis." },
+          { v:"", en:"Saint James, pray for us.", la:"Sancte Iacobe, ora pro nobis." },
+          { v:"", en:"Saint Philip, pray for us.", la:"Sancte Philippe, ora pro nobis." },
+          { v:"", en:"Saint Bartholomew, pray for us.", la:"Sancte Bartholomaee, ora pro nobis." },
+          { v:"", en:"Saint Matthew, pray for us.", la:"Sancte Matthae, ora pro nobis." },
+          { v:"", en:"Saint Simon, pray for us.", la:"Sancte Simon, ora pro nobis." },
+          { v:"", en:"Saint Thaddeus, pray for us.", la:"Sancte Thaddae, ora pro nobis." },
+          { v:"", en:"Saint Matthias, pray for us.", la:"Sancte Matthia, ora pro nobis." },
+          { v:"", en:"Saint Barnabas, pray for us.", la:"Sancte Barnaba, ora pro nobis." },
+          { v:"", en:"Saint Luke, pray for us.", la:"Sancte Luca, ora pro nobis." },
+          { v:"", en:"Saint Mark, pray for us.", la:"Sancte Marce, ora pro nobis." },
+          { v:"", en:"All ye holy Apostles and Evangelists, pray for us.", la:"Omnes sancti Apostoli et Evangelistae, orate pro nobis." },
+          { v:"", en:"All ye holy Disciples of the Lord, pray for us.", la:"Omnes sancti Discipuli Domini, orate pro nobis." },
+
+          { v:"", en:"All ye holy Innocents, pray for us.", la:"Omnes sancti Innocentes, orate pro nobis." },
+          { v:"", en:"Saint Stephen, pray for us.", la:"Sancte Stephane, ora pro nobis." },
+          { v:"", en:"Saint Lawrence, pray for us.", la:"Sancte Laurenti, ora pro nobis." },
+          { v:"", en:"Saint Vincent, pray for us.", la:"Sancte Vincenti, ora pro nobis." },
+          { v:"", en:"Saint Fabian and Saint Sebastian, pray for us.", la:"Sancti Fabiane et Sebastiane, orate pro nobis." },
+          { v:"", en:"Saint John and Saint Paul, pray for us.", la:"Sancti Ioannes et Paule, orate pro nobis." },
+          { v:"", en:"Saint Cosmas and Saint Damian, pray for us.", la:"Sancti Cosma et Damiane, orate pro nobis." },
+          { v:"", en:"All ye holy Martyrs, pray for us.", la:"Omnes sancti Martyres, orate pro nobis." },
+
+          { v:"", en:"Saint Sylvester, pray for us.", la:"Sancte Sylvester, ora pro nobis." },
+          { v:"", en:"Saint Gregory, pray for us.", la:"Sancte Gregori, ora pro nobis." },
+          { v:"", en:"Saint Ambrose, pray for us.", la:"Sancte Ambrosi, ora pro nobis." },
+          { v:"", en:"Saint Augustine, pray for us.", la:"Sancte Augustine, ora pro nobis." },
+          { v:"", en:"Saint Jerome, pray for us.", la:"Sancte Hieronyme, ora pro nobis." },
+          { v:"", en:"Saint Martin, pray for us.", la:"Sancte Martine, ora pro nobis." },
+          { v:"", en:"Saint Nicholas, pray for us.", la:"Sancte Nicolae, ora pro nobis." },
+          { v:"", en:"All ye holy Bishops and Confessors, pray for us.", la:"Omnes sancti Pontifices et Confessores, orate pro nobis." },
+          { v:"", en:"All ye holy Doctors, pray for us.", la:"Omnes sancti Doctores, orate pro nobis." },
+
+          { v:"", en:"Saint Anthony, pray for us.", la:"Sancte Antoni, ora pro nobis." },
+          { v:"", en:"Saint Benedict, pray for us.", la:"Sancte Benedicte, ora pro nobis." },
+          { v:"", en:"Saint Bernard, pray for us.", la:"Sancte Bernarde, ora pro nobis." },
+          { v:"", en:"Saint Dominic, pray for us.", la:"Sancte Dominice, ora pro nobis." },
+          { v:"", en:"Saint Francis, pray for us.", la:"Sancte Francisce, ora pro nobis." },
+          { v:"", en:"All ye holy Priests and Levites, pray for us.", la:"Omnes sancti Sacerdotes et Levitae, orate pro nobis." },
+          { v:"", en:"All ye holy Monks and Hermits, pray for us.", la:"Omnes sancti Monachi et Eremitae, orate pro nobis." },
+
+          { v:"", en:"Saint Mary Magdalen, pray for us.", la:"Sancta Maria Magdalene, ora pro nobis." },
+          { v:"", en:"Saint Agatha, pray for us.", la:"Sancta Agatha, ora pro nobis." },
+          { v:"", en:"Saint Lucy, pray for us.", la:"Sancta Lucia, ora pro nobis." },
+          { v:"", en:"Saint Agnes, pray for us.", la:"Sancta Agnes, ora pro nobis." },
+          { v:"", en:"Saint Cecilia, pray for us.", la:"Sancta Caecilia, ora pro nobis." },
+          { v:"", en:"Saint Catherine, pray for us.", la:"Sancta Catharina, ora pro nobis." },
+          { v:"", en:"Saint Anastasia, pray for us.", la:"Sancta Anastasia, ora pro nobis." },
+          { v:"", en:"All ye holy Virgins and Widows, pray for us.", la:"Omnes sanctae Virgines et Viduae, orate pro nobis." },
+
+          { v:"", en:"All ye Saints of God, make intercession for us.", la:"Omnes Sancti et Sanctae Dei, intercedite pro nobis." },
+
+          { v:"", en:"Be merciful, spare us, O Lord.", la:"Propitius esto, parce nobis, Domine." },
+          { v:"", en:"Be merciful, graciously hear us, O Lord.", la:"Propitius esto, exaudi nos, Domine." },
+
+          { v:"", en:"From all evil, deliver us, O Lord.", la:"Ab omni malo, libera nos, Domine." },
+          { v:"", en:"From all sin, deliver us, O Lord.", la:"Ab omni peccato, libera nos, Domine." },
+          { v:"", en:"From thy wrath, deliver us, O Lord.", la:"Ab ira tua, libera nos, Domine." },
+          { v:"", en:"From sudden and unprovided death, deliver us, O Lord.", la:"A subitanea et improvisa morte, libera nos, Domine." },
+          { v:"", en:"From the snares of the devil, deliver us, O Lord.", la:"A diaboli insidiis, libera nos, Domine." },
+          { v:"", en:"From anger, hatred, and all ill will, deliver us, O Lord.", la:"Ab ira et odio et omni mala voluntate, libera nos, Domine." },
+          { v:"", en:"From the spirit of fornication, deliver us, O Lord.", la:"A spiritu fornicationis, libera nos, Domine." },
+          { v:"", en:"From lightning and tempest, deliver us, O Lord.", la:"A fulgure et tempestate, libera nos, Domine." },
+          { v:"", en:"From the scourge of earthquake, deliver us, O Lord.", la:"A flagello terraemotus, libera nos, Domine." },
+          { v:"", en:"From plague, famine, and war, deliver us, O Lord.", la:"A peste, fame et bello, libera nos, Domine." },
+          { v:"", en:"From everlasting death, deliver us, O Lord.", la:"A morte perpetua, libera nos, Domine." },
+
+          { v:"", en:"Through the mystery of thy holy Incarnation, deliver us, O Lord.", la:"Per mysterium sanctae Incarnationis tuae, libera nos, Domine." },
+          { v:"", en:"Through thy Coming, deliver us, O Lord.", la:"Per adventum tuum, libera nos, Domine." },
+          { v:"", en:"Through thy Nativity, deliver us, O Lord.", la:"Per nativitatem tuam, libera nos, Domine." },
+          { v:"", en:"Through thy Baptism and holy Fasting, deliver us, O Lord.", la:"Per baptismum et sanctum ieiunium tuum, libera nos, Domine." },
+          { v:"", en:"Through thy Cross and Passion, deliver us, O Lord.", la:"Per crucem et passionem tuam, libera nos, Domine." },
+          { v:"", en:"Through thy Death and Burial, deliver us, O Lord.", la:"Per mortem et sepulturam tuam, libera nos, Domine." },
+          { v:"", en:"Through thy holy Resurrection, deliver us, O Lord.", la:"Per sanctam resurrectionem tuam, libera nos, Domine." },
+          { v:"", en:"Through thy wonderful Ascension, deliver us, O Lord.", la:"Per admirabilem ascensionem tuam, libera nos, Domine." },
+          { v:"", en:"Through the coming of the Holy Ghost, deliver us, O Lord.", la:"Per adventum Spiritus Sancti, libera nos, Domine." },
+          { v:"", en:"In the day of judgment, deliver us, O Lord.", la:"In die iudicii, libera nos, Domine." },
+
+          { v:"", en:"We sinners, we beseech thee, hear us.", la:"Peccatores, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst spare us, we beseech thee, hear us.", la:"Ut nobis parcas, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst pardon us, we beseech thee, hear us.", la:"Ut nobis indulgeres, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst bring us to true penance, we beseech thee, hear us.", la:"Ut ad veram paenitentiam nos perducere digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst govern and preserve thy holy Church, we beseech thee, hear us.", la:"Ut Ecclesiam tuam sanctam regere et conservare digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst preserve our Apostolic Prelate and all ecclesiastical orders in holy religion, we beseech thee, hear us.", la:"Ut Domnum Apostolicum et omnes ecclesiasticos ordines in sancta religione conservare digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst humble the enemies of holy Church, we beseech thee, hear us.", la:"Ut inimicos sanctae Ecclesiae humiliare digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst give peace and true concord to Christian kings and princes, we beseech thee, hear us.", la:"Ut regibus et principibus Christianis pacem et veram concordiam donare digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst grant peace and unity to the whole Christian people, we beseech thee, hear us.", la:"Ut cuncto populo Christiano pacem et unitatem largiri digneris, te rogamus, audi nos." },
+          { v:"", en:"That thou wouldst give us perseverance in good works, we beseech thee, hear us.", la:"Ut nos in tuo sancto servitio confortare et conservare digneris, te rogamus, audi nos." },
+
+          { v:"", en:"Lamb of God, who takest away the sins of the world, spare us, O Lord.", la:"Agnus Dei, qui tollis peccata mundi, parce nobis, Domine." },
+          { v:"", en:"Lamb of God, who takest away the sins of the world, graciously hear us, O Lord.", la:"Agnus Dei, qui tollis peccata mundi, exaudi nos, Domine." },
+          { v:"", en:"Lamb of God, who takest away the sins of the world, have mercy on us.", la:"Agnus Dei, qui tollis peccata mundi, miserere nobis." },
+
+          { v:"", en:"Christ, hear us.", la:"Christe, audi nos." },
+          { v:"", en:"Christ, graciously hear us.", la:"Christe, exaudi nos." },
+          { v:"", en:"Lord, have mercy.", la:"Kyrie, eleison." },
+          { v:"", en:"Christ, have mercy.", la:"Christe, eleison." },
+          { v:"", en:"Lord, have mercy.", la:"Kyrie, eleison." },
+        ]
+      },
+
+      {
+        id: "pater",
+        title: "Pater Noster",
+        lines: [
+          { v:"", en:"Our Father, who art in heaven, hallowed be thy name.", la:"Pater noster, qui es in caelis, sanctificetur nomen tuum." },
+          { v:"", en:"Thy kingdom come.", la:"Adveniat regnum tuum." },
+          { v:"", en:"Thy will be done on earth as it is in heaven.", la:"Fiat voluntas tua, sicut in caelo et in terra." },
+          { v:"", en:"Give us this day our daily bread.", la:"Panem nostrum quotidianum da nobis hodie." },
+          { v:"", en:"And forgive us our trespasses, as we forgive those who trespass against us.", la:"Et dimitte nobis debita nostra, sicut et nos dimittimus debitoribus nostris." },
+          { v:"", en:"And lead us not into temptation.", la:"Et ne nos inducas in tentationem." },
+          { v:"", en:"But deliver us from evil. Amen.", la:"Sed libera nos a malo. Amen." },
+        ]
+      },
+    ];
+
+    // Render
+    const content = document.getElementById("content");
+    let mode = "both"; // both | en | la
+    let query = "";
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, (c)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[c]));
+    }
+
+    function matchesLine(line, q){
+      if(!q) return true;
+      const hay = (line.en + " " + line.la).toLowerCase();
+      return hay.includes(q.toLowerCase());
+    }
+
+    function render(){
+      content.innerHTML = "";
+
+      sections.forEach(sec=>{
+        // Filter lines by search query
+        const filtered = sec.lines.filter(l => matchesLine(l, query));
+        if(filtered.length === 0) return;
+
+        const header = document.createElement("h3");
+        header.className = "section-title";
+        header.textContent = sec.title;
+        content.appendChild(header);
+
+        const card = document.createElement("div");
+        card.className = "card mb-3";
+
+        filtered.forEach(line=>{
+          const row = document.createElement("div");
+          row.className = "line";
+
+          const vnum = line.v ? `<span class="vnum">${escapeHtml(line.v)}.</span>` : "";
+
+          const enHtml = (mode === "la") ? "" : `
+            <div class="en">${vnum}${escapeHtml(line.en)}</div>
+          `;
+          const laHtml = (mode === "en") ? "" : `
+            <div class="la mt-1">${vnum}${escapeHtml(line.la)}</div>
+          `;
+
+          row.innerHTML = enHtml + laHtml;
+          card.appendChild(row);
+        });
+
+        content.appendChild(card);
+      });
+    }
+
+    // Mode buttons
+    const bBoth = document.getElementById("modeBoth");
+    const bEn = document.getElementById("modeEn");
+    const bLa = document.getElementById("modeLa");
+
+    function setMode(m){
+      mode = m;
+      [bBoth, bEn, bLa].forEach(b=>b.classList.remove("active"));
+      if(m==="both") bBoth.classList.add("active");
+      if(m==="en") bEn.classList.add("active");
+      if(m==="la") bLa.classList.add("active");
+      render();
+    }
+
+    bBoth.addEventListener("click", ()=>setMode("both"));
+    bEn.addEventListener("click", ()=>setMode("en"));
+    bLa.addEventListener("click", ()=>setMode("la"));
+
+    // Search
+    const search = document.getElementById("search");
+    search.addEventListener("input", (e)=>{
+      query = e.target.value.trim();
+      render();
+    });
+
+    // "/" focuses search like many apps
+    window.addEventListener("keydown", (e)=>{
+      if(e.key === "/" && document.activeElement !== search){
+        e.preventDefault();
+        search.focus();
+      }
+      if(e.key === "Escape" && document.activeElement === search){
+        search.value = "";
+        query = "";
+        search.blur();
+        render();
+      }
+    });
+
+    render();
+  </script>
+
+</body>
+</html>
