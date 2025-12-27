@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -161,6 +162,11 @@
     const STORE = "settings";
     const KEY_RANDOM_PDF_MAX = "RANDOM_PDF_MAX";
 
+    // ===== Config refresh reminder =====
+    const CONFIG_URL = "https://sktoushi.github.io/su/skyway-scheduler6-config.html";
+    const KEY_CONFIG_LAST_MODIFIED = "configLastModified";
+    const CONFIG_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
     // ===== Crypto RNG helpers =====
     function randIndex(n){
       if (n <= 1) return 0;
@@ -207,6 +213,41 @@
         r.onsuccess = () => resolve(true);
         r.onerror = () => reject(r.error);
       });
+    }
+
+    // ===== configLastModified guard =====
+    function toEpochMs(v){
+      if (v == null) return NaN;
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (v instanceof Date) return v.getTime();
+      if (typeof v === "string"){
+        const t = Date.parse(v);
+        return Number.isFinite(t) ? t : NaN;
+      }
+      // Some IDB values may be stored as objects with valueOf()
+      try {
+        const n = Number(v.valueOf());
+        return Number.isFinite(n) ? n : NaN;
+      } catch {
+        return NaN;
+      }
+    }
+
+    async function configNeedsRefresh(nowMs = Date.now()){
+      let raw;
+      try { raw = await idbGet(KEY_CONFIG_LAST_MODIFIED); }
+      catch { return true; }
+
+      const ms0 = toEpochMs(raw);
+      if (!Number.isFinite(ms0)) return true;
+
+      // Heuristic: if stored as seconds, convert to ms
+      const ms = (ms0 < 1e12) ? (ms0 * 1000) : ms0;
+
+      const age = nowMs - ms;
+      if (!Number.isFinite(age)) return true;
+      if (age < 0) return false; // clock skew / future timestamp
+      return age > CONFIG_MAX_AGE_MS;
     }
 
     // ===== Modal: show for 25 seconds, allow changing RANDOM_PDF_MAX =====
@@ -346,7 +387,16 @@
       doRedirect(nextUrl);
     }
 
-    document.addEventListener("DOMContentLoaded", () => { go(); });
+    document.addEventListener("DOMContentLoaded", () => {
+      (async () => {
+        // Redirect to config if missing or older than 2 hours
+        const needs = await configNeedsRefresh();
+        if (needs) return doRedirect(CONFIG_URL);
+
+        // Otherwise continue with the original logic
+        return go();
+      })();
+    });
   </script>
 </head>
 
@@ -387,3 +437,4 @@
   </noscript>
 </body>
 </html>
+```
