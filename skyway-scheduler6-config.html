@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GitHub Config Checklist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ===== Royal Purple scheme (copied/adapted) ===== */
+    :root{
+      --bg:#0f0f12;
+      --card:#15151c;
+      --rule:#2a2a35;
+      --muted:#a8a8b3;
+      --text:#e9e9ef;
+
+      /* Royal purple */
+      --accent:#6D28D9;
+      --accent2:#A78BFA;
+      --accentTint:#C4B5FD;
+
+      --shadow: color-mix(in srgb, var(--accent) 18%, transparent);
+      --ring: color-mix(in srgb, var(--accent) 28%, transparent);
+
+      --danger:#e53935;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    }
+
+    a{color:var(--accentTint); text-decoration:none;}
+    a:hover{color:var(--accent2); text-decoration:underline;}
+
+    .wrap{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:1.25rem;
+    }
+
+    .panel{
+      width:min(980px, 96vw);
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04) inset;
+      overflow:hidden;
+    }
+
+    .header{
+      padding:1.1rem 1.25rem .9rem;
+      border-bottom:1px solid var(--rule);
+      display:flex;
+      gap:1rem;
+      align-items:flex-end;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .title{
+      margin:0;
+      font-size:1.15rem;
+      font-weight:800;
+      color:var(--accentTint);
+      letter-spacing:.2px;
+    }
+
+    .small{opacity:.9;color:var(--muted); font-size:.95rem;}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;}
+
+    .content{ padding: .75rem 1.25rem 1.25rem; }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:.6rem;
+      margin-top:.75rem;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: auto 1fr auto;
+      gap:.75rem;
+      align-items:center;
+      padding:.75rem .75rem;
+      border:1px solid var(--rule);
+      border-radius:12px;
+      background: color-mix(in srgb, var(--card) 80%, transparent);
+    }
+
+    .row:hover{
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
+      box-shadow: 0 0 0 .15rem var(--shadow);
+    }
+
+    .chk{
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor:pointer;
+    }
+
+    .url{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      display:block;
+      line-height:1.25;
+    }
+
+    .btn{
+      border:1px solid var(--rule);
+      background: transparent;
+      color: var(--text);
+      padding:.55rem .9rem;
+      border-radius:.55rem;
+      font-size:1rem;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn:hover{
+      background: color-mix(in srgb, var(--card) 70%, transparent);
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
+    }
+    .btn:active{transform:translateY(1px);}
+
+    .btn-accent{
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent) 88%, black);
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--rule));
+      box-shadow: 0 0 0 .15rem var(--ring);
+    }
+    .btn-accent:hover{
+      background: color-mix(in srgb, var(--accent) 78%, black);
+      border-color: color-mix(in srgb, var(--accent2) 60%, var(--rule));
+    }
+
+    .footer{
+      padding: .9rem 1.25rem 1.1rem;
+      border-top:1px solid var(--rule);
+      display:flex;
+      gap:.6rem;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+
+    .hidden{display:none!important;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="panel" role="region" aria-label="Checklist panel">
+      <div class="header">
+        <div>
+          <h1 class="title">Config Files Checklist</h1>
+          <div class="small">Tick items as you review them. Each row has an “Open” button.</div>
+        </div>
+        <div class="small mono" id="countText">0 / 4 checked</div>
+      </div>
+
+      <div class="content">
+        <div class="list" id="list"></div>
+      </div>
+
+      <div class="footer">
+        <div class="small">State is saved locally in your browser.</div>
+        <div class="toolbar">
+          <button class="btn" id="clearBtn" type="button">Clear checks</button>
+          <button class="btn btn-accent" id="openCheckedBtn" type="button">Open checked</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ITEMS = [
+      "https://github.com/sktoushi/su/edit/in/config/all.json",
+      "https://github.com/sktoushi/su/edit/in/config/allrecent.json",
+      "https://github.com/sktoushi/su/edit/in/config/allrecent100.json",
+      "https://github.com/sktoushi/su/edit/in/config/values.json"
+    ];
+
+    const STORAGE_KEY = "configChecklist_v1";
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveState(state) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    function safeOpen(url) {
+      // Open in a new tab with noopener
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noreferrer noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function render() {
+      const list = document.getElementById("list");
+      const countText = document.getElementById("countText");
+      const state = loadState();
+
+      list.innerHTML = "";
+
+      let checkedCount = 0;
+
+      ITEMS.forEach((url, idx) => {
+        const id = `chk_${idx}`;
+        const checked = !!state[url];
+        if (checked) checkedCount++;
+
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "chk";
+        cb.id = id;
+        cb.checked = checked;
+        cb.addEventListener("change", () => {
+          const s = loadState();
+          s[url] = cb.checked;
+          saveState(s);
+          updateCount();
+        });
+
+        const linkWrap = document.createElement("div");
+        const link = document.createElement("a");
+        link.className = "url mono";
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noreferrer noopener";
+        link.textContent = url;
+        link.title = url;
+
+        const label = document.createElement("label");
+        label.className = "hidden";
+        label.setAttribute("for", id);
+        label.textContent = url;
+
+        linkWrap.appendChild(link);
+        linkWrap.appendChild(label);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-accent";
+        btn.textContent = "Open";
+        btn.addEventListener("click", () => safeOpen(url));
+
+        row.appendChild(cb);
+        row.appendChild(linkWrap);
+        row.appendChild(btn);
+
+        list.appendChild(row);
+      });
+
+      function updateCount() {
+        const s = loadState();
+        const c = ITEMS.reduce((acc, u) => acc + (s[u] ? 1 : 0), 0);
+        countText.textContent = `${c} / ${ITEMS.length} checked`;
+      }
+
+      updateCount();
+    }
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      saveState({});
+      render();
+    });
+
+    document.getElementById("openCheckedBtn").addEventListener("click", () => {
+      const s = loadState();
+      ITEMS.filter(u => s[u]).forEach(u => safeOpen(u));
+    });
+
+    document.addEventListener("DOMContentLoaded", render);
+  </script>
+</body>
+</html>
