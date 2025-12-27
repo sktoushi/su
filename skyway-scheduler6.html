@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,7 @@
   <title>Pure Uniform Random Redirect</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* ===== Royal Purple scheme (copied) ===== */ /* :contentReference[oaicite:1]{index=1} */
+    /* ===== Royal Purple scheme (copied) ===== */
     :root{
       --bg:#0f0f12;
       --card:#15151c;
@@ -161,10 +162,14 @@
     const STORE = "settings";
     const KEY_RANDOM_PDF_MAX = "RANDOM_PDF_MAX";
 
-    // ===== Config refresh reminder =====
+    // ===== Config refresh reminder (MODIFIED) =====
     const CONFIG_URL = "https://sktoushi.github.io/su/skyway-scheduler6-config.html";
     const KEY_CONFIG_LAST_MODIFIED = "configLastModified";
     const CONFIG_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+    // Handshake params (MODIFIED)
+    const RETURN_PARAM = "return";
+    const UPDATED_PARAM = "configUpdated"; // set to "1" on return
 
     // ===== Crypto RNG helpers =====
     function randIndex(n){
@@ -232,9 +237,44 @@
       }
     }
 
+    // ===== URL param helpers (NEW) =====
+    function getParam(name){
+      const u = new URL(location.href);
+      return u.searchParams.get(name);
+    }
+    function stripParams(names){
+      const u = new URL(location.href);
+      names.forEach(n => u.searchParams.delete(n));
+      history.replaceState(null, "", u.toString());
+    }
+
+    // ===== Mark/read config freshness (NEW) =====
+    async function markConfigFresh(ts = Date.now()){
+      // Write to BOTH IDB + localStorage so you don't get stuck if IDB fails.
+      try { await idbSet(KEY_CONFIG_LAST_MODIFIED, ts); } catch {}
+      try { localStorage.setItem(KEY_CONFIG_LAST_MODIFIED, String(ts)); } catch {}
+    }
+
+    async function readConfigTimestamp(){
+      // Prefer IDB, but fall back to localStorage.
+      let raw = undefined;
+
+      try { raw = await idbGet(KEY_CONFIG_LAST_MODIFIED); } catch {}
+
+      if (raw == null) {
+        try {
+          const ls = localStorage.getItem(KEY_CONFIG_LAST_MODIFIED);
+          if (ls != null) raw = ls;
+        } catch {}
+      }
+
+      return raw;
+    }
+
+    // ===== Updated refresh check (MODIFIED) =====
     async function configNeedsRefresh(nowMs = Date.now()){
       let raw;
-      try { raw = await idbGet(KEY_CONFIG_LAST_MODIFIED); }
+      try { raw = await readConfigTimestamp(); }
       catch { return true; }
 
       const ms0 = toEpochMs(raw);
@@ -386,11 +426,28 @@
       doRedirect(nextUrl);
     }
 
+    // ===== Startup logic (MODIFIED) =====
     document.addEventListener("DOMContentLoaded", () => {
       (async () => {
+        // If we just came back from config, stamp "fresh" and continue.
+        if (getParam(UPDATED_PARAM) === "1") {
+          await markConfigFresh(Date.now());
+          stripParams([UPDATED_PARAM]); // prevent re-stamping on refresh
+          return go();
+        }
+
         // Redirect to config if missing or older than 2 hours
         const needs = await configNeedsRefresh();
-        if (needs) return doRedirect(CONFIG_URL);
+        if (needs) {
+          // Send user to config with a return URL back here (with configUpdated=1)
+          const back = new URL(location.href);
+          back.searchParams.set(UPDATED_PARAM, "1");
+
+          const cfg = new URL(CONFIG_URL);
+          cfg.searchParams.set(RETURN_PARAM, back.toString());
+
+          return doRedirect(cfg.toString());
+        }
 
         // Otherwise continue with the original logic
         return go();
