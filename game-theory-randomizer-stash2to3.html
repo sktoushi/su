@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Random issue (stash3 + stash2, crypto)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; line-height: 1.4; padding: 24px; }
+    code { background: #f3f3f3; padding: 2px 6px; border-radius: 6px; }
+    button { padding: 10px 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Redirecting…</h1>
+  <p>Picked: <code id="picked">(choosing)</code></p>
+  <p><a id="link" href="#">Open link</a></p>
+  <p><button id="reroll" type="button">Pick another</button></p>
+
+  <script>
+    const stash3Base = "https://github.com/mdr19ganseki95cf/stash3/issues/";
+    const stash2Base = "https://github.com/sktoushi/stash2/issues/";
+
+    // stash3: only the ones you listed earlier
+    const stash3Issues = [
+      3438,2877,2799,2751,2741,2740,2678,2633,2628,2627,2615,2589,
+      2404,2403,2345,2344,2343,2340,2339,2338,2295,2266,2261,2196,
+      2188,2164,2117,2088,2082,2068,2066,2064,1994,1975,1970,1952,
+      1950,1939,1935,1930,1914,1901,1870,1843,1828,1808,1804,179
+    ];
+
+    // stash2: the ones you just added
+    const stash2Issues = [
+      67,455,449,448,446,438,437,436,421,420,419,418,417,416,
+      409,408,407,406,405,388,382,381,35
+    ];
+
+    // Build targets + de-dupe exact URLs
+    const targets = [
+      ...stash3Issues.map(id => ({ repo: "stash3", id, url: stash3Base + id })),
+      ...stash2Issues.map(id => ({ repo: "stash2", id, url: stash2Base + id })),
+    ].filter((t, i, arr) => arr.findIndex(x => x.url === t.url) === i);
+
+    // Uniform crypto-random integer in [0, maxExclusive)
+    function cryptoRandInt(maxExclusive) {
+      const range = 0x100000000; // 2^32
+      const limit = range - (range % maxExclusive);
+      const buf = new Uint32Array(1);
+      while (true) {
+        crypto.getRandomValues(buf);
+        const x = buf[0];
+        if (x < limit) return x % maxExclusive;
+      }
+    }
+
+    function pick() {
+      const chosen = targets[cryptoRandInt(targets.length)];
+      document.getElementById("picked").textContent = `${chosen.repo} #${chosen.id}`;
+      const a = document.getElementById("link");
+      a.href = chosen.url;
+      a.textContent = chosen.url;
+      return chosen.url;
+    }
+
+    const first = pick();
+    setTimeout(() => window.location.replace(first), 200);
+
+    document.getElementById("reroll").addEventListener("click", () => {
+      const next = pick();
+      window.location.replace(next);
+    });
+  </script>
+</body>
+</html>
