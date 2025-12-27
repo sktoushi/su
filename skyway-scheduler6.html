@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,15 +161,6 @@
     const STORE = "settings";
     const KEY_RANDOM_PDF_MAX = "RANDOM_PDF_MAX";
 
-    // ===== Config refresh reminder (MODIFIED) =====
-    const CONFIG_URL = "https://sktoushi.github.io/su/skyway-scheduler6-config.html";
-    const KEY_CONFIG_LAST_MODIFIED = "configLastModified";
-    const CONFIG_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
-
-    // Handshake params (MODIFIED)
-    const RETURN_PARAM = "return";
-    const UPDATED_PARAM = "configUpdated"; // set to "1" on return
-
     // ===== Crypto RNG helpers =====
     function randIndex(n){
       if (n <= 1) return 0;
@@ -217,76 +207,6 @@
         r.onsuccess = () => resolve(true);
         r.onerror = () => reject(r.error);
       });
-    }
-
-    // ===== configLastModified guard =====
-    function toEpochMs(v){
-      if (v == null) return NaN;
-      if (typeof v === "number" && Number.isFinite(v)) return v;
-      if (v instanceof Date) return v.getTime();
-      if (typeof v === "string"){
-        const t = Date.parse(v);
-        return Number.isFinite(t) ? t : NaN;
-      }
-      // Some IDB values may be stored as objects with valueOf()
-      try {
-        const n = Number(v.valueOf());
-        return Number.isFinite(n) ? n : NaN;
-      } catch {
-        return NaN;
-      }
-    }
-
-    // ===== URL param helpers (NEW) =====
-    function getParam(name){
-      const u = new URL(location.href);
-      return u.searchParams.get(name);
-    }
-    function stripParams(names){
-      const u = new URL(location.href);
-      names.forEach(n => u.searchParams.delete(n));
-      history.replaceState(null, "", u.toString());
-    }
-
-    // ===== Mark/read config freshness (NEW) =====
-    async function markConfigFresh(ts = Date.now()){
-      // Write to BOTH IDB + localStorage so you don't get stuck if IDB fails.
-      try { await idbSet(KEY_CONFIG_LAST_MODIFIED, ts); } catch {}
-      try { localStorage.setItem(KEY_CONFIG_LAST_MODIFIED, String(ts)); } catch {}
-    }
-
-    async function readConfigTimestamp(){
-      // Prefer IDB, but fall back to localStorage.
-      let raw = undefined;
-
-      try { raw = await idbGet(KEY_CONFIG_LAST_MODIFIED); } catch {}
-
-      if (raw == null) {
-        try {
-          const ls = localStorage.getItem(KEY_CONFIG_LAST_MODIFIED);
-          if (ls != null) raw = ls;
-        } catch {}
-      }
-
-      return raw;
-    }
-
-    // ===== Updated refresh check (MODIFIED) =====
-    async function configNeedsRefresh(nowMs = Date.now()){
-      let raw;
-      try { raw = await readConfigTimestamp(); }
-      catch { return true; }
-
-      const ms0 = toEpochMs(raw);
-      if (!Number.isFinite(ms0)) return true;
-
-      // Heuristic: if stored as seconds, convert to ms
-      const ms = (ms0 < 1e12) ? (ms0 * 1000) : ms0;
-
-      const age = nowMs - ms;
-      if (!Number.isFinite(age)) return true;
-      if (age < 0) return false; // clock skew / future timestamp
-      return age > CONFIG_MAX_AGE_MS;
     }
 
     // ===== Modal: show for 25 seconds, allow changing RANDOM_PDF_MAX =====
@@ -426,32 +346,9 @@
       doRedirect(nextUrl);
     }
 
-    // ===== Startup logic (MODIFIED) =====
+    // ===== Startup logic (CONFIG REDIRECT REMOVED) =====
     document.addEventListener("DOMContentLoaded", () => {
-      (async () => {
-        // If we just came back from config, stamp "fresh" and continue.
-        if (getParam(UPDATED_PARAM) === "1") {
-          await markConfigFresh(Date.now());
-          stripParams([UPDATED_PARAM]); // prevent re-stamping on refresh
-          return go();
-        }
-
-        // Redirect to config if missing or older than 2 hours
-        const needs = await configNeedsRefresh();
-        if (needs) {
-          // Send user to config with a return URL back here (with configUpdated=1)
-          const back = new URL(location.href);
-          back.searchParams.set(UPDATED_PARAM, "1");
-
-          const cfg = new URL(CONFIG_URL);
-          cfg.searchParams.set(RETURN_PARAM, back.toString());
-
-          return doRedirect(cfg.toString());
-        }
-
-        // Otherwise continue with the original logic
-        return go();
-      })();
+      go();
     });
   </script>
 </head>
