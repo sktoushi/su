@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Psalms & Orisons • Royal Purple</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0f0f12;
+      --card:#15151c;
+      --rule:#2a2a35;
+      --muted:#a8a8b3;
+      --text:#e9e9ef;
+
+      /* Royal purple */
+      --accent:#6D28D9;
+      --accent2:#A78BFA;
+      --accentTint:#C4B5FD;
+
+      --shadow: color-mix(in srgb, var(--accent) 18%, transparent);
+      --ring: color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+
+    body{ background:var(--bg); color:var(--text); }
+    .container{ max-width: 920px; }
+
+    .topbar{
+      position: sticky; top: 0; z-index: 1030;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg) 82%, var(--accent) 18%),
+        color-mix(in srgb, var(--bg) 92%, transparent)
+      );
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .brand-dot{
+      width:10px; height:10px; border-radius:50%;
+      display:inline-block; background:var(--accent);
+      box-shadow: 0 0 0 .25rem var(--shadow);
+      margin-right:.5rem;
+    }
+
+    .section-title{
+      border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, var(--accent) 30%);
+      padding-bottom: .6rem;
+      margin-top: 2.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--rule);
+    }
+
+    .pill{
+      border:1px solid var(--rule);
+      background: transparent;
+      color: var(--text);
+    }
+    .pill.active{
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--rule));
+      box-shadow: 0 0 0 .15rem var(--ring);
+      color: var(--accentTint);
+    }
+
+    .small-note{ color: var(--muted); font-size: .92rem; }
+
+    .searchbox input{
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--text);
+    }
+    .searchbox input:focus{
+      border-color: color-mix(in srgb, var(--accent) 60%, var(--rule));
+      box-shadow: 0 0 0 .2rem var(--ring);
+      outline: none;
+    }
+    .searchbox input::placeholder{
+      color: color-mix(in srgb, var(--muted) 80%, transparent);
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      border:1px solid var(--rule);
+      padding:.1rem .35rem;
+      border-radius:.35rem;
+      color: var(--muted);
+      font-size:.85rem;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+      font-size:.85rem;
+      color: var(--muted);
+      border: 1px solid var(--rule);
+      padding: .2rem .55rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--card) 70%, transparent);
+    }
+    .tag .dot{
+      width:7px; height:7px; border-radius:50%;
+      background: var(--accent2);
+      box-shadow: 0 0 0 .18rem color-mix(in srgb, var(--accent2) 18%, transparent);
+    }
+
+    .bullet-title{
+      color: var(--accentTint);
+      font-weight: 650;
+    }
+
+    .btn-royal{
+      --bs-btn-color: var(--text);
+      --bs-btn-bg: color-mix(in srgb, var(--accent) 88%, black);
+      --bs-btn-border-color: color-mix(in srgb, var(--accent) 70%, var(--rule));
+      --bs-btn-hover-bg: color-mix(in srgb, var(--accent) 78%, black);
+      --bs-btn-hover-border-color: color-mix(in srgb, var(--accent2) 60%, var(--rule));
+      --bs-btn-focus-shadow-rgb: 109, 40, 217;
+    }
+
+    .orison-header{
+      border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, var(--accent) 30%);
+      padding-bottom: .5rem;
+      margin-bottom: .75rem;
+    }
+
+    .orison-pre{
+      white-space: pre-wrap;
+      margin: 0;
+      color: var(--text);
+      line-height: 1.45;
+      font-size: .95rem;
+    }
+
+    .footer{
+      color: var(--muted);
+      border-top:1px solid var(--rule);
+      margin-top:2.5rem;
+      padding-top:1.25rem;
+      padding-bottom:1.25rem;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Sticky top bar -->
+  <div class="topbar py-3">
+    <div class="container">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="fw-semibold">
+          <span class="brand-dot"></span>
+          Psalms & Orisons (Royal Purple)
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+          <div class="btn-group" role="group" aria-label="Filter">
+            <button class="btn btn-sm pill active" id="modeAll" type="button">All</button>
+            <button class="btn btn-sm pill" id="modeCore" type="button">Main Psalms</button>
+            <button class="btn btn-sm pill" id="modeExtra" type="button">Additional</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="searchbox mt-2">
+        <input id="search" class="form-control form-control-sm" type="search"
+               placeholder="Search titles / keywords… (tip: press / to focus)"
+               aria-label="Search">
+        <div class="small-note mt-1">
+          Tip: <span class="kbd">/</span> focus search • <span class="kbd">Esc</span> clear
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container py-4">
+    <!-- Orison-of-the-day goes here -->
+    <div id="orisonOfDay"></div>
+
+    <div class="small-note">
+      “View Full Psalm” randomizes between <span style="color:var(--accentTint)">NASB1995</span> and <span style="color:var(--accentTint)">MBBTAG</span>.
+    </div>
+
+    <div id="content"></div>
+
+    <div class="footer">
+      <div class="small-note">
+        Want the orison card collapsible by default (remembering your last state)? I can wire that in too.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===== Orison-of-the-day (based on visitor’s local day) ===== */
+
+    const ORISONS = {
+      0: { // Sunday
+        label: "Sunday",
+        title: "Orison for Sunday",
+        text: `Our Father, who art in Heaven, Hallowed be Thy Name. Thy Kingdom come, Thy Will be done on Earth, as it is in Heaven. Give us, this day, our daily bread, and forgive us our trespasses, as we forgive those who trespass against us. Lead us nor into temptation, but deliver us from evil, for Thine is the Kingdom, the Power, and the Glory. Forever. Amen. Thus, it is.
+
+Deliver me, O Lord, I, your creation, N from all evil, now and to come, of heart and body, and give to me your beautiful peace, the health and favor, as I am your creation. By the intercession of the benevolent Virgin Mary, and your Apostles, Saint Peter, Saint Paul, Saint Andrew, and all the Saints. Grant peace and health during my life, and assist with your mercy.
+
+I would be neither a slave of sin, nor fear disorder, by the same Jesus Christ, Your Son, Our Lord, who being God, sits and reigns, in unity, with the Holy Spirit, in this century and every century. Thus, it is.
+
+That the peace of the Lord is always with me. Thus, it is.
+
+That the Heavenly Peace, Lord, that you have given your Disciples, remains always firm in my heart, and is always between me and my enemies, visible and invisible. Thus, it is.
+
+That the peace of the Lord, His face, His body, His blood, helps me, comforts me, and protects me. I, who am your creation, N.
+
+Lamb of God, who condescended, and was born of the Virgin Mary, which hung on the cross, cleansed the world of sins, have pity on my heart and my body. Christ, Lamb of God, by which all the faithful ones are saved, give me your peace, which must always last, in this life, and the other. Thus, it is.`
+      },
+
+      1: { // Monday
+        label: "Monday",
+        title: "Orison for Monday",
+        text: `O Great God, by which all things are delivered, deliver me from all evil. O Great God, who grants consolation to all beings, grant unto me also. O Great God, who helps and assists all things, help me also.
+
+In my necessities, my miseries, my enterprises, my dangers, deliver me; from all oppositions and obstacles of my enemies, visible and invisible.
+
+In the Name of the Father, who created the whole world + the Name of the Son, who redeems it + in the Name of the Holy Spirit, which achieved the Law, in all it’s perfection. Thus, it is.
+
+That the blessings of the All-Powerful God, the Father, the Son, and the Holy Spirit, are always with me. Thus, it is.
+
++ That the blessings of God the Father, who of His Holy Word, made all things, and is always with me.
++ That the blessings of Our Lord, Jesus Christ, Son of the Great Living God, is always with me. + Thus, it is.
+That the blessings of the Holy Spirit, with it’s Seven Gifts, is always with me. + Thus it is.
+That the blessings of the Virgin Mary, with her Son, is always with me. Thus, it is.
+
+That the blessing and consecration of bread and wine, that Our Lord, Jesus Christ, made when He gave it to His Disciples, saying to them:`
+      },
+
+      2: { // Tuesday
+        label: "Tuesday",
+        title: "Orison for Tuesday",
+        text: `“Take this and eat: This is my body, which will be given for you, in memory of me, and the remission of all sins,” is always with me. +
+
+That the blessings of the Holy Angels and Archangels, of the Virtues, the Powers, the Thrones, the Dominations, the Cherubim, the Seraphim, are always with me. + Thus, it is.
+
+That the blessings of the Patriarchs and Prophets, the Apostles, Martyrs, Confessors, Virgins, and all the Saints of God are always with me. + Thus, it is.
+
+That the blessings of all of Heaven, of God, are always with me. + Thus, it is.
+
+That the Majesty of the All-Powerful God supports and protects me. That His Bounty Eternal leads me. That the Power of the Father preserves me; that the Wisdom of the Son vivifies me; that the Virtue of the Holy Spirit is always between me and my enemies, visible and invisible. Thus, it is.
+
+Power of the Father, strengthen me. Wisdom of the Son, enlighten me. Consolation of the Holy Spirit, comfort me.
+
+The Father is Peace. The Son is Life. The Holy Spirit is Remedy and Consolation and Safety. Thus, it is.
+
+That the Divinity of God blesses me. Thus, it is. That his Piety warms me. Thus, it is. That His Love preserves me. Thus, it is.
+
+O Jesus Christ, Son of the Great Living God, have pity on this poor sinner.`
+      },
+
+      3: { // Wednesday
+        label: "Wednesday",
+        title: "Orison for Wednesday",
+        text: `O Emmanuel, defend me. Counter my enemies, counter all my enemies, visible and invisible. Deliver me from all evil. Jesus Christ, King of Peace: God made man and suffered patiently. Be between me and my enemies, and defend me. Thus, it is.
+
+Jesus Christ Triumphs. + Jesus Christ reigns. + Jesus Christ commands. + Jesus Christ delivers me, always, from all evil, continuously. Thus, it is.
+
+That Jesus Christ condescends to make me triumph, in grace, over my enemies. Thus, it is.
+
+Here is the Cross of Our Savior, Jesus Christ. Thus, flee, my enemies, at this sight, as the Lion of Judah was triumphant over the race of David. Alleluia. Alleluia. Alleluia.
+
+Savior of the world, save me and help me, who was redeemed by your Cross, and your most precious blood, I entreat you, my God, O Agios + Otheos + Agios Ischyros + Agios Athanatos + Eleison Himas.
+
+Holy God, strong God, merciful and immortal God, have pity on your creation, N.
+
+Be my support, Lord, do not give up on me; do not reject my prayers. God is my safety, be always my assistance. God is my safety.`
+      },
+
+      4: { // Thursday
+        label: "Thursday",
+        title: "Orison for Thursday",
+        text: `Fill my eyes with True Light, so they are not in sleep, eternal, for my enemy does not say I had the advantage on him. As long as my Lord is with me, I will not fear the evil of my enemies.
+
+O gentle Jesus, preserve me, help me, save me; that by only saying the name of Jesus, there is genuflecting, Heavenly, earthly, and infernally, and any speaking of Our Savior, Jesus Christ, enjoys the Glory of His Father. Thus, it is.
+
+I know, without doubt, that I will call upon my Lord, at any hour or any day, and be safe.
+
+Gentle Lord, Jesus Christ, only Son of the Great Living God, who made Miracles, through only the force of your most precious name, and enriched, so abundantly, the poor one, since by it’s force, all demons must flee, blind men see, deaf men hear, the lame go right, the dumb speak, the lepers are brought back to life.
+
+Because, once the very gentle name of Jesus Christ is spoken, the ear is charmed and delighted, and it is kept safe from temptation. And only by saying it, it will cause demons to leave, all knees to bend, all temptations to cease, and the worst of all people be cut from their roots.
+
+All infirmities are healed, all arguments and combats between the world, the flesh, and the devil, dissipate, and one is filled with Heavenly joy.
+
+Because, whoever called upon, or will call upon, the Holy Name of God, was, and will be, safe.
+
+This Holy Name, by the same Angel, before it conceived in the center of the Blessed Virgin.`
+      },
+
+      5: { // Friday
+        label: "Friday",
+        title: "Orison for Friday",
+        text: `O gentle name, name strengthening the heart of man, name of life, safety, joy, precious, rejoicing, glorious, and pleasant name, name strengthening against sin, name that saves, leads, and preserves all; that you are, thus, pleased, most pious Jesus, by the force of the very precious name, eliminate in me the demons.
+
+Give me light, O Lord, for I am blind. Dissipate my deafness; rectify my lameness; return to me Thy Word, for I am dumb. Heal my leprosy, give to me health again, for I am sick. Resurrect me, for I am dead, give me life again.
+
+And surround me in all parts, inside as well as outside, so that being provided and strengthened by this Holy Name, I always live in you, honoring you, because you are all there is. Because, only you are worthy of the Glory.
+
+The Lord is the Son of the Eternal God, by whom all things are governed in joy. Praise, honor, and glory, is ever returned to you, in this century and in all other centuries. Thus, it is.
+
+That Jesus is always in my heart, in my entrails. Thus, it is.
+
+That Our Savior, Jesus Christ, is always inside of me, that He restores me, that He surrounds me, that He preserves me, that He is before me, that He leads me, that He is behind me, so that He keeps me, that He is above me, that He is beneath me, that He is in me, that He vivifies me, so that He is close to me, so that He controls me, so that He is above me, so that He delivers me of the penalty of eternal death.
+
+He who sees and reigns with the Father and the Holy Spirit in this century and all other centuries. Thus, it is.`
+      },
+
+      6: { // Saturday
+        label: "Saturday",
+        title: "Orison for Saturday",
+        text: `Jesus, Son of Mary, safety of the world, let the Lord be favorable to me, gentle and favorable. That He grants the Holy Spirit, voluntarily, to me, to return honor and respect to Him. He, the liberator of the world.
+
+Nobody can put a hand on Him, because His hour has not yet come. He, which is, which was, and which shall ever be. He, who has been God and man, Beginning and End.
+
+That this prayer I make to Him eternally guarantees me against my enemies. Thus, it is.
+
+Jesus of Nazareth, King of the Jews, of honorable title; gossamer clothed Mary, have pity on this poor sinner, N. Lead me, accordingly, to your mercy and the way of safety eternal. Thus, it is.
+
+However, Jesus, knowing all things that were coming to Him, came forward, and asked, “whom do you seek?”
+They responded to him, “Jesus of Nazareth.”
+And Jesus said to them, “I am he.”
+However, Judas, who had delivered them, stood with them. They fell back, dropping to the ground.
+However, Jesus asked, once again, “whom do you seek?”
+They answered Jesus, who replied, “I already told you, I am he. If it is me that you seek, let these men go.
+
+(A note from your humble editor: this little section is a rendition of the Gospel of John, Chapter 18, when the guards came to arrest Jesus at Gethsemane.)
+
+The lance, the nails, the Cross, the spines, death, which I suffered to prove to you, and erase and expel the crimes of the sinners. Preserve me, Lord, Jesus Christ, of all wounds, poverty, and obstacles of my enemies, that the five wounds of Our Savior are used to redeem me continually.
+
+Jesus is the way. + Jesus is the life. + Jesus is the truth. + Jesus was crucified. + Jesus, Son of the Living God, have pity. +
+
+However, Jesus, passing in the midst of them, went, and nobody put their hand on Him, or bruised Him, because Jesus’ hour had not yet come.`
+      },
+    };
+
+    function renderOrisonOfDay(){
+      const dayIndex = new Date().getDay(); // 0=Sun ... 6=Sat (visitor's local time)
+      const o = ORISONS[dayIndex] || ORISONS[0];
+
+      const el = document.getElementById("orisonOfDay");
+      el.innerHTML = `
+        <div class="card p-3 mb-4">
+          <div class="orison-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="fw-semibold" style="color:var(--accentTint)">${o.title}</div>
+            <span class="tag"><span class="dot"></span>Today: ${o.label}</span>
+          </div>
+          <pre class="orison-pre">${o.text.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
+        </div>
+      `;
+    }
+
+    renderOrisonOfDay();
+
+    /* ===== Psalm cards (same as before) ===== */
+
+    const sections = [
+      { id:"ps6", group:"core", psalmNo:6, title:"Psalm 6: The Orison for Legal and Mental Relief",
+        tags:["Legal","Mental peace","Healing","Victory"],
+        bullets:[
+          { head:"Legal Protection", body:'Reciting this three times is said to "change the unwillingness of an iniquitous Judge" and prevent wrongful condemnation [1].' },
+          { head:"Mental Peace", body:'It provides comfort to sinners, converts sadness into joy, and is effective against "all work and torments of the spirit" [1].' },
+          { head:"Physical Healing", body:'If said seven times over three days while following specific rituals, it is used to heal "evils of the eyes" [1].' },
+          { head:"Victory", body:"It was originally used by David to seek victory over his adversaries [1]." },
+        ]
+      },
+      { id:"ps31", group:"core", psalmNo:31, title:"Psalm 31: The Shield for Hidden Crimes",
+        tags:["Protection","Secrecy","Forgiveness"],
+        bullets:[
+          { head:"Protection from Nature", body:"This Psalm is used to counter the bites of snakes and dogs [2]." },
+          { head:"Secrecy", body:'It is specifically recommended for those who have "hidden crimes" and fear being discovered by others [2].' },
+          { head:"Forgiveness", body:"It serves as a confirmation that God has forgiven the user's sins [2]." },
+        ]
+      },
+      { id:"ps37", group:"core", psalmNo:37, title:"Psalm 37: The Remitter of Pain and Sorrow",
+        tags:["Sorrow","Protection","Forgiveness"],
+        bullets:[
+          { head:"Emotional Immunity", body:'Devotion to this Psalm is said to make a person "exempt from pain and sorrow" [3].' },
+          { head:"Annihilating Evil", body:'When written on a silver blade during a specific alignment of Mars and the Moon, it renders "evil null and void" [3].' },
+          { head:"Forgiveness", body:"It is used to obtain the remission of sins [3]." },
+        ]
+      },
+      { id:"ps50", group:"core", psalmNo:50, title:"Psalm 50: The Guardian of Heart and Body",
+        tags:["Health","Temptation","Foundation"],
+        bullets:[
+          { head:"Health and Vitality", body:'Saint Ambrose refers to this as a "glorious and useful Psalm" for the health of the body and the heart [4].' },
+          { head:"Spiritual Strength", body:"It is used to counter temptations and provide the user with contrition [4]." },
+          { head:"Ritual Foundation", body:"It is frequently used as a prerequisite for other major orisons, such as those intended to make one beloved by royalty and nobility [5, 6]." },
+        ]
+      },
+      { id:"ps101", group:"core", psalmNo:101, title:"Psalm 101: The Console for Affliction and Infertility",
+        tags:["Consolation","Affliction","Fertility"],
+        bullets:[
+          { head:"Consolation", body:'Reciting this daily is said to result in being "marvelously consoled" and healed of all afflictions [7].' },
+          { head:"Fertility", body:"The source provides a specific ritual involving this Psalm, dove's blood, and white taffeta to help a woman who cannot conceive [7]." },
+        ]
+      },
+      { id:"ps125", group:"core", psalmNo:125, title:"Psalm 125: The Key to Revelations and Dreams",
+        tags:["Dreams","Defense","Travel"],
+        bullets:[
+          { head:"Divine Insight", body:'This Psalm is used to obtain a "revelation, in a dream" regarding a specific question or response the user wishes to know [8].' },
+          { head:"Environmental and Spiritual Defense", body:"It is described as powerful against storms and temptations [8]." },
+          { head:"Travel and Cleansing", body:'It is used to erase the "spots" of a sinner\'s crimes and is recited before departing on voyages to remove fear [8, 9].' },
+        ]
+      },
+      { id:"ps142", group:"core", psalmNo:142, title:'Psalm 142: The "Be-All End-All" for Success',
+        tags:["Success","Travel","Status","Liberation"],
+        bullets:[
+          { head:"Universal Success", body:'This is described as a "Watery Orison" by which David obtained everything he asked for; it is recommended for anyone who wishes to "succeed in all things" [10].' },
+          { head:"Travel Safety", body:"It provides for the safety of body and soul for those traveling by sea or ground [10]." },
+          { head:"Status and Marriage", body:"It is used by those seeking dignity, loads of responsibility, or marriage [10]." },
+          { head:"Liberation", body:'It is noted as useful for prisoners seeking their soul\'s release "out of prison" [10, 11].' },
+        ]
+      },
+
+      { id:"ps58", group:"extra", psalmNo:58, title:"Psalm 58: Specialized Use",
+        tags:["Enemies","Voyages"],
+        bullets:[ { head:"Fear in Enemies", body:"Recited to cause fear in one's enemies, magicians, and robbers during voyages [9]." } ]
+      },
+      { id:"ps44", group:"extra", psalmNo:44, title:"Psalm 44: Specialized Use",
+        tags:["Protection","Charms","Poisons"],
+        bullets:[ { head:"Harder Than Marble", body:'Used in rituals to make the user "harder than marble" against charms and poisons [12].' } ]
+      },
+      { id:"ps118", group:"extra", psalmNo:118, title:"Psalm 118: Specialized Use",
+        tags:["Favor","Princes","Grace"],
+        bullets:[ { head:"Grace and Favor", body:"Recited to help the user enter with grace and favor into the presence of princes, great lords, and parents [13]." } ]
+      },
+    ];
+
+    const content = document.getElementById("content");
+    const search = document.getElementById("search");
+
+    let filterMode = "all"; // all | core | extra
+    let query = "";
+
+    function escapeHtml(s){
+      return (s ?? "").replace(/[&<>"']/g, (c)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[c]));
+    }
+
+    function matchesSection(sec, q){
+      if(!q) return true;
+      const hay = [
+        sec.title,
+        ...(sec.tags || []),
+        ...(sec.bullets || []).flatMap(b => [b.head, b.body])
+      ].join(" ").toLowerCase();
+      return hay.includes(q.toLowerCase());
+    }
+
+    function makeUrls(psalmNo){
+      const enUrl = `https://www.biblegateway.com/passage/?search=Psalm%20${encodeURIComponent(psalmNo)}&version=NASB1995`;
+      const tlUrl = `https://www.biblegateway.com/passage/?search=Mga%20Awit%20${encodeURIComponent(psalmNo)}&version=MBBTAG`;
+      return { enUrl, tlUrl };
+    }
+
+    function openRandomPsalm(psalmNo){
+      const { enUrl, tlUrl } = makeUrls(psalmNo);
+      const pick = Math.random() < 0.5 ? enUrl : tlUrl;
+      window.open(pick, "_blank", "noopener,noreferrer");
+    }
+
+    function render(){
+      content.innerHTML = "";
+
+      const shown = sections.filter(sec => {
+        if(filterMode !== "all" && sec.group !== filterMode) return false;
+        return matchesSection(sec, query);
+      });
+
+      if(shown.length === 0){
+        const empty = document.createElement("div");
+        empty.className = "card p-3 mt-3";
+        empty.innerHTML = `<div class="small-note">No matches. Try a different search term.</div>`;
+        content.appendChild(empty);
+        return;
+      }
+
+      shown.forEach(sec => {
+        const h = document.createElement("h3");
+        h.className = "section-title";
+        h.textContent = sec.title;
+        content.appendChild(h);
+
+        const card = document.createElement("div");
+        card.className = "card mb-3";
+
+        const body = document.createElement("div");
+        body.className = "p-3";
+
+        const tagWrap = document.createElement("div");
+        tagWrap.className = "d-flex flex-wrap gap-2 mb-3";
+        (sec.tags || []).forEach(t => {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.innerHTML = `<span class="dot"></span>${escapeHtml(t)}`;
+          tagWrap.appendChild(tag);
+        });
+        body.appendChild(tagWrap);
+
+        const ul = document.createElement("ul");
+        ul.className = "mb-3";
+        (sec.bullets || []).forEach(b => {
+          const li = document.createElement("li");
+          li.className = "mb-2";
+          li.innerHTML = `<span class="bullet-title">${escapeHtml(b.head)}:</span> ${escapeHtml(b.body)}`;
+          ul.appendChild(li);
+        });
+        body.appendChild(ul);
+
+        const btnRow = document.createElement("div");
+        btnRow.className = "d-flex flex-wrap align-items-center gap-2 justify-content-between";
+
+        const btn = document.createElement("button");
+        btn.className = "btn btn-sm btn-royal";
+        btn.type = "button";
+        btn.textContent = "View Full Psalm";
+        btn.addEventListener("click", () => openRandomPsalm(sec.psalmNo));
+
+        const urls = makeUrls(sec.psalmNo);
+        const links = document.createElement("div");
+        links.className = "small-note";
+        links.innerHTML =
+          `Direct: <a href="${urls.enUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--accentTint);text-decoration:none">NASB1995</a>
+           • <a href="${urls.tlUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--accentTint);text-decoration:none">MBBTAG</a>`;
+
+        btnRow.appendChild(btn);
+        btnRow.appendChild(links);
+
+        body.appendChild(btnRow);
+
+        card.appendChild(body);
+        content.appendChild(card);
+      });
+    }
+
+    // Filter buttons
+    const bAll = document.getElementById("modeAll");
+    const bCore = document.getElementById("modeCore");
+    const bExtra = document.getElementById("modeExtra");
+
+    function setMode(m){
+      filterMode = m;
+      [bAll, bCore, bExtra].forEach(b=>b.classList.remove("active"));
+      if(m==="all") bAll.classList.add("active");
+      if(m==="core") bCore.classList.add("active");
+      if(m==="extra") bExtra.classList.add("active");
+      render();
+    }
+
+    bAll.addEventListener("click", ()=>setMode("all"));
+    bCore.addEventListener("click", ()=>setMode("core"));
+    bExtra.addEventListener("click", ()=>setMode("extra"));
+
+    // Search
+    search.addEventListener("input", (e)=>{
+      query = e.target.value.trim();
+      render();
+    });
+
+    // "/" focuses search, Escape clears
+    window.addEventListener("keydown", (e)=>{
+      if(e.key === "/" && document.activeElement !== search){
+        e.preventDefault();
+        search.focus();
+      }
+      if(e.key === "Escape" && document.activeElement === search){
+        search.value = "";
+        query = "";
+        search.blur();
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
