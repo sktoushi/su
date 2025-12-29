@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Skyway Scheduler Randomizer</title>
-  <meta name="description" content="Redirects to a random Skyway Scheduler version based on the ?max= URL parameter.">
+  <meta name="description" content="Redirects to a random Skyway Scheduler version based on the ?max= URL parameter, with a 10% chance to redirect to recent books pages.">
   <style>
     html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     .wrap { display: grid; place-items: center; height: 100%; text-align: center; padding: 2rem; }
@@ -18,13 +19,27 @@
     <div class="card">
       <h1>Redirecting…</h1>
       <p>If you are not redirected automatically, <a id="target" href="#" rel="nofollow noopener">click here</a>.</p>
-      <p><small>Tip: Control the maximum version via <code>?max=&lt;number&gt;</code>. The default is <code>2</code>. If a provided max and the default differ, the larger one is used.</small></p>
+      <p>
+        <small>
+          Tip: Control the maximum version via <code>?max=&lt;number&gt;</code>. The default is <code>6</code>.
+          If a provided max and the default differ, the larger one is used.
+          <br>
+          Also: <code>10%</code> of the time you’ll be redirected to a recent books page.
+        </small>
+      </p>
     </div>
   </div>
 
   <script>
     (function () {
       var DEFAULT_MAX = 6;
+
+      // 10% pool (choose randomly between these when triggered)
+      var SPECIAL_URLS = [
+        "https://sktoushi.github.io/su/allrecentbooks445.html",
+        "https://sktoushi.github.io/su/allrecent100books.html"
+      ];
+      var SPECIAL_PROBABILITY = 0.10;
 
       function parseMaxParam() {
         try {
@@ -40,16 +55,24 @@
         }
       }
 
-      var maxFromParam = parseMaxParam();
-      var effectiveMax = Math.max(DEFAULT_MAX, Number.isNaN(maxFromParam) ? 0 : maxFromParam);
+      var target;
 
-      // Ensure integer and lower bound of 1
-      effectiveMax = Math.max(1, Math.floor(effectiveMax));
+      // 10% of the time redirect to one of the special pages
+      if (Math.random() < SPECIAL_PROBABILITY) {
+        var pick = Math.floor(Math.random() * SPECIAL_URLS.length);
+        target = SPECIAL_URLS[pick];
+      } else {
+        var maxFromParam = parseMaxParam();
+        var effectiveMax = Math.max(DEFAULT_MAX, Number.isNaN(maxFromParam) ? 0 : maxFromParam);
 
-      // Random integer in [1, effectiveMax]
-      var version = 1 + Math.floor(Math.random() * effectiveMax);
+        // Ensure integer and lower bound of 1
+        effectiveMax = Math.max(1, Math.floor(effectiveMax));
 
-      var target = "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
+        // Random integer in [1, effectiveMax]
+        var version = 1 + Math.floor(Math.random() * effectiveMax);
+
+        target = "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
+      }
 
       // Update fallback link
       var a = document.getElementById('target');
@@ -70,7 +93,17 @@
   <noscript>
     <div style="text-align:center; padding:1rem;">
       JavaScript is required to redirect. Please enable JavaScript or open:
-      <div><code>https://sktoushi.github.io/su/skyway-scheduler1.html</code> or <code>https://sktoushi.github.io/su/skyway-scheduler2.html</code></div>
+      <div>
+        <code>https://sktoushi.github.io/su/skyway-scheduler1.html</code> or
+        <code>https://sktoushi.github.io/su/skyway-scheduler2.html</code>
+      </div>
+      <div style="margin-top:.5rem;">
+        Or the recent books pages:
+        <div>
+          <code>https://sktoushi.github.io/su/allrecentbooks445.html</code> or
+          <code>https://sktoushi.github.io/su/allrecent100books.html</code>
+        </div>
+      </div>
     </div>
   </noscript>
 </body>
