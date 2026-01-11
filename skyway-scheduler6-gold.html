@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pure Uniform Random Redirect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ===== Royal Purple scheme (copied) ===== */
+    :root{
+      --bg:#0f0f12;
+      --card:#15151c;
+      --rule:#2a2a35;
+      --muted:#a8a8b3;
+      --text:#e9e9ef;
+
+      /* Royal purple */
+      --accent:#6D28D9;
+      --accent2:#A78BFA;
+      --accentTint:#C4B5FD;
+
+      --shadow: color-mix(in srgb, var(--accent) 18%, transparent);
+      --ring: color-mix(in srgb, var(--accent) 28%, transparent);
+
+      /* keep existing non-scheme roles */
+      --danger:#e53935;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    }
+
+    .wrap{
+      display:grid;
+      place-items:center;
+      height:100vh;
+      text-align:center;
+      gap:.5rem;
+      padding:1rem;
+    }
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    .small{opacity:.85;color:var(--muted)}
+    a{color:var(--accentTint); text-decoration:none;}
+    a:hover{color:var(--accent2); text-decoration:underline;}
+
+    .hidden{display:none!important;}
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+
+    .btn{
+      border:1px solid var(--rule);
+      background: transparent;
+      color: var(--text);
+      padding:.6rem 1rem;
+      border-radius:.5rem;
+      font-size:1rem;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3);
+      user-select:none;
+    }
+    .btn:hover{
+      background: color-mix(in srgb, var(--card) 70%, transparent);
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
+    }
+    .btn:active{transform:translateY(1px);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+
+    /* Accent button styled like the “btn-royal” vibe */
+    .btn-accent{
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent) 88%, black);
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--rule));
+      box-shadow: 0 0 0 .15rem var(--ring);
+    }
+    .btn-accent:hover{
+      background: color-mix(in srgb, var(--accent) 78%, black);
+      border-color: color-mix(in srgb, var(--accent2) 60%, var(--rule));
+    }
+
+    .btn-danger{
+      background: var(--danger);
+      color:#fff;
+      border-color: color-mix(in srgb, var(--danger) 70%, black);
+    }
+    .btn-danger:hover{
+      background: color-mix(in srgb, var(--danger) 85%, black);
+      border-color: color-mix(in srgb, var(--danger) 75%, black);
+    }
+
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+
+    dialog{
+      border:none;
+      border-radius:12px;
+      padding:0;
+      background: var(--card);
+      color:var(--text);
+      width:min(560px,92vw);
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6);}
+
+    .modal{padding:1.25rem 1.25rem 1rem;}
+    .modal h2{margin:0 0 .25rem 0; font-weight:700; font-size:1.2rem; color:var(--accentTint);}
+    .modal p{margin:0 0 1rem 0; color:var(--muted);}
+
+    .field{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:.75rem;
+      align-items:center;
+      margin:.75rem 0 1rem 0;
+    }
+
+    .numinput{
+      width:12ch;
+      padding:.6rem .75rem;
+      border-radius:.5rem;
+      border:1px solid var(--rule);
+      background: transparent;
+      color:var(--text);
+      font-size:1rem;
+    }
+    .numinput:focus{
+      border-color: color-mix(in srgb, var(--accent) 60%, var(--rule));
+      box-shadow: 0 0 0 .2rem var(--ring);
+      outline:none;
+    }
+
+    .hint{margin-top:-.6rem; margin-bottom:.9rem;}
+    .countdown{font-variant-numeric:tabular-nums;}
+    code{color:var(--accentTint);}
+  </style>
+
+  <script>
+    // List your URLs here. All have equal probability within the 90% branch.
+    const URLS = [
+      "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=54.pdf",
+      "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=67.pdf",
+      "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=68.pdf"
+    ];
+
+    // ===== PDF branch config =====
+    const PDF_REDIRECT_PROB = 0.02;
+    const DEFAULT_RANDOM_PDF_MAX = 68;
+
+    // ===== IndexedDB keys =====
+    const IDB_NAME = "randomRedirectSettings_v1";
+    const IDB_VER = 1;
+    const STORE = "settings";
+    const KEY_RANDOM_PDF_MAX = "RANDOM_PDF_MAX";
+
+    // ===== Crypto RNG helpers =====
+    function randIndex(n){
+      if (n <= 1) return 0;
+      const u32 = new Uint32Array(1);
+      const limit = Math.floor(0x100000000 / n) * n; // rejection sampling
+      let x;
+      do { crypto.getRandomValues(u32); x = u32[0]; } while (x >= limit);
+      return x % n;
+    }
+    function randFloat(){
+      const u32 = new Uint32Array(1);
+      crypto.getRandomValues(u32);
+      return u32[0] / 0x100000000; // [0,1)
+    }
+
+    // ===== IndexedDB helpers =====
+    function openDB(){
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, IDB_VER);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function idbGet(key){
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const st = tx.objectStore(STORE);
+        const r = st.get(key);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    async function idbSet(key, val){
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        const st = tx.objectStore(STORE);
+        const r = st.put(val, key);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    }
+
+    // ===== Modal: show for 25 seconds, allow changing RANDOM_PDF_MAX =====
+    function showRandomMaxModal25s(currentValue){
+      const dlg = document.getElementById("endDialog");
+      const input = document.getElementById("endInput");
+      const err = document.getElementById("endError");
+      const btnSave = document.getElementById("saveEndBtn");
+      const btnSkip = document.getElementById("skipEndBtn");
+      const btnReset = document.getElementById("resetEndBtn");
+      const countdown = document.getElementById("skipCountdown");
+
+      input.value = String(currentValue);
+      err.classList.add("hidden");
+
+      const validate = () => {
+        const v = Number(input.value);
+        if (!Number.isInteger(v) || v < 1) {
+          err.classList.remove("hidden");
+          return null;
+        }
+        err.classList.add("hidden");
+        return v;
+      };
+
+      btnReset.onclick = () => {
+        input.value = String(DEFAULT_RANDOM_PDF_MAX);
+        err.classList.add("hidden");
+      };
+
+      // Return a promise that resolves with the (possibly updated) max
+      return new Promise((resolve) => {
+        let remaining = 25;
+        let closed = false;
+
+        const tick = () => {
+          countdown.textContent = `Auto-continue in ${remaining}s`;
+          remaining -= 1;
+          if (remaining < 0) {
+            cleanup();
+            safeClose();
+            resolve(currentValue);
+          }
+        };
+
+        const timer = setInterval(tick, 1000);
+        tick();
+
+        function cleanup(){
+          clearInterval(timer);
+          btnSave.onclick = null;
+          btnSkip.onclick = null;
+          btnReset.onclick = null;
+          countdown.textContent = "";
+        }
+
+        function safeClose(){
+          if (closed) return;
+          closed = true;
+          try { dlg.close(); } catch {}
+        }
+
+        btnSkip.onclick = () => {
+          cleanup();
+          safeClose();
+          resolve(currentValue);
+        };
+
+        btnSave.onclick = async () => {
+          const v = validate();
+          if (v == null) return;
+          // persist AND update in-memory via resolution
+          try { await idbSet(KEY_RANDOM_PDF_MAX, v); } catch {}
+          cleanup();
+          safeClose();
+          resolve(v);
+        };
+
+        // show modal
+        try { dlg.showModal(); } catch { dlg.show(); }
+
+        // If user closes via ESC/backdrop, continue with currentValue
+        dlg.addEventListener("close", () => {
+          if (closed) return; // already handled
+          cleanup();
+          closed = true;
+          resolve(currentValue);
+        }, { once: true });
+      });
+    }
+
+    async function getStoredRandomPdfMax(){
+      let v;
+      try { v = await idbGet(KEY_RANDOM_PDF_MAX); } catch { v = undefined; }
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 1) {
+        v = DEFAULT_RANDOM_PDF_MAX;
+        try { await idbSet(KEY_RANDOM_PDF_MAX, v); } catch {}
+      }
+      return Math.floor(v);
+    }
+
+    function setChosenLink(target){
+      const a = document.getElementById("chosen");
+      if (a){ a.textContent = target; a.href = target; }
+    }
+
+    function doRedirect(target){
+      setChosenLink(target);
+      try { window.location.replace(target); }
+      catch { window.location.assign(target); }
+    }
+
+    async function go(){
+      const fallback = "https://sktoushi.github.io/su/allrecent100.html";
+      const list = Array.from(new Set(URLS.filter(Boolean)));
+
+      // Decide branch first
+      const pdfBranch = (randFloat() < PDF_REDIRECT_PROB);
+
+      if (!pdfBranch) {
+        const target = list.length ? list[randIndex(list.length)] : fallback;
+        return doRedirect(target);
+      }
+
+      // ===== 10% PDF branch: show modal, update RANDOM_PDF_MAX, then pick =====
+      setChosenLink("PDF branch selected — waiting for RANDOM_PDF_MAX…");
+
+      let RANDOM_PDF_MAX = await getStoredRandomPdfMax();
+
+      // Show the modal for 25s (lets user change stored+in-memory max)
+      RANDOM_PDF_MAX = await showRandomMaxModal25s(RANDOM_PDF_MAX);
+
+      // Use the (possibly updated) value onwards
+      const chosenNumber = randIndex(RANDOM_PDF_MAX) + 1;
+      const nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+
+      doRedirect(nextUrl);
+    }
+
+    // ===== Startup logic (CONFIG REDIRECT REMOVED) =====
+    document.addEventListener("DOMContentLoaded", () => {
+      go();
+    });
+  </script>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="small">Choosing a random destination…</div>
+    <div class="mono"><a id="chosen" href="#" rel="noreferrer noopener">Preparing…</a></div>
+    <div class="small">If auto-redirect is blocked, click the link above.</div>
+  </div>
+
+  <!-- Modal (same behavior; only colors updated via CSS variables above) -->
+  <dialog id="endDialog" aria-labelledby="endDialogTitle">
+    <div class="modal">
+      <h2 id="endDialogTitle">Set <code>RANDOM_PDF_MAX</code></h2>
+      <p>Enter the highest PDF number to use when the 10% PDF branch triggers. This value is saved in <code>IndexedDB</code> and used from now on.</p>
+
+      <div class="field">
+        <label for="endInput" class="small">RANDOM_PDF_MAX</label>
+        <input id="endInput" class="numinput" type="number" min="1" step="1" inputmode="numeric" pattern="[0-9]*" />
+      </div>
+
+      <div id="endError" class="small hidden" style="color:#ff8a80;">Please enter a positive integer (≥ 1).</div>
+      <div class="hint small">If you skip or time out, we’ll continue using the current stored value (seeded to <code>52</code> on first run).</div>
+
+      <div class="toolbar" style="margin-top:.6rem;">
+        <button class="btn btn-small btn-danger" id="skipEndBtn">Skip</button>
+        <span id="skipCountdown" class="small countdown" aria-live="polite"></span>
+        <div style="flex:1"></div>
+        <button class="btn btn-small" id="resetEndBtn" title="Reset RANDOM_PDF_MAX to 52">Reset</button>
+        <button class="btn btn-accent btn-small" id="saveEndBtn">Save & Continue</button>
+      </div>
+    </div>
+  </dialog>
+
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=https://sktoushi.github.io/su/allrecent100.html" />
+    <div class="wrap"><p class="small">JavaScript is disabled. Redirecting…</p></div>
+  </noscript>
+</body>
+</html>
