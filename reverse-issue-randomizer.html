@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stateful GitHub Issue Redirect</title>
+
+  <script>
+    /***********************
+     * Utility functions
+     ***********************/
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+
+    function hashString(str) {
+      // Simple deterministic hash (good enough for namespacing IndexedDB)
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    /***********************
+     * Parameters
+     ***********************/
+    const username = getParam("username");
+    const repo = getParam("repo");
+    const start = parseInt(getParam("start"), 10);
+    const end = parseInt(getParam("end"), 10);
+
+    if (
+      !username ||
+      !repo ||
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start > end
+    ) {
+      document.body.innerText =
+        "Invalid parameters. Required: username, repo, start, end.";
+      throw new Error("Invalid parameters");
+    }
+
+    /***********************
+     * IndexedDB setup
+     ***********************/
+    const paramSignature = JSON.stringify({
+      username,
+      repo,
+      start,
+      end
+    });
+
+    const dbHash = hashString(paramSignature);
+    const DB_NAME = `IssueRedirectDB_${dbHash}`;
+    const DB_VERSION = 1;
+    const STORE_NAME = "state";
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: "key" });
+          }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function getLastPage(db) {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get("lastPage");
+
+        req.onsuccess = () => {
+          resolve(req.result ? req.result.value : null);
+        };
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    function setLastPage(db, value) {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ key: "lastPage", value });
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    /***********************
+     * Page selection logic
+     ***********************/
+    function pickNextPage(lastPage) {
+      const r = Math.random();
+
+      if (r < 0.55) {
+        return lastPage - 1;
+      }
+
+      // remaining 45%, split evenly
+      return r < 0.775 ? lastPage : lastPage + 1;
+    }
+
+    /***********************
+     * Main flow
+     ***********************/
+    (async function run() {
+      const db = await openDB();
+      let lastPage = await getLastPage(db);
+
+      // First run: initialize with end
+      if (!Number.isInteger(lastPage)) {
+        lastPage = end;
+      }
+
+      let nextPage = pickNextPage(lastPage);
+
+      // Reset if negative
+      if (nextPage < 0) {
+        nextPage = end;
+      }
+
+      await setLastPage(db, nextPage);
+
+      const targetUrl = `https://github.com/${username}/${repo}/issues/${nextPage}`;
+      window.location.replace(targetUrl);
+    })();
+  </script>
+</head>
+
+<body>
+  Redirecting intelligently to a GitHub issue…
+</body>
+</html>
