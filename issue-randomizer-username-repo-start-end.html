@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random GitHub Issue Redirect</title>
+  <script>
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+
+    const username = getParam("username");
+    const repo = getParam("repo");
+    const start = parseInt(getParam("start"), 10);
+    const end = parseInt(getParam("end"), 10);
+
+    if (
+      !username ||
+      !repo ||
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start > end
+    ) {
+      document.body.innerText =
+        "Invalid parameters. Required: username, repo, start, end.";
+    } else {
+      const randomNumber =
+        Math.floor(Math.random() * (end - start + 1)) + start;
+
+      const targetUrl =
+        `https://github.com/${username}/${repo}/issues/${randomNumber}`;
+
+      window.location.replace(targetUrl);
+    }
+  </script>
+</head>
+<body>
+  Redirecting to a random GitHub issue…
+</body>
+</html>
