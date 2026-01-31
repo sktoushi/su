@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,19 +33,24 @@
     (function () {
       var DEFAULT_MAX = 6;
 
-      // 10% pool (choose randomly between these when triggered)
       var SPECIAL_URLS = [
         "https://sktoushi.github.io/su/allrecentbooks445.html",
         "https://sktoushi.github.io/su/allrecent100books.html"
       ];
       var SPECIAL_PROBABILITY = 0.10;
 
+      var STATEFUL_PROBABILITY = 0.50;
+
+      var DB_NAME = "skyway_scheduler_state";
+      var DB_VERSION = 1;
+      var STORE_NAME = "state";
+      var STATE_KEY = "lastTarget";
+
       function parseMaxParam() {
         try {
           var params = new URLSearchParams(window.location.search);
           if (!params.has('max')) return NaN;
           var raw = params.get('max');
-          // Allow "7", "7.9" (floored); ignore invalids
           var n = Math.floor(Number(raw));
           if (!Number.isFinite(n) || n < 1) return NaN;
           return n;
@@ -55,38 +59,96 @@
         }
       }
 
-      var target;
+      function openDB() {
+        return new Promise(function (resolve, reject) {
+          var req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = function () {
+            var db = req.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              db.createObjectStore(STORE_NAME, { keyPath: "key" });
+            }
+          };
+          req.onsuccess = function () { resolve(req.result); };
+          req.onerror = function () { reject(req.error); };
+        });
+      }
 
-      // 10% of the time redirect to one of the special pages
-      if (Math.random() < SPECIAL_PROBABILITY) {
-        var pick = Math.floor(Math.random() * SPECIAL_URLS.length);
-        target = SPECIAL_URLS[pick];
-      } else {
+      function getLastTarget(db) {
+        return new Promise(function (resolve) {
+          var tx = db.transaction(STORE_NAME, "readonly");
+          var store = tx.objectStore(STORE_NAME);
+          var req = store.get(STATE_KEY);
+          req.onsuccess = function () {
+            resolve(req.result ? req.result.value : null);
+          };
+          req.onerror = function () {
+            resolve(null);
+          };
+        });
+      }
+
+      function setLastTarget(db, value) {
+        return new Promise(function (resolve) {
+          var tx = db.transaction(STORE_NAME, "readwrite");
+          var store = tx.objectStore(STORE_NAME);
+          store.put({ key: STATE_KEY, value: value });
+          tx.oncomplete = function () { resolve(); };
+        });
+      }
+
+      function computeOriginalTarget() {
+        if (Math.random() < SPECIAL_PROBABILITY) {
+          return SPECIAL_URLS[Math.floor(Math.random() * SPECIAL_URLS.length)];
+        }
+
         var maxFromParam = parseMaxParam();
         var effectiveMax = Math.max(DEFAULT_MAX, Number.isNaN(maxFromParam) ? 0 : maxFromParam);
-
-        // Ensure integer and lower bound of 1
         effectiveMax = Math.max(1, Math.floor(effectiveMax));
 
-        // Random integer in [1, effectiveMax]
         var version = 1 + Math.floor(Math.random() * effectiveMax);
-
-        target = "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
+        return "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
       }
 
-      // Update fallback link
-      var a = document.getElementById('target');
-      if (a) {
-        a.href = target;
-        a.textContent = target;
+      function applyRedirect(target) {
+        var a = document.getElementById('target');
+        if (a) {
+          a.href = target;
+          a.textContent = target;
+        }
+        try {
+          window.location.replace(target);
+        } catch (e) {
+          window.location.href = target;
+        }
       }
 
-      // Redirect (replace avoids keeping this page in history)
-      try {
-        window.location.replace(target);
-      } catch (e) {
-        window.location.href = target;
-      }
+      (async function run() {
+        var useStateful = Math.random() < STATEFUL_PROBABILITY;
+        var target;
+
+        if (useStateful) {
+          try {
+            var db = await openDB();
+            var last = await getLastTarget(db);
+            if (typeof last === "string") {
+              applyRedirect(last);
+              return;
+            }
+            target = computeOriginalTarget();
+            await setLastTarget(db, target);
+          } catch (e) {
+            target = computeOriginalTarget();
+          }
+        } else {
+          target = computeOriginalTarget();
+          try {
+            var db2 = await openDB();
+            await setLastTarget(db2, target);
+          } catch (e) {}
+        }
+
+        applyRedirect(target);
+      })();
     })();
   </script>
 
