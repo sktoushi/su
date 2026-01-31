@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GitHub Issue Randomizer Hub</title>
+
+  <script>
+    const urls = [
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=the-snackbar&start=1&end=33",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=img&start=1&end=195",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=sktoushi&repo=stash1p5&start=1&end=290",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=log&start=9&end=254",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=redirect0915&start=1&end=255",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=public-repo&start=1&end=3991",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=stash&start=1&end=4569",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=sktoushi&repo=stash2&start=1&end=4508",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=stash3&start=1&end=4500",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=sktoushi&repo=stash5&start=1&end=4500",
+      "https://sktoushi.github.io/su/reverse-issue-randomizer.html?username=mdr19ganseki95cf&repo=stash6&start=1&end=1162"
+    ];
+
+    function pickRandomUrl() {
+      const index = Math.floor(Math.random() * urls.length);
+      return urls[index];
+    }
+
+    window.onload = () => {
+      const targetUrl = pickRandomUrl();
+      window.location.replace(targetUrl);
+    };
+  </script>
+</head>
+
+<body>
+  <p>Choosing a random repository…</p>
+</body>
+</html>
