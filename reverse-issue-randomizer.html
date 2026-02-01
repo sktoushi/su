@@ -128,6 +128,11 @@
         nextPage = end;
       }
 
+      // Prevent exceeding max (end)
+      if (nextPage > end) {
+        nextPage = end;
+      }
+
       await setLastPage(db, nextPage);
 
       const targetUrl = `https://github.com/${username}/${repo}/issues/${nextPage}`;
