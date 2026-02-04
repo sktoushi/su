@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random PDF Redirector</title>
+  <script>
+    // List of URLs with equal probability
+    const urls = [
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-995-1136.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-853-994.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-711-852.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-569-710.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-427-568.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-285-426.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-143-284.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1279-1421.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1137-1278.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1-142.pdf",
+      "https://sktoushi.github.io/ref2409/viewer-pdfjs-4chan2.html?fileName=incerto-nassim-1-142.pdf"
+    ];
+
+    // Pick a random URL
+    const randomIndex = Math.floor(Math.random() * urls.length);
+    const selectedURL = urls[randomIndex];
+
+    // Redirect immediately
+    window.location.href = selectedURL;
+  </script>
+</head>
+<body>
+  <p>Redirecting to your PDF...</p>
+</body>
+</html>
