@@ -1,6 +1,6 @@
 {
   "repositories": {
-    "stash6": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 1489}
+    "stash6": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 1556}
   },
   "formulas": [
     "recent20Percent",
