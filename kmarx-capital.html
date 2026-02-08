@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random Redirect</title>
+  <script>
+    // List of URLs with probability weights
+    const urls = [
+      { probabilityWeight: 1, url: "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p1-1-250.pdf" },
+      { probabilityWeight: 1, url: "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p2-1-250.pdf" },
+      { probabilityWeight: 1, url: "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-i-p3-1-215.pdf" },
+      { probabilityWeight: 1, url: "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-ii-37-529.pdf" },
+      { probabilityWeight: 1, url: "https://sktoushi.github.io/ref2501/viewer-pdfjs-4chan2.html?fileName=karl-marx-capital-iii-36-905.pdf" }
+    ];
+
+    function pickRandomURL(urlList) {
+      // Calculate total weight
+      const totalWeight = urlList.reduce((sum, item) => sum + item.probabilityWeight, 0);
+      
+      // Pick a random number between 0 and totalWeight
+      let random = Math.random() * totalWeight;
+
+      // Select URL based on weight
+      for (const item of urlList) {
+        if (random < item.probabilityWeight) {
+          return item.url;
+        }
+        random -= item.probabilityWeight;
+      }
+      // fallback
+      return urlList[0].url;
+    }
+
+    // Redirect immediately after page loads
+    window.onload = () => {
+      const selectedURL = pickRandomURL(urls);
+      window.location.href = selectedURL;
+    };
+  </script>
+</head>
+<body>
+  <p>Redirecting you to a random PDF... If nothing happens, <a id="manualLink" href="#">click here</a>.</p>
+  <script>
+    // fallback manual link
+    document.getElementById('manualLink').href = pickRandomURL(urls);
+  </script>
+</body>
+</html>
