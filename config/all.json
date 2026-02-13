@@ -10,7 +10,7 @@
     "stash2": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4508},
     "stash3": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4500},
     "stash5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4500},
-    "stash6": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 2017}
+    "stash6": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 2043}
   },
   "formulas": [
     "random",
