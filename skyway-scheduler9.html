@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GitHub Issue Randomizer Hub</title>
+
+  <script>
+    const urls = [
+      "https://sktoushi.github.io/su/pmi-acp-first-try.pdf" 
+    ];
+
+    function pickRandomUrl() {
+      const index = Math.floor(Math.random() * urls.length);
+      return urls[index];
+    }
+
+    window.onload = () => {
+      const targetUrl = pickRandomUrl();
+      window.location.replace(targetUrl);
+    };
+  </script>
+</head>
+
+<body>
+  <p>Choosing a random repository…</p>
+</body>
+</html>
