@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Random Redirect</title>
+    <script>
+        // Array of destinations
+        const links = [
+            "https://instagram.com/reels"
+        ];
+
+        // Pick a random element
+        const randomLink = links[Math.floor(Math.random() * links.length)];
+
+        // Redirect the user
+        window.location.href = randomLink;
+    </script>
+</head>
+<body>
+    <noscript>
+        JavaScript is required for this page to redirect.
+    </noscript>
+</body>
+</html>
+
