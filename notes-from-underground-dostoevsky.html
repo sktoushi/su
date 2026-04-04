@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random Redirect</title>
+  <script>
+    (function () {
+      const coinFlip = Math.random(); // true randomness
+
+      if (coinFlip < 0.5) {
+        // Redirect to random GitHub issue
+        const start = 2827;
+        const end = 2888;
+
+        const randomIssue = Math.floor(Math.random() * (end - start + 1)) + start;
+        const url = "https://github.com/mdr19ganseki95cf/stash6/issues/" + randomIssue;
+
+        window.location.replace(url);
+      } else {
+        // Redirect to PDF
+        window.location.replace(
+          "https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=notes-from-underground.pdf"
+        );
+      }
+    })();
+  </script>
+</head>
+<body>
+</body>
+</html>
