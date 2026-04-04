@@ -72,11 +72,19 @@
       }
 
       if(type === "underground"){
-        window.location.href = "https://github.com/sktoushi/26underground/issues/new";
+        const undergroundAlt = Math.random() < 0.33;
+
+        if(undergroundAlt){
+          window.location.href = "https://github.com/sktoushi/su/blob/in/notes-from-underground-dostoevsky.html";
+        } else {
+          window.location.href = "https://github.com/sktoushi/26underground/issues/new";
+        }
       }
+
       if(type === "finisher"){
         window.location.href = "https://github.com/sktoushi/26fin/issues/new";
       }
+
       if(type === "twoplustwo"){
         window.location.href = "https://github.com/sktoushi/26twoplustwoisfour/issues/new";
       }
