@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Book Iterator Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    :root{
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+      --border:#1b2328; --card:#11161a; --panel:#0f1519; --panel2:#0c1114;
+      --ok:#1c313a; --okfg:#b2dfdb;
+    }
+
+    html, body {
+      margin:0; padding:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      min-height:100svh;
+    }
+
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.92rem;}
+
+    main{
+      margin: 1rem auto;
+      width:min(100%, 980px);
+      padding: 0 .8rem 2rem;
+      box-sizing:border-box;
+    }
+
+    .paper{
+      background:var(--card); color:var(--fg);
+      border-radius: 18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+      padding: 1rem;
+    }
+
+    .toolbar{
+      display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;
+    }
+
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.75rem 1rem; border-radius:.7rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; text-decoration:none;
+      min-height: 48px;
+      font-weight: 650;
+    }
+
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-ghost{background:transparent;}
+    .btn-small{padding:.6rem .9rem; font-size:.96rem; border-radius:.6rem;}
+    .btn-outline{
+      background:transparent; border-color:var(--border); color:var(--fg);
+    }
+    .btn-outline:hover{background:#0f1519;}
+
+    .btn:focus-visible, a:focus-visible, input:focus-visible, button:focus-visible {
+      outline: 2px solid #9ccc65; outline-offset: 2px;
+    }
+
+    h1{
+      margin:.25rem 0 .35rem 0;
+      font-weight:750;
+      font-size:1.3rem;
+      line-height:1.2;
+    }
+
+    .lead{ margin:.25rem 0 1rem 0; }
+
+    .pill{
+      font-size:.85rem; padding:.25rem .6rem; border-radius:.9rem;
+      background:#1c313a; color:#b2dfdb; border:1px solid rgba(255,255,255,.06);
+      letter-spacing:.2px; display:inline-block;
+    }
+
+    code{
+      background:#0f1519; padding:0 .35rem; border-radius:.3rem; color:#d8e6df;
+      word-break: break-word;
+    }
+
+    .info{
+      display:flex; gap:.75rem; flex-wrap:wrap; align-items:center;
+      border-top:1px dashed rgba(255,255,255,.08);
+      border-bottom:1px dashed rgba(255,255,255,.08);
+      padding:.75rem 0; margin:.6rem 0 1rem 0;
+    }
+
+    .info b{ font-weight:700; }
+    .info .sep{ opacity:.5; }
+
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding: .9rem;
+      margin: .9rem 0;
+    }
+
+    .iteration-box{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding: .9rem;
+      margin-top: .8rem;
+    }
+
+    .iteration-id{
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .iteration-sub{
+      margin-top: .35rem;
+      color: var(--muted);
+      font-size: .92rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .gauges{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:.85rem;
+      margin-top: .9rem;
+      margin-bottom: .9rem;
+    }
+
+    .gauge-card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:.9rem;
+    }
+
+    .gauge-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:.75rem;
+      margin-bottom:.55rem;
+    }
+
+    .gauge-label{
+      font-size:.98rem;
+      font-weight:700;
+    }
+
+    .gauge-value{
+      font-size:.95rem;
+      color:var(--okfg);
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .bar{
+      width:100%;
+      height:18px;
+      background:#0c1114;
+      border:1px solid var(--border);
+      border-radius:999px;
+      overflow:hidden;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+    }
+
+    .fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition: width .2s ease;
+    }
+
+    .fill.iterated{
+      background: linear-gradient(90deg, #558b2f, #9ccc65);
+    }
+
+    .fill.uniterated{
+      background: linear-gradient(90deg, #546e7a, #90a4ae);
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:.65rem;
+      margin-top: .95rem;
+    }
+
+    .actions .btn{
+      width:100%;
+    }
+
+    .book-list{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:.6rem;
+      margin-top:.7rem;
+    }
+
+    .book-chip{
+      background:#0c1114;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:.75rem .85rem;
+    }
+
+    .book-chip .name{
+      font-weight:700;
+      margin-bottom:.2rem;
+      word-break:break-word;
+    }
+
+    .book-chip .range{
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    @media (min-width: 700px){
+      main{ margin: 2rem auto; padding: 0 1rem 2rem; }
+      .paper{ padding:1.5rem; }
+      h1{ font-size:1.45rem; }
+      .gauges{ grid-template-columns: 1fr 1fr; }
+      .actions{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .btn, .fill{ transition:none; }
+    }
+
+    @media (prefers-contrast: more){
+      :root{ --muted:#b0bec5; --border:#2a3942; }
+      .btn{ box-shadow:none; border-color:#2a3942; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="paper" aria-labelledby="title">
+      <header style="display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; flex-wrap:wrap;">
+        <div style="flex:1; min-width:0;">
+          <h1 id="title">Book Iterator Viewer</h1>
+          <p class="lead small">
+            Cycles across configured books by page. Press <code>Roll</code> to open the current scheduled stop — with a 33% chance to jump to a random previously seen stop.
+          </p>
+        </div>
+        <div class="toolbar">
+          <a href="./" class="btn btn-ghost btn-small" aria-label="Reload app">↻ Reload</a>
+        </div>
+      </header>
+
+      <div id="statusWrap" class="small" style="margin:.25rem 0 .5rem 0;">
+        <span id="status" class="pill" aria-live="polite">Loading…</span>
+      </div>
+
+      <div class="info" role="group" aria-label="Iteration info">
+        <div><b>Current file:</b> <span id="currentFile" class="small">—</span></div>
+        <span class="sep">|</span>
+        <div><b>Current page:</b> <span id="currentPage" class="small">—</span></div>
+        <span class="sep">|</span>
+        <div><b>Total iterations:</b> <span id="totalIterations" class="small">—</span></div>
+      </div>
+
+      <div class="iteration-box" aria-label="Current iteration identifier">
+        <div class="small" style="margin-bottom:.3rem;">Current iteration ID</div>
+        <div id="iterationId" class="iteration-id">—</div>
+        <div id="iterationSub" class="iteration-sub">—</div>
+      </div>
+
+      <div class="gauges" aria-label="Progress gauges">
+        <div class="gauge-card">
+          <div class="gauge-top">
+            <div class="gauge-label">Iterated Part</div>
+            <div id="iteratedPctLabel" class="gauge-value">0.00%</div>
+          </div>
+          <div class="bar" aria-hidden="true">
+            <div id="iteratedBar" class="fill iterated"></div>
+          </div>
+          <div class="small" id="iteratedMeta" style="margin-top:.45rem;">0 / 0 iterations covered</div>
+        </div>
+
+        <div class="gauge-card">
+          <div class="gauge-top">
+            <div class="gauge-label">Uniterated Part</div>
+            <div id="uniteratedPctLabel" class="gauge-value">100.00%</div>
+          </div>
+          <div class="bar" aria-hidden="true">
+            <div id="uniteratedBar" class="fill uniterated"></div>
+          </div>
+          <div class="small" id="uniteratedMeta" style="margin-top:.45rem;">0 / 0 iterations remaining</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="prevBtn" class="btn btn-outline" aria-label="Go to previous iteration">⟵ Previous</button>
+        <button id="rollBtn" class="btn btn-accent" aria-label="Open current scheduled iteration">🎲 Roll</button>
+        <button id="nextBtn" class="btn" aria-label="Go to next iteration">Next ⟶</button>
+      </div>
+
+      <div class="panel" style="margin-top:1rem;">
+        <div style="font-weight:750; margin-bottom:.45rem;">Configured Books</div>
+        <div id="bookList" class="book-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* =========================================================
+       CONFIG (ONLY EDIT THIS PART WHEN REUSING THIS HTML)
+       ========================================================= */
+
+    const CONFIG = {
+      books: [
+        {
+          startUrl: "https://ryspare25.github.io/ref2603/view-now.html?fileName=notes-from-underground.pdf&page=20",
+          endUrl:   "https://ryspare25.github.io/ref2603/view-now.html?fileName=notes-from-underground.pdf&page=116"
+        },
+        {
+          startUrl: "https://ryspare25.github.io/ref2603/view-now.html?fileName=will-to-power-nitz.pdf&page=42",
+          endUrl:   "https://ryspare25.github.io/ref2603/view-now.html?fileName=will-to-power-nitz.pdf&page=585"
+        },
+        {
+          startUrl: "https://ryspare25.github.io/ref2603/view-now.html?fileName=mein-kampf.pdf&page=14",
+          endUrl:   "https://ryspare25.github.io/ref2603/view-now.html?fileName=mein-kampf.pdf&page=788"
+        },
+        {
+          startUrl: "https://ryspare25.github.io/ref2603/view-now.html?fileName=communist-manifesto.pdf&page=14",
+          endUrl:   "https://ryspare25.github.io/ref2603/view-now.html?fileName=communist-manifesto.pdf&page=54"
+        }
+      ],
+
+      // 33% chance to redirect to a previously seen iteration on Roll
+      seenRollChance: 0.33
+    };
+
+    /* =========================================================
+       UTILITIES
+       ========================================================= */
+
+    const $ = s => document.querySelector(s);
+
+    const statusEl = $("#status");
+    const currentFileEl = $("#currentFile");
+    const currentPageEl = $("#currentPage");
+    const totalIterationsEl = $("#totalIterations");
+    const iterationIdEl = $("#iterationId");
+    const iterationSubEl = $("#iterationSub");
+    const iteratedPctLabelEl = $("#iteratedPctLabel");
+    const uniteratedPctLabelEl = $("#uniteratedPctLabel");
+    const iteratedBarEl = $("#iteratedBar");
+    const uniteratedBarEl = $("#uniteratedBar");
+    const iteratedMetaEl = $("#iteratedMeta");
+    const uniteratedMetaEl = $("#uniteratedMeta");
+    const prevBtn = $("#prevBtn");
+    const rollBtn = $("#rollBtn");
+    const nextBtn = $("#nextBtn");
+    const bookListEl = $("#bookList");
+
+    function setStatus(msg, kind="info"){
+      statusEl.textContent = msg;
+      if(kind === "ok"){
+        statusEl.style.background = "#1c313a";
+        statusEl.style.color = "#b2dfdb";
+      }else if(kind === "err"){
+        statusEl.style.background = "rgba(229,57,53,.15)";
+        statusEl.style.color = "#ffb4af";
+      }else{
+        statusEl.style.background = "#1c313a";
+        statusEl.style.color = "#b2dfdb";
+      }
+    }
+
+    function clamp(n, min, max){
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function pct(num, den){
+      if (!den) return 0;
+      return (num / den) * 100;
+    }
+
+    function fmtPct(n){
+      return `${n.toFixed(2)}%`;
+    }
+
+    function safeInt(v, fallback=0){
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function hasCrypto(){
+      return typeof crypto !== "undefined" && !!crypto.getRandomValues;
+    }
+
+    function secureRandom01(){
+      if(hasCrypto()){
+        const arr = new Uint32Array(1);
+        crypto.getRandomValues(arr);
+        return arr[0] / 0xffffffff;
+      }
+      return Math.random();
+    }
+
+    function randomInt(min, max){
+      return min + Math.floor(secureRandom01() * (max - min + 1));
+    }
+
+    function pickRandom(arr){
+      if(!arr || !arr.length) return null;
+      return arr[randomInt(0, arr.length - 1)];
+    }
+
+    function parseBookFromUrl(urlStr){
+      const u = new URL(urlStr);
+      const fileName = u.searchParams.get("fileName");
+      const page = safeInt(u.searchParams.get("page"), 1);
+      return {
+        base: `${u.origin}${u.pathname}`,
+        fileName,
+        page,
+        fullUrl: urlStr
+      };
+    }
+
+    function buildUrl(base, fileName, page){
+      const u = new URL(base);
+      u.searchParams.set("fileName", fileName);
+      u.searchParams.set("page", page);
+      return u.toString();
+    }
+
+    async function sha256Hex(str){
+      const enc = new TextEncoder().encode(str);
+      const digest = await crypto.subtle.digest("SHA-256", enc);
+      const bytes = Array.from(new Uint8Array(digest));
+      return bytes.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, s => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[s]));
+    }
+
+    /* =========================================================
+       DYNAMIC STORAGE KEY
+       No manual config needed. Key is derived from:
+       - deployed page pathname
+       - full normalized book config
+       ========================================================= */
+
+    let DYNAMIC_STORAGE_KEY = "";
+
+    async function buildDynamicStorageKey(rawBooks){
+      const normalizedForKey = rawBooks.map(b => ({
+        startUrl: new URL(b.startUrl, location.href).toString(),
+        endUrl: new URL(b.endUrl, location.href).toString()
+      }));
+
+      const signaturePayload = JSON.stringify({
+        pagePath: location.pathname,
+        books: normalizedForKey
+      });
+
+      const hash = await sha256Hex(signaturePayload);
+      return `book_iterator_state_${hash.slice(0, 24)}`;
+    }
+
+    /* =========================================================
+       DATA MODEL
+       ========================================================= */
+
+    let books = [];
+    let totalIterationCount = 0;
+    let state = {
+      cursor: 0,
+      seenIndices: []
+    };
+
+    function normalizeBooks(rawBooks){
+      return rawBooks.map((b, idx) => {
+        const start = parseBookFromUrl(b.startUrl);
+        const end = parseBookFromUrl(b.endUrl);
+
+        if (!start.fileName || !end.fileName) {
+          throw new Error(`Book #${idx + 1}: missing fileName`);
+        }
+        if (start.fileName !== end.fileName) {
+          throw new Error(`Book #${idx + 1}: start/end fileName mismatch`);
+        }
+        if (start.page > end.page) {
+          throw new Error(`Book #${idx + 1}: start page cannot be greater than end page`);
+        }
+        if (start.base !== end.base) {
+          throw new Error(`Book #${idx + 1}: start/end base URL mismatch`);
+        }
+
+        return {
+          fileName: start.fileName,
+          base: start.base,
+          startPage: start.page,
+          endPage: end.page,
+          rangeSize: end.page - start.page + 1
+        };
+      });
+    }
+
+    function computeTotalIterationCount(books){
+      return books.reduce((sum, b) => sum + b.rangeSize, 0);
+    }
+
+    /**
+     * Core schedule:
+     * iteration index i (0-based) maps to:
+     *   pageLayer = floor(i / bookCount)
+     *   bookIndex = i % bookCount
+     *
+     * actualPage = startPage + (pageLayer % rangeSize)
+     *
+     * Sequence:
+     *   b1 p1, b2 p1, b3 p1, b4 p1,
+     *   b1 p2, b2 p2, b3 p2, b4 p2, ...
+     *
+     * Shorter books loop back to their start page.
+     */
+    function getIterationAt(index){
+      const bookCount = books.length;
+      const wrappedIndex = ((index % totalIterationCount) + totalIterationCount) % totalIterationCount;
+
+      const pageLayer = Math.floor(wrappedIndex / bookCount);
+      const bookIndex = wrappedIndex % bookCount;
+      const book = books[bookIndex];
+
+      const localOffset = pageLayer % book.rangeSize;
+      const pageNumber = book.startPage + localOffset;
+
+      return {
+        absoluteIndex: wrappedIndex,
+        nthPlace: wrappedIndex + 1,
+        bookIndex,
+        fileName: book.fileName,
+        pageNumber,
+        url: buildUrl(book.base, book.fileName, pageNumber),
+        pageLayer
+      };
+    }
+
+    function makeIterationId(iter){
+      return `${iter.fileName}-${iter.pageNumber}-${iter.nthPlace}/${totalIterationCount}`;
+    }
+
+    /* =========================================================
+       STORAGE
+       ========================================================= */
+
+    function dedupeAndSanitizeSeen(arr){
+      if(!Array.isArray(arr)) return [];
+      const s = new Set();
+      for(const v of arr){
+        const n = safeInt(v, -1);
+        if(n >= 0 && n < totalIterationCount){
+          s.add(n);
+        }
+      }
+      return [...s].sort((a,b) => a - b);
+    }
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(DYNAMIC_STORAGE_KEY);
+        if(!raw) {
+          return {
+            cursor: 0,
+            seenIndices: [0] // initial current stop counts as seen
+          };
+        }
+
+        const parsed = JSON.parse(raw);
+        const cursor = clamp(safeInt(parsed.cursor, 0), 0, Math.max(0, totalIterationCount - 1));
+        const seenIndices = dedupeAndSanitizeSeen(parsed.seenIndices);
+
+        if(!seenIndices.includes(cursor)) seenIndices.push(cursor);
+
+        return {
+          cursor,
+          seenIndices: dedupeAndSanitizeSeen(seenIndices)
+        };
+      }catch{
+        return {
+          cursor: 0,
+          seenIndices: [0]
+        };
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem(DYNAMIC_STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function markSeen(index){
+      const wrapped = ((index % totalIterationCount) + totalIterationCount) % totalIterationCount;
+      if(!state.seenIndices.includes(wrapped)){
+        state.seenIndices.push(wrapped);
+        state.seenIndices.sort((a,b) => a - b);
+      }
+    }
+
+    /* =========================================================
+       UI
+       ========================================================= */
+
+    function renderBookList(){
+      bookListEl.innerHTML = "";
+      books.forEach((b, i) => {
+        const div = document.createElement("div");
+        div.className = "book-chip";
+        div.innerHTML = `
+          <div class="name">${i + 1}. ${escapeHtml(b.fileName)}</div>
+          <div class="range">Pages ${b.startPage}–${b.endPage} · ${b.rangeSize} pages in range</div>
+        `;
+        bookListEl.appendChild(div);
+      });
+    }
+
+    function render(){
+      const iter = getIterationAt(state.cursor);
+
+      currentFileEl.textContent = iter.fileName;
+      currentPageEl.textContent = iter.pageNumber;
+      totalIterationsEl.textContent = totalIterationCount;
+
+      iterationIdEl.textContent = makeIterationId(iter);
+      iterationSubEl.textContent = iter.url;
+
+      // Gauge is based on ACTUAL seen iterations now, not just cursor position.
+      const seenCount = state.seenIndices.length;
+      const unseenCount = totalIterationCount - seenCount;
+
+      const iteratedPct = pct(seenCount, totalIterationCount);
+      const uniteratedPct = pct(unseenCount, totalIterationCount);
+
+      iteratedPctLabelEl.textContent = fmtPct(iteratedPct);
+      uniteratedPctLabelEl.textContent = fmtPct(uniteratedPct);
+
+      iteratedBarEl.style.width = `${iteratedPct}%`;
+      uniteratedBarEl.style.width = `${uniteratedPct}%`;
+
+      iteratedMetaEl.textContent = `${seenCount} / ${totalIterationCount} iterations seen`;
+      uniteratedMetaEl.textContent = `${unseenCount} / ${totalIterationCount} iterations unseen`;
+
+      setStatus(`Ready · Scheduled stop ${iter.nthPlace}/${totalIterationCount} · Seen ${seenCount}`, "ok");
+    }
+
+    /* =========================================================
+       ACTIONS
+       ========================================================= */
+
+    function goPrevious(){
+      state.cursor = (state.cursor - 1 + totalIterationCount) % totalIterationCount;
+      markSeen(state.cursor);
+      saveState();
+      render();
+    }
+
+    function goNext(){
+      state.cursor = (state.cursor + 1) % totalIterationCount;
+      markSeen(state.cursor);
+      saveState();
+      render();
+    }
+
+    function getRollTargetIndex(){
+      const currentIndex = state.cursor;
+      const seenPool = dedupeAndSanitizeSeen(state.seenIndices);
+
+      // 33% chance to roll from already-seen iterations, if any exist.
+      const shouldUseSeen =
+        seenPool.length > 0 &&
+        secureRandom01() < CONFIG.seenRollChance;
+
+      if(shouldUseSeen){
+        return pickRandom(seenPool);
+      }
+
+      // Otherwise: original algorithm = current scheduled iteration
+      return currentIndex;
+    }
+
+    function rollCurrent(){
+      // Current scheduled stop always becomes seen before roll resolution
+      markSeen(state.cursor);
+
+      const targetIndex = getRollTargetIndex();
+      const targetIter = getIterationAt(targetIndex);
+
+      // If the roll landed on a seen-random target, also keep that recorded
+      markSeen(targetIndex);
+      saveState();
+      render();
+
+      window.location.href = targetIter.url;
+    }
+
+    /* =========================================================
+       BOOT
+       ========================================================= */
+
+    (async function init(){
+      try{
+        if(!window.crypto?.subtle){
+          throw new Error("Secure hashing is not supported in this browser.");
+        }
+
+        DYNAMIC_STORAGE_KEY = await buildDynamicStorageKey(CONFIG.books);
+
+        books = normalizeBooks(CONFIG.books);
+
+        if (!books.length) {
+          throw new Error("No books configured.");
+        }
+
+        totalIterationCount = computeTotalIterationCount(books);
+
+        if (!totalIterationCount) {
+          throw new Error("Total iteration count is zero.");
+        }
+
+        state = loadState();
+        markSeen(state.cursor);
+        saveState();
+
+        renderBookList();
+        render();
+
+        prevBtn.addEventListener("click", goPrevious);
+        nextBtn.addEventListener("click", goNext);
+        rollBtn.addEventListener("click", rollCurrent);
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            goPrevious();
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            goNext();
+          }
+        });
+
+      } catch (err) {
+        console.error(err);
+        setStatus(`Failed: ${err.message || err}`, "err");
+        iterationIdEl.textContent = "Configuration Error";
+        iterationSubEl.textContent = err.message || String(err);
+      }
+    })();
+  </script>
+</body>
+</html>
