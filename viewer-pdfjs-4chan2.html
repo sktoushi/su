@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PDF Random Page Viewer (Chunked IndexedDB Caching)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    :root{
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+      --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935;
+      --border:#1b2328;
+    }
+    html, body {
+      margin:0; padding:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      min-height:100svh;
+    }
+    .hidden{display:none!important;}
+    .small{color:var(--muted); font-size:.9rem;}
+    main { margin: 2rem auto; width:min(100%, 980px); }
+
+    /* Card / paper */
+    .paper{
+      background:#11161a; color:var(--fg);
+      border-radius: 18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+      padding: 1.5rem;
+    }
+
+    /* Toolbar + buttons (consistent with other page) */
+    .toolbar{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; text-decoration:none;
+    }
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn[disabled]{opacity:.5; cursor:not-allowed;}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .btn-danger{background:var(--danger); color:#fff; border-color:#b71c1c;}
+    .btn-ghost{background:transparent;}
+    .btn-small{padding:.45rem .7rem; font-size:.95rem; border-radius:.45rem;}
+    .btn-outline{
+      background:transparent; border-color:var(--border); color:var(--fg);
+    }
+    .btn-outline:hover{background:#0f1519;}
+
+    /* Accessible focus */
+    .btn:focus-visible, a:focus-visible, canvas:focus-visible {
+      outline: 2px solid #9ccc65; outline-offset: 2px;
+    }
+
+    /* Headings & meta */
+    h1{ margin:.25rem 0 .35rem 0; font-weight:750; font-size:1.35rem; }
+    .lead{ margin:.25rem 0 1rem 0; }
+
+    /* Status / pills / code chips */
+    .pill{
+      font-size:.85rem; padding:.2rem .5rem; border-radius:.9rem;
+      background:#1c313a; color:#b2dfdb; border:1px solid rgba(255,255,255,.06);
+      letter-spacing:.2px;
+    }
+    code{background:#0f1519; padding:0 .35rem; border-radius:.3rem; color:#d8e6df;}
+
+    /* Info row */
+    .info{
+      display:flex; gap:.75rem; flex-wrap:wrap; align-items:center;
+      border-top:1px dashed rgba(255,255,255,.08);
+      border-bottom:1px dashed rgba(255,255,255,.08);
+      padding:.6rem 0; margin:.5rem 0 1rem 0;
+    }
+    .info b{ font-weight:700; }
+    .info .sep{ opacity:.5; }
+
+    /* Actions row */
+    .actions{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.5rem 0 1rem 0; }
+    .actions .spacer{ flex:1; }
+
+    /* Canvas frame */
+    .canvas-wrap{
+      background:#0c1114; border:1px solid var(--border);
+      border-radius:10px; padding:.75rem;
+    }
+    #pdfCanvas{
+      width:100%; background:white; border-radius:6px; display:block;
+      box-shadow: 0 1px 0 rgba(255,255,255,.03) inset;
+    }
+
+    /* Reduced motion & high-contrast */
+    @media (prefers-reduced-motion: reduce){
+      .btn{ transition:none; }
+    }
+    @media (prefers-contrast: more){
+      :root{ --muted:#b0bec5; --border:#2a3942; }
+      .btn{ box-shadow:none; border-color:#2a3942; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="paper" aria-labelledby="title">
+      <header style="display:flex; align-items:center; justify-content:space-between; gap:.75rem;">
+        <div>
+          <h1 id="title">PDF Random Page Viewer</h1>
+          <p class="lead small">Use <code>?fileName=1.pdf</code>. Then click <code>Copy page text</code> to send it to ChatGPT.</p>
+        </div>
+        <div class="toolbar">
+          <a href="./" class="btn btn-ghost btn-small" aria-label="Reload app">↻ Reload</a>
+        </div>
+      </header>
+
+      <div id="statusWrap" class="small" style="margin:.25rem 0 .5rem 0;">
+        <span id="status" class="pill" aria-live="polite">Loading…</span>
+      </div>
+
+      <div class="info" role="group" aria-label="Document info">
+        <div><b>File:</b> <span id="file" class="small">—</span></div>
+        <span class="sep">|</span>
+        <div><b>Pages:</b> <span id="count" class="small">—</span></div>
+        <span class="sep">|</span>
+        <div><b>Current page:</b> <span id="currentPage" class="small">—</span></div>
+      </div>
+
+      <div class="actions">
+        <button id="reroll" class="btn btn-small" aria-label="Pick a random page">🎲 Random page</button>
+        <button id="viewNowBtn" class="btn btn-accent btn-small" title="Copy View Now URL to clipboard">📋 Copy View Link</button>
+        
+        <button id="copyTextBtn" class="btn btn-accent btn-small">📋 Copy page text + launch ChatGPT</button>
+        <button id="copyAmp2Btn" class="btn btn-accent btn-small">📋 Copy page text (Amp2) + launch ChatGPT</button>
+        <div class="spacer"></div>
+        <button id="clearCache" class="btn btn-outline btn-small" title="Clear IndexedDB cached chunks">🗑️ Clear cache</button>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="pdfCanvas" tabindex="0" aria-label="PDF page canvas"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { getDocument, GlobalWorkerOptions } from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.mjs";
+    GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.mjs";
+
+    /* ===== Utilities (crypto-safe, UI helpers) ===== */
+    const $ = s => document.querySelector(s);
+    const statusEl = $("#status"), fileEl = $("#file"), countEl = $("#count"), currentEl = $("#currentPage");
+    const copyBtn = $("#copyTextBtn"), rerollBtn = $("#reroll"), clearBtn = $("#clearCache");
+    const amp2Btn = $("#copyAmp2Btn");
+    const viewNowBtn = $("#viewNowBtn"); 
+    const canvas = $("#pdfCanvas"), ctx = canvas.getContext("2d");
+
+    function hasCrypto(){ return typeof crypto !== 'undefined' && crypto?.getRandomValues; }
+    function secureRandom01(){
+      if(hasCrypto()){ const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0]/0xffffffff; }
+      return Math.random();
+    }
+    function randomInt(min,max){
+      const r = secureRandom01();
+      return min + Math.floor(r * (max - min + 1));
+    }
+
+    function setStatus(msg, kind="info"){
+      statusEl.textContent = msg;
+      if(kind === "ok"){ statusEl.style.background = "#1c313a"; statusEl.style.color = "#b2dfdb"; }
+      else if(kind === "err"){ statusEl.style.background = "rgba(229,57,53,.15)"; statusEl.style.color = "#ffb4af"; }
+      else { statusEl.style.background = "#1c313a"; statusEl.style.color = "#b2dfdb"; }
+    }
+
+    /* ===== Params ===== */
+    const params = new URLSearchParams(location.search);
+    const rawFile = params.get("fileName");
+
+    function sanitizePdfName(name) {
+      if (!name) return null;
+      const s = decodeURIComponent(name).trim();
+      if (!/^[A-Za-z0-9._-]+\.pdf$/i.test(s)) return null;
+      return s;
+    }
+
+    /* ===== IndexedDB (chunk cache) ===== */
+    const DB_NAME = "pdfCacheDB_v2";
+    const STORE_NAME = "pdfs";
+    const CHUNK_SIZE = 1024 * 1024; // 1MB
+
+    let dbPromise;
+    function openDB() {
+      if (dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      return dbPromise;
+    }
+
+    async function clearAllCache() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        tx.oncomplete = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function fetchChunk(url, start, end) {
+      const headers = { Range: `bytes=${start}-${end-1}` };
+      const resp = await fetch(url, { headers });
+      if (!resp.ok && resp.status !== 206) throw new Error(`Chunk fetch failed: ${resp.status} ${resp.statusText}`);
+      return await resp.arrayBuffer();
+    }
+
+    async function storeChunk(name, start, chunk) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.put(chunk, `${name}-chunk-${start}`);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function getCachedChunks(name) {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAllKeys();
+
+      return new Promise((resolve, reject) => {
+        req.onsuccess = async () => {
+          const keys = req.result.filter(k => k.startsWith(`${name}-chunk-`));
+          if (keys.length === 0) return resolve(null);
+          keys.sort((a,b)=>parseInt(a.split("-").pop()) - parseInt(b.split("-").pop()));
+
+          const chunkPromises = keys.map(k => new Promise((res, rej) => {
+            const r = store.get(k);
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          }));
+          const chunks = await Promise.all(chunkPromises);
+          resolve(new Blob(chunks));
+        };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function loadAndCachePdfChunks(name, url) {
+      const head = await fetch(url, { method: "HEAD" });
+      const size = parseInt(head.headers.get("content-length") || "0");
+      if (!size) throw new Error("Could not get content length");
+
+      const chunks = [];
+      const totalParts = Math.ceil(size/CHUNK_SIZE);
+      for (let start = 0, part=1; start < size; start += CHUNK_SIZE, part++) {
+        const end = Math.min(start + CHUNK_SIZE, size);
+        setStatus(`Fetching chunk ${part}/${totalParts}…`);
+        const chunk = await fetchChunk(url, start, end);
+        await storeChunk(name, start, chunk);
+        chunks.push(chunk);
+      }
+      return new Blob(chunks).arrayBuffer();
+    }
+
+    /* ===== PDF load/render ===== */
+    let pdf = null, total = 0, current = 1;
+
+    async function renderPage(n) {
+      if (!pdf) return;
+      const page = await pdf.getPage(n);
+      const vp = page.getViewport({scale:1.5});
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({canvasContext:ctx, viewport:vp}).promise;
+      current = n;
+      currentEl.textContent = n;
+    }
+
+    async function loadPdf(name) {
+      const safe = sanitizePdfName(name);
+      if (!safe) { setStatus("Invalid ?fileName parameter.", "err"); throw new Error("invalid name"); }
+
+      const url = new URL("./" + safe, location.href);
+      const cachedBlob = await getCachedChunks(safe);
+      let dataBuffer;
+
+      if (cachedBlob) {
+        setStatus("Loaded from cached chunks.", "ok");
+        dataBuffer = await cachedBlob.arrayBuffer();
+      } else {
+        setStatus("Streaming and caching chunks…");
+        dataBuffer = await loadAndCachePdfChunks(safe, url.href);
+      }
+
+      const doc = getDocument({ data: dataBuffer });
+      pdf = await doc.promise;
+      total = pdf.numPages;
+      fileEl.textContent = safe;
+      countEl.textContent = total;
+      await renderPage(randomInt(1,total));
+    }
+
+    /* ===== Copy page text + open ChatGPT ===== */
+    async function extractCurrentPageText(){
+      if(!pdf) throw new Error("PDF not loaded");
+      const page=await pdf.getPage(current);
+      const text=await page.getTextContent();
+      return text.items.map(i=>i.str).join(" ").replace(/\s+/g," ").trim();
+    }
+
+    // Original "4chan: explain this" copy button
+    copyBtn.addEventListener("click", async ()=>{
+      const origHTML = copyBtn.innerHTML;
+      try{
+        const raw=await extractCurrentPageText();
+        const prefixed=`4chan: explain this using 4o then give a final one-sentence Japanese summary with furigana and vocab list at the end:  ${raw}`;
+        await navigator.clipboard.writeText(prefixed);
+        // New ChatGPT app URL
+        window.open(`https://chat.openai.com/?q=${encodeURIComponent(prefixed)}`,"_blank","noopener");
+        copyBtn.classList.remove("btn-accent"); copyBtn.classList.add("btn-outline");
+        copyBtn.innerHTML="✅ Copied & launched!";
+        setTimeout(()=>{ copyBtn.classList.remove("btn-outline"); copyBtn.classList.add("btn-accent"); copyBtn.innerHTML=origHTML; }, 1800);
+      }catch(e){
+        console.error(e);
+        setStatus("Copy or ChatGPT launch failed", "err");
+      }
+    });
+
+    // New "Amp2 explain this:" copy button
+    amp2Btn.addEventListener("click", async ()=>{
+      const origHTML = amp2Btn.innerHTML;
+      try{
+        const raw=await extractCurrentPageText();
+        const prefixed=`Amp2 explain this then give a final one-sentence Japanese summary with furigana and vocab list at the end: ${raw}`;
+        await navigator.clipboard.writeText(prefixed);
+        window.open(`https://chat.openai.com/?q=${encodeURIComponent(prefixed)}`,"_blank","noopener");
+        amp2Btn.classList.remove("btn-accent"); amp2Btn.classList.add("btn-outline");
+        amp2Btn.innerHTML="✅ Copied & launched!";
+        setTimeout(()=>{ amp2Btn.classList.remove("btn-outline"); amp2Btn.classList.add("btn-accent"); amp2Btn.innerHTML=origHTML; }, 1800);
+      }catch(e){
+        console.error(e);
+        setStatus("Copy or ChatGPT launch failed", "err");
+      }
+    });
+
+    /* ===== View Now Copy Logic ===== */
+    viewNowBtn.addEventListener("click", async () => {
+      if(!rawFile || !current) return;
+      
+      const targetUrl = `https://ryspare25.github.io/ref2510/view-now.html?fileName=${encodeURIComponent(rawFile)}&page=${current}`;
+      const origHTML = viewNowBtn.innerHTML;
+
+      try {
+        await navigator.clipboard.writeText(targetUrl);
+        // Visual feedback
+        viewNowBtn.classList.remove("btn-accent");
+        viewNowBtn.classList.add("btn-outline");
+        viewNowBtn.innerHTML = "✅ URL Copied!";
+        
+        setTimeout(() => {
+          viewNowBtn.classList.remove("btn-outline");
+          viewNowBtn.classList.add("btn-accent");
+          viewNowBtn.innerHTML = origHTML;
+        }, 1500);
+      } catch (err) {
+        console.error("Failed to copy URL:", err);
+        setStatus("Failed to copy URL to clipboard", "err");
+      }
+    });
+
+    /* ===== Controls ===== */
+    rerollBtn.addEventListener("click", ()=>{
+      if(total>0) renderPage(randomInt(1,total));
+    });
+
+    clearBtn.addEventListener("click", async()=>{
+      if(!confirm("Clear all cached PDF chunks?")) return;
+      await clearAllCache();
+      setStatus("Cache cleared.", "ok");
+    });
+
+    /* ===== Boot ===== */
+    (async()=>{
+      try{
+        if(!rawFile){
+          setStatus("Missing ?fileName param", "err");
+          // Friendly empty state
+          fileEl.textContent = "—";
+          countEl.textContent = "—";
+          currentEl.textContent = "—";
+          return;
+        }
+        await loadPdf(rawFile);
+      }catch(e){
+        console.error(e);
+        setStatus("Failed: "+(e.message||e), "err");
+      }
+    })();
+  </script>
+</body>
+</html>
