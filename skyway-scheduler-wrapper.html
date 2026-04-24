@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Weighted URL Router</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-store"/>
+
+<style>
+:root{
+  --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342;
+  --panel:#11161a; --border:#1b2328;
+}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:system-ui;
+}
+main{
+  max-width:700px; margin:auto; padding:1rem;
+}
+.card{
+  background:var(--panel);
+  border-radius:16px;
+  padding:1rem;
+  border:1px solid var(--border);
+}
+.row{
+  margin-bottom:1rem;
+}
+input[type=text]{
+  width:100%;
+  padding:.6rem;
+  border-radius:.5rem;
+  border:1px solid var(--border);
+  background:#0f1519;
+  color:var(--fg);
+}
+.bar{
+  height:14px;
+  background:#000;
+  border-radius:999px;
+  overflow:hidden;
+  margin-top:.4rem;
+}
+.fill{
+  height:100%;
+  background:linear-gradient(90deg,#558b2f,#9ccc65);
+}
+label{
+  font-size:.9rem;
+  color:var(--muted);
+}
+button{
+  width:100%;
+  padding:.8rem;
+  border:none;
+  border-radius:.6rem;
+  background:var(--accent);
+  font-weight:700;
+  cursor:pointer;
+}
+.small{
+  font-size:.85rem;
+  color:var(--muted);
+}
+.hidden{display:none;}
+</style>
+</head>
+
+<body>
+<main>
+
+<div id="configUI" class="card hidden">
+  <h2>Configure Targets</h2>
+
+  <div id="rows"></div>
+
+  <button id="saveBtn">Save & Continue</button>
+  <p class="small">Reappears every 10 minutes.</p>
+</div>
+
+</main>
+
+<script>
+const STORAGE_KEY = "weighted_router_v1";
+const CONFIG_INTERVAL = 10 * 60 * 1000;
+
+const $ = s => document.querySelector(s);
+
+function rand(){
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0] / 0xffffffff;
+}
+
+function defaultState(){
+  return {
+    urls: [
+      {url:"https://example.com/1", weight:randomWeight()},
+      {url:"https://example.com/2", weight:randomWeight()},
+      {url:"https://example.com/3", weight:randomWeight()}
+    ],
+    lastConfig: 0
+  };
+}
+
+function randomWeight(){
+  return Math.floor(rand()*100)+1;
+}
+
+function load(){
+  try{
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState();
+  }catch{
+    return defaultState();
+  }
+}
+
+function save(state){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function shouldShowConfig(state){
+  if(!state.lastConfig) return true;
+  return (Date.now() - state.lastConfig) > CONFIG_INTERVAL;
+}
+
+function buildUI(state){
+  const rows = $("#rows");
+  rows.innerHTML = "";
+
+  state.urls.forEach((item,i)=>{
+    const div = document.createElement("div");
+    div.className = "row";
+
+    div.innerHTML = `
+      <label>URL ${i+1}</label>
+      <input type="text" value="${item.url}" data-i="${i}" class="urlInput"/>
+
+      <label>Weight (${item.weight})</label>
+      <input type="range" min="1" max="100" value="${item.weight}" data-i="${i}" class="weightInput"/>
+
+      <div class="bar">
+        <div class="fill" style="width:${item.weight}%"></div>
+      </div>
+    `;
+
+    rows.appendChild(div);
+  });
+
+  document.querySelectorAll(".weightInput").forEach(el=>{
+    el.addEventListener("input", e=>{
+      const i = e.target.dataset.i;
+      const val = e.target.value;
+      state.urls[i].weight = Number(val);
+
+      e.target.previousElementSibling.textContent = `Weight (${val})`;
+      e.target.nextElementSibling.firstElementChild.style.width = val + "%";
+    });
+  });
+
+  document.querySelectorAll(".urlInput").forEach(el=>{
+    el.addEventListener("input", e=>{
+      const i = e.target.dataset.i;
+      state.urls[i].url = e.target.value;
+    });
+  });
+}
+
+function weightedPick(urls){
+  const total = urls.reduce((s,u)=>s+u.weight,0);
+  let r = rand()*total;
+
+  for(const u of urls){
+    if(r < u.weight) return u;
+    r -= u.weight;
+  }
+  return urls[0];
+}
+
+function redirect(state){
+  const choice = weightedPick(state.urls);
+  if(!choice.url) return;
+  window.location.href = choice.url;
+}
+
+function init(){
+  let state = load();
+
+  if(shouldShowConfig(state)){
+    $("#configUI").classList.remove("hidden");
+
+    buildUI(state);
+
+    $("#saveBtn").onclick = ()=>{
+      state.lastConfig = Date.now();
+      save(state);
+      redirect(state);
+    };
+
+  } else {
+    redirect(state);
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
