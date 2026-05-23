@@ -1,8 +1,8 @@
 {
   "base": {
-    "stash6EightyPercent": "2876",
-    "stash6NinetyPercent": "3176",
-    "stash6Ending": "3526",
+    "stash6EightyPercent": "3062",
+    "stash6NinetyPercent": "3431",
+    "stash6Ending": "3811",
     "stash5EightyPercent": "3600",
     "stash5NinetyPercent": "4050",
     "stash5Ending": "4500",
@@ -20,7 +20,7 @@
     "originalFormula-random-leftLeaning-35-22-15-12-10-6": "1",
     "redirect0915Ending": "290",
     "logStarting": "9",
-    "logEnding": "254",
+    "logEnding": "412",
     "publicRepoStarting": "1",
     "publicRepoEnding": "3991",
     "stashStarting": "1",
