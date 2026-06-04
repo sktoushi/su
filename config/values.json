@@ -1,8 +1,11 @@
 {
   "base": {
-    "stash6EightyPercent": "3650",
-    "stash6NinetyPercent": "4060",
-    "stash6Ending": "4510",
+    "stash7EightyPercent": "292",
+    "stash7NinetyPercent": "332",
+    "stash7Ending": "387",
+    "stash6EightyPercent": "3639",
+    "stash6NinetyPercent": "4089",
+    "stash6Ending": "4539",
     "stash5EightyPercent": "3600",
     "stash5NinetyPercent": "4050",
     "stash5Ending": "4500",
@@ -34,11 +37,12 @@
     "stash3Starting": "1",
     "stash5Starting": "1",
     "stash6Starting": "1",
+    "stash7Starting": "1",
     "theSnackbarStarting": "1",
     "theSnackbarEnding": "33",
     "imgStarting": "1",
     "imgEnding": "195",
-    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending",
+    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending + stash7Ending",
     "progressTargetValueFormula": "18393",
     "progressBasis": "687",
     "dbviewerLinks": {
@@ -65,10 +69,10 @@
     "skyway-recent5-coefficient": "1",
     "skyway-lever-japanese-listening-2506": "1",
     "stashUsername": "mdr19ganseki95cf",
-    "stashRepository": "stash6",
+    "stashRepository": "stash7",
     "recent5Settings": [
       {
-        "csvUrl": "skyway-stash6.csv"
+        "csvUrl": "skyway-stash7.csv"
       }
     ]
   },
