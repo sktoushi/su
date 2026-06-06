@@ -54,13 +54,13 @@
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
       "issueEndNumber": 4539
-    }, 
+    },
     "stash7": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 869
+      "issueEndNumber": 890
     }
-   },
+  },
   "formulas": [
     "random",
     "leftLeaning",
