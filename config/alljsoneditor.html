@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>JSON Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<style>
+:root{
+  --bg:#0b0c10;
+  --fg:#cfd8dc;
+  --muted:#90a4ae;
+  --accent:#7cb342;
+  --btn:#263238;
+  --btn-hover:#37474f;
+  --btn-active:#455a64;
+  --danger:#e53935;
+  --border:#1b2328;
+}
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+}
+
+main{
+  margin:2rem auto;
+  width:min(100%,980px);
+}
+
+.paper{
+  background:#11161a;
+  border-radius:18px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.5),
+    0 0 0 1px rgba(255,255,255,.05) inset;
+  padding:1.5rem;
+}
+
+.toolbar{
+  display:flex;
+  gap:.5rem;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.btn{
+  border:1px solid #111;
+  background:var(--btn);
+  color:var(--fg);
+  padding:.6rem 1rem;
+  border-radius:.5rem;
+  cursor:pointer;
+  font-size:1rem;
+}
+
+.btn:hover{
+  background:var(--btn-hover);
+}
+
+.btn:active{
+  background:var(--btn-active);
+}
+
+.btn-accent{
+  background:var(--accent);
+  color:#000;
+}
+
+.btn-danger{
+  background:var(--danger);
+  color:white;
+}
+
+.btn-small{
+  padding:.45rem .7rem;
+  font-size:.9rem;
+}
+
+.btn-outline{
+  background:transparent;
+  border-color:var(--border);
+}
+
+.small{
+  color:var(--muted);
+}
+
+.pill{
+  font-size:.85rem;
+  padding:.2rem .5rem;
+  border-radius:.9rem;
+  background:#1c313a;
+  color:#b2dfdb;
+}
+
+textarea,
+input{
+  width:100%;
+  background:#0f1519;
+  color:var(--fg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:.7rem;
+  box-sizing:border-box;
+}
+
+textarea{
+  min-height:220px;
+  resize:vertical;
+}
+
+.item{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:1rem;
+  margin-top:1rem;
+  background:#0f1519;
+}
+
+.item-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:1rem;
+}
+
+.field{
+  margin-bottom:.75rem;
+}
+
+.field label{
+  display:block;
+  margin-bottom:.25rem;
+  color:var(--muted);
+}
+
+.row{
+  display:flex;
+  gap:.5rem;
+  align-items:center;
+}
+
+.row input{
+  flex:1;
+}
+
+h1{
+  margin-top:0;
+}
+
+.hidden{
+  display:none;
+}
+
+#countdown{
+  font-size:1.2rem;
+  margin-top:1rem;
+  color:#9ccc65;
+}
+</style>
+</head>
+
+<body>
+
+<main>
+<section class="paper">
+
+<header style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;">
+<div>
+<h1>JSON Editor</h1>
+<p class="small">Paste JSON, edit fields, copy to clipboard, then redirect to GitHub.</p>
+</div>
+
+<div class="toolbar">
+<button class="btn btn-accent" id="loadBtn">
+Load JSON
+</button>
+
+<button class="btn btn-accent" id="saveBtn">
+Save & Redirect
+</button>
+</div>
+</header>
+
+<div style="margin-top:1rem;">
+<div class="small" style="margin-bottom:.25rem;">
+Redirect URL
+</div>
+
+<input
+id="redirectUrl"
+value="https://github.com/sktoushi/su/edit/in/config/all.json"
+/>
+</div>
+
+<div style="margin-top:1rem;">
+<div class="small" style="margin-bottom:.25rem;">
+Raw JSON
+</div>
+
+<textarea id="jsonInput">
+{}
+</textarea>
+</div>
+
+<div style="margin-top:1rem;">
+<button class="btn" id="addItemBtn">
+➕ Add Item
+</button>
+</div>
+
+<div id="editor"></div>
+
+<div id="countdown" class="hidden"></div>
+
+</section>
+</main>
+
+<script>
+
+const editor = document.getElementById("editor");
+const jsonInput = document.getElementById("jsonInput");
+
+let data = {};
+
+function renderEditor() {
+
+    editor.innerHTML = "";
+
+    Object.entries(data).forEach(([itemKey,itemValue]) => {
+
+        const item = document.createElement("div");
+        item.className = "item";
+
+        const title = document.createElement("div");
+        title.className = "item-title";
+
+        title.innerHTML = `
+            <strong>${escapeHtml(itemKey)}</strong>
+            <button class="btn btn-danger btn-small">
+                Delete Item
+            </button>
+        `;
+
+        title.querySelector("button").onclick = () => {
+            delete data[itemKey];
+            renderEditor();
+        };
+
+        item.appendChild(title);
+
+        Object.entries(itemValue).forEach(([field,val]) => {
+
+            const fieldDiv = document.createElement("div");
+            fieldDiv.className = "field";
+
+            const label = document.createElement("label");
+            label.textContent = field;
+
+            const row = document.createElement("div");
+            row.className = "row";
+
+            const input = document.createElement("input");
+            input.value = val;
+
+            input.oninput = () => {
+                data[itemKey][field] = convertValue(input.value);
+            };
+
+            row.appendChild(input);
+
+            if(typeof val === "number"){
+
+                const plus10 = document.createElement("button");
+                plus10.className = "btn btn-small";
+                plus10.textContent = "+10";
+
+                plus10.onclick = () => {
+
+                    let current =
+                        Number(data[itemKey][field]) || 0;
+
+                    current += 10;
+
+                    data[itemKey][field] = current;
+                    input.value = current;
+                };
+
+                row.appendChild(plus10);
+            }
+
+            fieldDiv.appendChild(label);
+            fieldDiv.appendChild(row);
+
+            item.appendChild(fieldDiv);
+        });
+
+        editor.appendChild(item);
+    });
+
+    jsonInput.value =
+        JSON.stringify(data,null,2);
+}
+
+function convertValue(v){
+
+    if(v === "true") return true;
+    if(v === "false") return false;
+
+    if(v !== "" && !isNaN(v))
+        return Number(v);
+
+    return v;
+}
+
+document.getElementById("loadBtn").onclick = () => {
+
+    try{
+
+        data = JSON.parse(
+            jsonInput.value
+        );
+
+        renderEditor();
+
+    }catch(e){
+
+        alert("Invalid JSON");
+    }
+};
+
+document.getElementById("addItemBtn").onclick = () => {
+
+    const key =
+        prompt("New item key?");
+
+    if(!key) return;
+
+    data[key] = {
+        value:0
+    };
+
+    renderEditor();
+};
+
+document.getElementById("saveBtn").onclick =
+async () => {
+
+    const finalJson =
+        JSON.stringify(data,null,2);
+
+    await navigator.clipboard.writeText(
+        finalJson
+    );
+
+    jsonInput.value = finalJson;
+
+    const countdown =
+        document.getElementById("countdown");
+
+    countdown.classList.remove("hidden");
+
+    let remaining = 3;
+
+    countdown.textContent =
+        `Copied to clipboard. Redirecting in ${remaining}...`;
+
+    const interval = setInterval(()=>{
+
+        remaining--;
+
+        countdown.textContent =
+            `Copied to clipboard. Redirecting in ${remaining}...`;
+
+        if(remaining <= 0){
+
+            clearInterval(interval);
+
+            location.href =
+                document.getElementById("redirectUrl").value;
+        }
+
+    },1000);
+};
+
+function escapeHtml(str){
+    return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;");
+}
+
+</script>
+
+</body>
+</html>
