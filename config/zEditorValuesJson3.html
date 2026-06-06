@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>values.json Editor</title>
+<style>
+:root{--bg:#0b0c10;--fg:#cfd8dc;--accent:#7cb342;--btn:#263238;--border:#1b2328;}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui}
+main{max-width:1000px;margin:auto;padding:20px}
+.paper{background:#11161a;border-radius:18px;padding:20px}
+textarea,input{width:100%;box-sizing:border-box;background:#0f1519;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:10px}
+textarea{min-height:320px}
+.row{display:flex;gap:8px;align-items:center}
+button{background:var(--btn);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.save{background:var(--accent);color:black}
+.card{border:1px solid var(--border);border-radius:12px;padding:12px;margin:10px 0}
+</style>
+</head>
+<body>
+<main>
+<div class="paper">
+<h1>values.json Editor</h1>
+
+<button onclick="loadJson()">Load JSON</button>
+<button class="save" onclick="saveAndRedirect()">Save & Redirect</button>
+
+<h3>Amplification Controls (First 3 items under base)</h3>
+<div id="controls"></div>
+
+<h3>Raw JSON</h3>
+<textarea id="jsonInput"></textarea>
+
+<div id="countdown"></div>
+</div>
+</main>
+
+<script>
+const STORAGE_KEY="valuesJsonEditor";
+const REDIRECT_URL="https://github.com/sktoushi/su/edit/in/config/values.json";
+let data=null;
+
+function persist(){
+ localStorage.setItem(STORAGE_KEY, document.getElementById("jsonInput").value);
+}
+
+function syncUiOnly(){
+ const a=document.getElementById("v0");
+ const b=document.getElementById("v1");
+ const c=document.getElementById("v2");
+ if(a && b && c){
+   a.value=c.value;
+   b.value=c.value;
+ }
+}
+
+function loadJson(){
+ try{
+   data=JSON.parse(document.getElementById("jsonInput").value);
+   renderControls();
+   persist();
+ }catch(e){
+   alert("Invalid JSON");
+ }
+}
+
+function renderControls(){
+ const wrap=document.getElementById("controls");
+ wrap.innerHTML="";
+ if(!data || !data.base) return;
+
+ const firstThree=Object.entries(data.base).slice(0,3);
+
+ firstThree.forEach(([key,val],idx)=>{
+   const card=document.createElement("div");
+   card.className="card";
+   card.innerHTML=`
+   <strong>${key}</strong>
+   <div class="row">
+      <input id="v${idx}" value="${val}">
+      <button onclick="adjust(${idx},0.9)">-10%</button>
+      <button onclick="adjust(${idx},1.1)">+10%</button>
+   </div>`;
+   wrap.appendChild(card);
+ });
+
+ const third=document.getElementById("v2");
+ if(third){
+   third.addEventListener("input", syncUiOnly);
+   syncUiOnly();
+ }
+}
+
+function adjust(index,mult){
+ const entries=Object.entries(data.base);
+ const key=entries[index][0];
+ const current=parseFloat(data.base[key]);
+ if(isNaN(current)) return;
+
+ data.base[key]=String(Math.round(current*mult));
+ document.getElementById("jsonInput").value=JSON.stringify(data,null,2);
+ persist();
+ renderControls();
+}
+
+document.getElementById("jsonInput").addEventListener("input",persist);
+
+async function saveAndRedirect(){
+ const json=document.getElementById("jsonInput").value;
+ localStorage.setItem(STORAGE_KEY,json);
+ await navigator.clipboard.writeText(json);
+
+ let s=3;
+ const el=document.getElementById("countdown");
+ el.textContent="Copied. Redirecting in "+s;
+
+ const timer=setInterval(()=>{
+   s--;
+   if(s<=0){
+      clearInterval(timer);
+      location.href=REDIRECT_URL;
+      return;
+   }
+   el.textContent="Copied. Redirecting in "+s;
+ },1000);
+}
+
+const saved=localStorage.getItem(STORAGE_KEY);
+if(saved){
+ document.getElementById("jsonInput").value=saved;
+ try{
+   data=JSON.parse(saved);
+   renderControls();
+ }catch(e){}
+}
+</script>
+</body>
+</html>
