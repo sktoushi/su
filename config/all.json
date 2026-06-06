@@ -1,10 +1,5 @@
 {
   "repositories": {
-    "stash7": {
-      "username": "sktoushi",
-      "issueStartNumber": 1,
-      "issueEndNumber": 869
-    },
     "the-snackbar": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
@@ -59,8 +54,13 @@
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
       "issueEndNumber": 4539
+    }, 
+    "stash7": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 869
     }
-  },
+   },
   "formulas": [
     "random",
     "leftLeaning",
