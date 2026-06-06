@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>all.json Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#0b0c10;--fg:#cfd8dc;--muted:#90a4ae;--accent:#7cb342;
+  --btn:#263238;--btn-hover:#37474f;--btn-active:#455a64;
+  --danger:#e53935;--border:#1b2328;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;min-height:100svh;}
+main{margin:2rem auto;width:min(100%,980px);}
+.paper{background:#11161a;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;padding:1.5rem;}
+.toolbar{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
+.btn{border:1px solid #111;background:var(--btn);color:var(--fg);padding:.6rem 1rem;border-radius:.5rem;font-size:1rem;cursor:pointer;}
+.btn:hover{background:var(--btn-hover);}
+.btn:active{background:var(--btn-active);}
+.btn-accent{background:var(--accent);color:#000;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-small{padding:.45rem .7rem;font-size:.95rem;}
+.small{color:var(--muted);}
+input,textarea{width:100%;box-sizing:border-box;background:#0f1519;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:.65rem;}
+textarea{min-height:250px;resize:vertical;}
+.card{background:#0f1519;border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1rem;}
+.row{display:flex;gap:.5rem;align-items:center;}
+.row input{flex:1;}
+.section-title{margin-top:2rem;margin-bottom:1rem;font-size:1.15rem;font-weight:700;}
+.repo-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+label{display:block;margin-bottom:.25rem;color:var(--muted);}
+.field{margin-bottom:.75rem;}
+#countdown{margin-top:1rem;font-weight:bold;color:#9ccc65;}
+</style>
+</head>
+<body>
+<main>
+<section class="paper">
+<header style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;">
+<div>
+<h1>all.json Editor</h1>
+<p class="small">Paste JSON → Load → Edit → Save (copies to clipboard) → Redirect</p>
+</div>
+<div class="toolbar">
+<button class="btn btn-accent" id="loadBtn">Load JSON</button>
+<button class="btn btn-accent" id="saveBtn">Save & Redirect</button>
+<button class="btn btn-danger" id="clearMemoryBtn">Clear Memory</button>
+</div>
+</header>
+
+<div style="margin-top:1rem;">
+<label>Redirect URL</label>
+<input id="redirectUrl" value="https://github.com/sktoushi/su/edit/in/config/all.json">
+</div>
+
+<div style="margin-top:1rem;">
+<label>Raw JSON</label>
+<textarea id="jsonInput"></textarea>
+</div>
+
+<div class="section-title">Repositories</div>
+<button class="btn btn-small" id="addRepoBtn">➕ Add Repository</button>
+<div id="repositories"></div>
+
+<div class="section-title">Formulas</div>
+<button class="btn btn-small" id="addFormulaBtn">➕ Add Formula</button>
+<div id="formulas"></div>
+
+<div id="countdown"></div>
+</section>
+</main>
+
+<script>
+const STORAGE_KEY="allJsonEditorData";
+let data={repositories:{},formulas:[]};
+
+const repositoriesEl=document.getElementById("repositories");
+const formulasEl=document.getElementById("formulas");
+
+function updateRawJson(){
+ const json=JSON.stringify(data,null,2);
+ document.getElementById("jsonInput").value=json;
+ localStorage.setItem(STORAGE_KEY,json);
+}
+
+function renderRepositories(){
+ repositoriesEl.innerHTML="";
+ Object.entries(data.repositories).forEach(([repoName,repo])=>{
+  const card=document.createElement("div");
+  card.className="card";
+  card.innerHTML=`
+  <div class="repo-title">
+   <strong>${repoName}</strong>
+   <button class="btn btn-danger btn-small delete-repo">Delete</button>
+  </div>
+  <div class="field">
+   <label>Username</label>
+   <input class="username" value="${repo.username||""}">
+  </div>
+  <div class="field">
+   <label>Issue Start Number</label>
+   <div class="row">
+    <input type="number" class="issueStart" value="${repo.issueStartNumber}">
+    <button class="btn btn-small plusStart">+10</button>
+   </div>
+  </div>
+  <div class="field">
+   <label>Issue End Number</label>
+   <div class="row">
+    <input type="number" class="issueEnd" value="${repo.issueEndNumber}">
+    <button class="btn btn-small plusEnd">+10</button>
+   </div>
+  </div>`;
+
+  card.querySelector(".delete-repo").onclick=()=>{
+   delete data.repositories[repoName];
+   renderRepositories();
+   updateRawJson();
+  };
+
+  card.querySelector(".username").oninput=e=>{
+   repo.username=e.target.value;
+   updateRawJson();
+  };
+
+  card.querySelector(".issueStart").oninput=e=>{
+   repo.issueStartNumber=Number(e.target.value);
+   updateRawJson();
+  };
+
+  card.querySelector(".issueEnd").oninput=e=>{
+   repo.issueEndNumber=Number(e.target.value);
+   updateRawJson();
+  };
+
+  card.querySelector(".plusStart").onclick=()=>{
+   repo.issueStartNumber+=10;
+   renderRepositories();
+   updateRawJson();
+  };
+
+  card.querySelector(".plusEnd").onclick=()=>{
+   repo.issueEndNumber+=10;
+   renderRepositories();
+   updateRawJson();
+  };
+
+  repositoriesEl.appendChild(card);
+ });
+}
+
+function renderFormulas(){
+ formulasEl.innerHTML="";
+ data.formulas.forEach((formula,index)=>{
+  const card=document.createElement("div");
+  card.className="card";
+  card.innerHTML=`
+  <div class="row">
+   <input class="formulaInput" value="${formula}">
+   <button class="btn btn-danger btn-small deleteFormula">Delete</button>
+  </div>`;
+
+  card.querySelector(".formulaInput").oninput=e=>{
+   data.formulas[index]=e.target.value;
+   updateRawJson();
+  };
+
+  card.querySelector(".deleteFormula").onclick=()=>{
+   data.formulas.splice(index,1);
+   renderFormulas();
+   updateRawJson();
+  };
+
+  formulasEl.appendChild(card);
+ });
+}
+
+document.getElementById("loadBtn").onclick=()=>{
+ try{
+  data=JSON.parse(document.getElementById("jsonInput").value);
+  data.repositories=data.repositories||{};
+  data.formulas=data.formulas||[];
+  renderRepositories();
+  renderFormulas();
+  updateRawJson();
+ }catch(e){alert("Invalid JSON");}
+};
+
+document.getElementById("addRepoBtn").onclick=()=>{
+ const repoName=prompt("Repository name:");
+ if(!repoName) return;
+ if(data.repositories[repoName]) return alert("Repository already exists");
+ data.repositories[repoName]={username:"",issueStartNumber:1,issueEndNumber:1};
+ renderRepositories();
+ updateRawJson();
+};
+
+document.getElementById("addFormulaBtn").onclick=()=>{
+ data.formulas.push("");
+ renderFormulas();
+ updateRawJson();
+};
+
+document.getElementById("jsonInput").addEventListener("input",()=>{
+ localStorage.setItem(STORAGE_KEY,document.getElementById("jsonInput").value);
+});
+
+document.getElementById("saveBtn").onclick=async()=>{
+ const json=JSON.stringify(data,null,2);
+ localStorage.setItem(STORAGE_KEY,json);
+ await navigator.clipboard.writeText(json);
+
+ let seconds=3;
+ const countdown=document.getElementById("countdown");
+ countdown.textContent=`Copied to clipboard. Redirecting in ${seconds}...`;
+
+ const timer=setInterval(()=>{
+  seconds--;
+  if(seconds<=0){
+   clearInterval(timer);
+   location.href=document.getElementById("redirectUrl").value;
+   return;
+  }
+  countdown.textContent=`Copied to clipboard. Redirecting in ${seconds}...`;
+ },1000);
+};
+
+document.getElementById("clearMemoryBtn").onclick=()=>{
+ if(!confirm("Clear saved data?")) return;
+ localStorage.removeItem(STORAGE_KEY);
+ location.reload();
+};
+
+(function(){
+ const saved=localStorage.getItem(STORAGE_KEY);
+ if(!saved) return;
+
+ document.getElementById("jsonInput").value=saved;
+
+ try{
+  data=JSON.parse(saved);
+  data.repositories=data.repositories||{};
+  data.formulas=data.formulas||[];
+  renderRepositories();
+  renderFormulas();
+ }catch(e){}
+})();
+</script>
+</body>
+</html>
