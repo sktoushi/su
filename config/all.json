@@ -1,17 +1,65 @@
 {
   "repositories": {
-    "stash7": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 711},
-    "the-snackbar": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 33},
-    "img": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 195},
-    "stash1p5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 265},
-    "log": {"username": "mdr19ganseki95cf", "issueStartNumber": 9, "issueEndNumber": 254},
-    "redirect0915": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 255},
-    "public-repo": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 3991},
-    "stash": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4569},
-    "stash2": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4508},
-    "stash3": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4500},
-    "stash5": {"username": "sktoushi", "issueStartNumber": 1, "issueEndNumber": 4500},
-    "stash6": {"username": "mdr19ganseki95cf", "issueStartNumber": 1, "issueEndNumber": 4539}
+    "stash7": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 862
+    },
+    "the-snackbar": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 33
+    },
+    "img": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 195
+    },
+    "stash1p5": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 265
+    },
+    "log": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 9,
+      "issueEndNumber": 254
+    },
+    "redirect0915": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 255
+    },
+    "public-repo": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 3991
+    },
+    "stash": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 4569
+    },
+    "stash2": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 4508
+    },
+    "stash3": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash5": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash6": {
+      "username": "mdr19ganseki95cf",
+      "issueStartNumber": 1,
+      "issueEndNumber": 4539
+    }
   },
   "formulas": [
     "random",
@@ -21,4 +69,4 @@
     "recent20Percent",
     "recent5Percent"
   ]
-}
+} 
