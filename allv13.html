@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repository Issue Randomizer (Optimized)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #fafafa;
+      margin: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+(async () => {
+  try {
+
+    const res = await fetch('config/all.json');
+
+    if (!res.ok)
+      throw new Error('Failed to load config');
+
+    const cfg = await res.json();
+
+    const repos = cfg.repositories || {};
+
+    const formulas =
+      Array.isArray(cfg.formulas)
+      ? cfg.formulas
+      : [];
+
+    let formulaParam = 'random';
+
+    if (formulas.length > 0) {
+      const idx =
+        Math.floor(
+          getSecureRandomNumber() *
+          formulas.length
+        );
+
+      formulaParam = formulas[idx];
+    }
+
+    // ============================================================
+    // Build repository entries only
+    // ============================================================
+
+    const entries = [];
+
+    for (const [repoName, info] of Object.entries(repos)) {
+
+      const start =
+        Number(info.issueStartNumber);
+
+      const end =
+        Number(info.issueEndNumber);
+
+      const issueCount =
+        Math.max(
+          0,
+          end - start + 1
+        );
+
+      const match =
+        repoName.match(/x(\d+)$/i);
+
+      const multiplier =
+        match
+          ? Math.max(
+              1,
+              Number(match[1])
+            )
+          : 1;
+
+      entries.push({
+        repoName,
+        username: info.username,
+        start,
+        end,
+        issueCount,
+        multiplier
+      });
+    }
+
+    // ============================================================
+    // Compute repository weights
+    // ============================================================
+
+    const n = entries.length;
+
+    const weights =
+      new Array(n).fill(0);
+
+    for (let i = 0; i < n; i++) {
+
+      const repo =
+        entries[i];
+
+      let weight =
+        repo.issueCount *
+        repo.multiplier;
+
+      if (formulaParam === 'leftLeaning') {
+
+        const noise =
+          0.5 +
+          getSecureRandomNumber();
+
+        weight *=
+          (n - i) *
+          noise;
+      }
+
+      else if (
+        formulaParam ===
+        'rightLeaning1'
+      ) {
+
+        const noise =
+          0.5 +
+          getSecureRandomNumber();
+
+        weight *=
+          (i + 1) *
+          noise;
+      }
+
+      else if (
+        formulaParam ===
+        'recent20Percent'
+      ) {
+
+        const startIdx =
+          Math.floor(
+            n * 0.8
+          );
+
+        if (i >= startIdx) {
+          weight *= 5;
+        }
+      }
+
+      else if (
+        formulaParam ===
+        'recent5Percent'
+      ) {
+
+        const startIdx =
+          Math.floor(
+            n * 0.95
+          );
+
+        if (i >= startIdx) {
+          weight *= 20;
+        }
+      }
+
+      weights[i] =
+        Math.max(
+          0.0001,
+          weight
+        );
+    }
+
+    // ============================================================
+    // Noise patch
+    // ============================================================
+
+    function noisePatch(weights) {
+
+      function cryptoRandom() {
+        const buf =
+          new Uint32Array(1);
+
+        crypto.getRandomValues(buf);
+
+        return (
+          buf[0] /
+          0xffffffff
+        );
+      }
+
+      function cryptoNormal(
+        mean = 0,
+        stdDev = 1
+      ) {
+
+        let u1 = 0;
+        let u2 = 0;
+
+        while (u1 === 0)
+          u1 = cryptoRandom();
+
+        while (u2 === 0)
+          u2 = cryptoRandom();
+
+        const z0 =
+          Math.sqrt(
+            -2 *
+            Math.log(u1)
+          ) *
+          Math.cos(
+            2 *
+            Math.PI *
+            u2
+          );
+
+        return (
+          z0 *
+          stdDev +
+          mean
+        );
+      }
+
+      const erratic =
+        cryptoRandom() < 0.08;
+
+      const stdDev =
+        erratic
+          ? 0.35
+          : 0.08;
+
+      let adjusted =
+        weights.map(w => {
+
+          const noise =
+            cryptoNormal(
+              0,
+              stdDev
+            ) * w;
+
+          return Math.max(
+            0.0001,
+            w + noise
+          );
+        });
+
+      const sum =
+        adjusted.reduce(
+          (a, b) => a + b,
+          0
+        );
+
+      adjusted =
+        adjusted.map(
+          w => w / sum
+        );
+
+      const r =
+        cryptoRandom();
+
+      let cumulative =
+        0;
+
+      let chosen =
+        adjusted.length - 1;
+
+      for (
+        let i = 0;
+        i < adjusted.length;
+        i++
+      ) {
+
+        cumulative +=
+          adjusted[i];
+
+        if (
+          r <
+          cumulative
+        ) {
+          chosen = i;
+          break;
+        }
+      }
+
+      return {
+        index: chosen,
+        adjusted,
+        erratic
+      };
+    }
+
+    const result =
+      noisePatch(weights);
+
+    const repo =
+      entries[
+        result.index
+      ];
+
+    const issueNumber =
+      repo.start +
+      Math.floor(
+        getSecureRandomNumber() *
+        (
+          repo.end -
+          repo.start +
+          1
+        )
+      );
+
+    const chosenUrl =
+      `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+
+    location.href =
+      chosenUrl;
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => {
+
+        const pre =
+          document.createElement(
+            'pre'
+          );
+
+        pre.textContent =
+          `Formula: ${formulaParam}\n` +
+          `Repository: ${repo.repoName}\n` +
+          `Issue: ${issueNumber}\n` +
+          `URL: ${chosenUrl}\n` +
+          `Erratic: ${result.erratic}`;
+
+        document.body.appendChild(
+          pre
+        );
+      }
+    );
+
+  }
+  catch (e) {
+
+    document.body.textContent =
+      e.message;
+  }
+})();
+</script>
+
+</body>
+</html>
