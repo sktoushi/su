@@ -69,7 +69,12 @@
       "username": "sktoushi",
       "issueStartNumber": 1,
       "issueEndNumber": 3
-    }
+    }, 
+    "stash4x999999": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 3
+    }    
    },
   "formulas": [
     "random",
