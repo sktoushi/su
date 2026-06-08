@@ -19,11 +19,11 @@ html,body{height:100%;margin:0;font-family:system-ui;background:#0b0c10;color:#c
 (function(){
 "use strict";
 
-var DEFAULT_MAX = 8;
+var DEFAULT_MAX = 20;
 var HARD_MAX = 0x100000000;
 
-var LS_KEY = "dejavu_randomizer_v1";
-var SS_KEY = "dejavu_session_v1";
+var LS_KEY = "dejavu_randomizer_v100";
+var SS_KEY = "dejavu_session_v100";
 
 var SESSION_TIMEOUT_MS = 2*60*60*1000;
 var SESSION_SOFT_RESET_MS = 15*60*1000;
@@ -192,7 +192,7 @@ function redirect(versionNumber){
   saveJSON(localStorage,LS_KEY,longMem);
   saveJSON(sessionStorage,SS_KEY,session);
 
-  var target="https://sktoushi.github.io/su/allv"+String(versionNumber)+".html";
+  var target="https://sktoushi.github.io/su/skyway-scheduler"+String(versionNumber)+".html";
   window.location.replace(target);
 }
 
