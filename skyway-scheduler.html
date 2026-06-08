@@ -41,6 +41,8 @@
 
       var STATEFUL_PROBABILITY = 0.50;
 
+      var DEJAVU_PROBABILITY = 0.50;
+
       var DB_NAME = "skyway_scheduler_state";
       var DB_VERSION = 1;
       var STORE_NAME = "state";
@@ -62,17 +64,33 @@
         }
       }
 
+      function getEffectiveMax() {
+        var maxFromParam = parseMaxParam();
+        var effectiveMax = Math.max(
+          DEFAULT_MAX,
+          Number.isNaN(maxFromParam) ? 0 : maxFromParam
+        );
+        return Math.max(1, Math.floor(effectiveMax));
+      }
+
       function openDB() {
         return new Promise(function (resolve, reject) {
           var req = indexedDB.open(DB_NAME, DB_VERSION);
+
           req.onupgradeneeded = function () {
             var db = req.result;
             if (!db.objectStoreNames.contains(STORE_NAME)) {
               db.createObjectStore(STORE_NAME, { keyPath: "key" });
             }
           };
-          req.onsuccess = function () { resolve(req.result); };
-          req.onerror = function () { reject(req.error); };
+
+          req.onsuccess = function () {
+            resolve(req.result);
+          };
+
+          req.onerror = function () {
+            reject(req.error);
+          };
         });
       }
 
@@ -81,9 +99,11 @@
           var tx = db.transaction(STORE_NAME, "readonly");
           var store = tx.objectStore(STORE_NAME);
           var req = store.get(STATE_KEY);
+
           req.onsuccess = function () {
             resolve(req.result ? req.result.value : null);
           };
+
           req.onerror = function () {
             resolve(null);
           };
@@ -94,30 +114,50 @@
         return new Promise(function (resolve) {
           var tx = db.transaction(STORE_NAME, "readwrite");
           var store = tx.objectStore(STORE_NAME);
-          store.put({ key: STATE_KEY, value: value });
-          tx.oncomplete = function () { resolve(); };
+
+          store.put({
+            key: STATE_KEY,
+            value: value
+          });
+
+          tx.oncomplete = function () {
+            resolve();
+          };
         });
       }
 
       function computeOriginalTarget() {
         if (Math.random() < SPECIAL_PROBABILITY) {
-          return SPECIAL_URLS[Math.floor(Math.random() * SPECIAL_URLS.length)];
+          return SPECIAL_URLS[
+            Math.floor(Math.random() * SPECIAL_URLS.length)
+          ];
         }
 
-        var maxFromParam = parseMaxParam();
-        var effectiveMax = Math.max(DEFAULT_MAX, Number.isNaN(maxFromParam) ? 0 : maxFromParam);
-        effectiveMax = Math.max(1, Math.floor(effectiveMax));
+        var effectiveMax = getEffectiveMax();
 
-        var version = 1 + Math.floor(Math.random() * effectiveMax);
-        return "https://sktoushi.github.io/su/skyway-scheduler" + String(version) + ".html";
+        var version =
+          1 + Math.floor(Math.random() * effectiveMax);
+
+        return "https://sktoushi.github.io/su/skyway-scheduler" +
+          String(version) +
+          ".html";
+      }
+
+      function computeDejavuTarget() {
+        var effectiveMax = getEffectiveMax();
+
+        return "https://sktoushi.github.io/su/skyway-scheduler-dejavu.html?max=" +
+          encodeURIComponent(effectiveMax);
       }
 
       function applyRedirect(target) {
         var a = document.getElementById('target');
+
         if (a) {
           a.href = target;
           a.textContent = target;
         }
+
         try {
           window.location.replace(target);
         } catch (e) {
@@ -126,6 +166,7 @@
       }
 
       (async function run() {
+
         // ===== TIME-BASED OVERRIDE =====
         var now = new Date();
         var minute = now.getMinutes();
@@ -137,6 +178,13 @@
         }
         // ===== END OVERRIDE =====
 
+        // ===== NEW 50/50 DEJAVU SPLIT =====
+        if (Math.random() < DEJAVU_PROBABILITY) {
+          applyRedirect(computeDejavuTarget());
+          return;
+        }
+        // ===== OTHERWISE RUN ORIGINAL IMPLEMENTATION =====
+
         var useStateful = Math.random() < STATEFUL_PROBABILITY;
         var target;
 
@@ -144,25 +192,34 @@
           try {
             var db = await openDB();
             var last = await getLastTarget(db);
+
             if (typeof last === "string") {
               applyRedirect(last);
               return;
             }
+
             target = computeOriginalTarget();
             await setLastTarget(db, target);
+
           } catch (e) {
             target = computeOriginalTarget();
           }
+
         } else {
+
           target = computeOriginalTarget();
+
           try {
             var db2 = await openDB();
             await setLastTarget(db2, target);
           } catch (e) {}
+
         }
 
         applyRedirect(target);
+
       })();
+
     })();
   </script>
 
