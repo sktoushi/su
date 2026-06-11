@@ -1,0 +1,45 @@
+<script>
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) {
+      throw new Error('Failed to load config/all.json');
+    }
+
+    const cfg = await res.json();
+    const repos = cfg.repositories || {};
+
+    // Keep only repositories marked as images:true
+    const imageRepos = Object.entries(repos)
+      .filter(([_, info]) => info.images === true)
+      .map(([repoName]) => repoName);
+
+    if (imageRepos.length === 0) {
+      throw new Error('No repositories found with images:true');
+    }
+
+    const index = Math.floor(
+      getSecureRandomNumber() * imageRepos.length
+    );
+
+    const selectedRepo = imageRepos[index];
+
+    const targetUrl =
+      `https://sktoushi.github.io/su/${selectedRepo}-images.html`;
+
+    location.href = targetUrl;
+
+    // Fallback if redirect blocked
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.innerHTML = `
+        <h3>Redirecting...</h3>
+        <p>Selected repository: <code>${selectedRepo}</code></p>
+        <p><a href="${targetUrl}">${targetUrl}</a></p>
+      `;
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
