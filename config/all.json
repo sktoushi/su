@@ -1,7 +1,6 @@
 {
   "repositories": {
     "the-snackbar": {
-      "images": true, 
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
       "issueEndNumber": 33
