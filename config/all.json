@@ -57,6 +57,7 @@
     },
     "stash7": {
       "username": "sktoushi",
+      "images": true, 
       "issueStartNumber": 1,
       "issueEndNumber": 1338
     }
