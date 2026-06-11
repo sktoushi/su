@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="1">
+    <title>Random Image Redirect</title>
+</head>
+<body>
+    <p>Redirecting...</p>
+
+    <script>
+        const prefix = "https://raw.githubusercontent.com/sktoushi/stash7/main/";
+
+        const images = [
+            "Screenshot_20260611_202702_Messenger.jpg",
+            "Screenshot_20260611_202105_Messenger.jpg",
+            "Screenshot_20260611_201949_Messenger.jpg",
+            "Screenshot_20260611_201039_Messenger.jpg",
+            "received_1256186143371564.jpeg",
+            "received_981127050958863.jpeg",
+            "received_1480723460510699.jpeg",
+            "received_1336661395022121.jpeg",
+            "Screenshot_20260611_201018_Messenger.jpg",
+            "Screenshot_20260611_201012_Messenger.jpg",
+            "Screenshot_20260611_201006_Messenger.jpg",
+            "Screenshot_20260611_201001_Messenger.jpg",
+            "Screenshot_20260611_200951_Messenger.jpg",
+            "received_964787969260821.jpeg",
+            "received_963615453229290.jpeg",
+            "received_2200367147464941.jpeg",
+            "received_1000874139290863.jpeg"
+        ];
+
+        const randomImage =
+            images[Math.floor(Math.random() * images.length)];
+
+        window.location.replace(prefix + encodeURIComponent(randomImage));
+    </script>
+</body>
+</html>
