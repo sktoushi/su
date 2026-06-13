@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coding Horror Randomizer</title>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+<script>
+const urls = [
+
+/* About programming itself */
+"http://www.codinghorror.com/blog/2004/08/inherits-nothing.html",
+"http://www.codinghorror.com/blog/2004/08/worse-is-better.html",
+"http://www.codinghorror.com/blog/2004/08/the-joy-of-deletion.html",
+"http://www.codinghorror.com/blog/2004/08/why-arent-my-optimizations-optimizing.html",
+"http://www.codinghorror.com/blog/2004/09/loose-typing-sinks-ships.html",
+"http://www.codinghorror.com/blog/2004/09/development-is-inherently-wicked.html",
+"http://www.codinghorror.com/blog/2004/09/performance-considered-harmful.html",
+"http://www.codinghorror.com/blog/2004/09/the-delusion-of-reuse.html",
+"http://www.codinghorror.com/blog/2004/09/why-objects-suck-revisited.html",
+"http://www.codinghorror.com/blog/2004/09/why-your-code-sucks-and-mine-doesnt.html",
+"http://www.codinghorror.com/blog/2004/10/how-about-an-hourly-build.html",
+"http://www.codinghorror.com/blog/2004/10/kiss-and-yagni.html",
+"http://www.codinghorror.com/blog/2004/10/were-building-the-space-shuttle.html",
+"http://www.codinghorror.com/blog/2004/11/good-programmers-get-off-their-butts.html",
+"http://www.codinghorror.com/blog/2004/11/on-american-programmers.html",
+"http://www.codinghorror.com/blog/2004/12/it-came-from-planet-architecture.html",
+"http://www.codinghorror.com/blog/2005/01/the-real-cost-of-performance.html",
+"http://blog.codinghorror.com/the-prototype-pitfall/",
+"http://blog.codinghorror.com/unit-testing-vs-beta-testing/",
+"http://blog.codinghorror.com/not-all-bugs-are-worth-fixing/",
+"http://blog.codinghorror.com/i-shall-call-it-somethingmanager/",
+"http://blog.codinghorror.com/code-elegance-code-balance/",
+"http://blog.codinghorror.com/fifty-years-of-software-development/",
+"http://blog.codinghorror.com/code-tells-you-how-comments-tell-you-why/",
+"http://blog.codinghorror.com/curlys-law-do-one-thing/",
+"http://blog.codinghorror.com/the-best-code-is-no-code-at-all/",
+"http://blog.codinghorror.com/dont-ask-observe/",
+"http://blog.codinghorror.com/everything-is-fast-for-small-n/",
+
+/* About being a programmer */
+"http://www.codinghorror.com/blog/2004/08/be-good-at-your-job.html",
+"http://www.codinghorror.com/blog/2004/08/why-im-the-best-programmer-in-the-world.html",
+"http://www.codinghorror.com/blog/2004/08/monster-project-management.html",
+"http://www.codinghorror.com/blog/2004/09/skill-disparities-in-programming.html",
+"http://www.codinghorror.com/blog/2004/09/being-technologically-savvy-isnt-enough.html",
+"http://www.codinghorror.com/blog/2004/09/the-rise-and-fall-of-homo-logicus.html",
+"http://www.codinghorror.com/blog/2004/10/we-make-shitty-software-with-bugs.html",
+"http://www.codinghorror.com/blog/2004/10/a-programmers-portfolio.html",
+"http://www.codinghorror.com/blog/2004/10/just-say-no.html",
+"http://www.codinghorror.com/blog/2004/11/dont-be-afraid-to-break-stuff.html",
+"http://www.codinghorror.com/blog/2004/12/blue-collar-software-development.html",
+"http://www.codinghorror.com/blog/2004/12/this-is-your-anti-productivity-pod.html",
+"http://www.codinghorror.com/blog/2005/01/moving-the-block.html",
+"http://www.codinghorror.com/blog/2005/02/why-is-forever.html",
+"http://blog.codinghorror.com/on-software-engineering/",
+"http://blog.codinghorror.com/following-the-instructions-on-the-paint-can/",
+"http://blog.codinghorror.com/success-through-failure/",
+"http://blog.codinghorror.com/incompetence-considered-harmful/",
+"http://blog.codinghorror.com/code-reviews-just-do-it/",
+"http://blog.codinghorror.com/how-not-to-become-a-rockstar-programmer/",
+"http://blog.codinghorror.com/fail-early-fail-often/",
+"http://blog.codinghorror.com/egoless-programming-you-are-not-your-job/",
+"http://blog.codinghorror.com/the-multi-tasking-myth/",
+"http://blog.codinghorror.com/the-last-responsible-moment/",
+"http://blog.codinghorror.com/why-cant-programmers-program/",
+"http://blog.codinghorror.com/in-programming-one-is-the-loneliest-number/",
+"http://blog.codinghorror.com/discipline-makes-strong-developers/",
+"http://blog.codinghorror.com/classic-computer-science-puzzles/",
+"http://blog.codinghorror.com/sharing-the-customers-pain/",
+"http://blog.codinghorror.com/the-years-of-experience-myth/",
+"http://blog.codinghorror.com/the-first-rule-of-programming-its-always-your-fault/",
+
+/* About programs */
+"http://www.codinghorror.com/blog/2004/06/death-to-the-dialog-box.html",
+"http://www.codinghorror.com/blog/2004/10/defending-perpetual-intermediacy.html",
+"http://www.codinghorror.com/blog/2004/10/are-your-exceptions-silent.html",
+"http://www.codinghorror.com/blog/2004/06/death-to-the-dialog-box.html",
+"http://www.codinghorror.com/blog/2004/11/youll-never-have-enough-cheese.html",
+"http://www.codinghorror.com/blog/2004/12/gold-plating.html",
+"http://www.codinghorror.com/blog/2004/12/happy-talk-must-die.html",
+"http://blog.codinghorror.com/the-broken-window-theory/",
+"http://blog.codinghorror.com/the-user-interface-is-the-application/",
+"http://blog.codinghorror.com/the-positive-impact-of-negative-thinking/",
+"http://blog.codinghorror.com/error-codes-must-die/",
+"http://blog.codinghorror.com/in-pursuit-of-simplicity/",
+"http://blog.codinghorror.com/doing-it-like-everyone-else-does/",
+"http://blog.codinghorror.com/making-considerate-software/"
+];
+
+function secureRandomIndex(max) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] % max;
+}
+
+const chosen = urls[secureRandomIndex(urls.length)];
+window.location.replace(chosen);
+</script>
+</head>
+
+<body>
+<p>Redirecting...</p>
+</body>
+</html>
