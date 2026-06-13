@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Knowledge Randomizer</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: #f5f5f5;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<h2>Picking a random issue...</h2>
+
+<script>
+const repos = [
+    {
+        repo: "one-star-knowledge",
+        start: 1,
+        end: 481
+    },
+    {
+        repo: "two-star-knowledge",
+        start: 482,
+        end: 629 // 481 + 148
+    },
+    {
+        repo: "three-star-knowledge",
+        start: 630,
+        end: 905 // 629 + 276
+    },
+    {
+        repo: "four-star-knowledge",
+        start: 906,
+        end: 1159 // 905 + 254
+    },
+    {
+        repo: "five-star-knowledge",
+        start: 1160,
+        end: 1411 // 1159 + 252
+    }
+];
+
+// Total issues across all repositories
+const totalIssues = 1411;
+
+// Uniform random issue across ALL issues
+const globalIssue =
+    Math.floor(Math.random() * totalIssues) + 1;
+
+let targetUrl = "";
+
+for (const r of repos) {
+    if (globalIssue >= r.start && globalIssue <= r.end) {
+
+        const localIssue =
+            globalIssue - r.start + 1;
+
+        targetUrl =
+            `https://github.com/mdr19ganseki95cf/${r.repo}/issues/${localIssue}`;
+
+        break;
+    }
+}
+
+window.location.replace(targetUrl);
+</script>
+
+</body>
+</html>
