@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Random Games of Strategy Dixit PDF</title>
+</head>
+<body>
+
+<script>
+(function () {
+    const MIN_PAGE = 26;
+    const MAX_PAGE = 734;
+
+    // Cryptographically secure random integer
+    function randomInt(min, max) {
+        const range = max - min + 1;
+        const array = new Uint32Array(1);
+
+        do {
+            crypto.getRandomValues(array);
+        } while (array[0] >= Math.floor(4294967296 / range) * range);
+
+        return min + (array[0] % range);
+    }
+
+    const page = randomInt(MIN_PAGE, MAX_PAGE);
+
+    const url =
+        `https://github.com/mdr19ganseki95cf/games-of-strategy-dixit/blob/main/games-of-strategy-dixit-${page}.pdf`;
+
+    location.replace(url);
+})();
+</script>
+
+</body>
+</html>
