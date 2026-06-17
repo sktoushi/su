@@ -1,4 +1,7 @@
 {
+  "skyway": {
+    "scheduler-max": 33
+  },  
   "repositories": {
     "the-snackbar": {
       "username": "mdr19ganseki95cf",
