@@ -24,23 +24,7 @@
   }
   </script>
 
-  <style>
-    :root { --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342; --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935; }
-    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--fg);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .hidden{display:none!important;}
-    .wrap{display:grid; place-items:center; height:100vh; text-align:center; gap:1rem;}
-    .small{color:var(--muted); font-size:.9rem;}
-    .toolbar{display:inline-flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:center;}
-    .btn{border:1px solid #111; background:var(--btn); color:var(--fg); padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
-      transition: transform .05s ease, background .15s ease, box-shadow .15s ease; box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;}
-    .btn:hover{background:var(--btn-hover);}
-    .btn:active{transform:translateY(1px); background:var(--btn-active);}
-    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
-    .badge{font-size:.8rem; padding:.25rem .5rem; border-radius:.4rem; background:#1c313a; color:#b2dfdb;}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
-    .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
-  </style>
+  <style>:root{--bg:#0b0c10;--fg:#cfd8dc;--muted:#90a4ae;--accent:#7cb342;--btn:#263238;--btn-hover:#37474f;--btn-active:#455a64;--danger:#e53935}html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}.hidden{display:none!important}.wrap{display:grid;place-items:center;height:100vh;text-align:center;gap:1rem}.small{color:var(--muted);font-size:.9rem}.toolbar{display:inline-flex;gap:.5rem;align-items:center;flex-wrap:wrap;justify-content:center}.btn{border:1px solid #111;background:var(--btn);color:var(--fg);padding:.6rem 1rem;border-radius:.5rem;font-size:1rem;cursor:pointer;transition:transform .05s,background .15s,box-shadow .15s;box-shadow:0 2px 0 rgba(0,0,0,.3);user-select:none}.btn:hover{background:var(--btn-hover)}.btn:active{transform:translateY(1px);background:var(--btn-active)}.btn-accent{background:var(--accent);color:#0b0c10;border-color:#5a8e2f}.badge{font-size:.8rem;padding:.25rem .5rem;border-radius:.4rem;background:#1c313a;color:#b2dfdb}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}.url-line{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-overflow:clip}</style>
 
   <script>
     /************ Utilities available before namespacing ************/
@@ -52,11 +36,8 @@
       }
       return ('00000000' + h.toString(16)).slice(-8);
     }
-    function secureRandomFloat01() {
-      const r = new Uint32Array(1);
-      crypto.getRandomValues(r);
-      return r[0] / 4294967296;
-    }
+    const _rndBuf=new Uint32Array(1);
+    function secureRandomFloat01(){crypto.getRandomValues(_rndBuf);return _rndBuf[0]/4294967296}
     function hexFromBytes(bytes) {
       return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
     }
