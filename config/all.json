@@ -11,8 +11,7 @@
     "img": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 195,
-      "probabilityBooster": 55
+      "issueEndNumber": 195
     },
     "stash1p5": {
       "username": "sktoushi",
@@ -88,7 +87,8 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 2398
+      "issueEndNumber": 2398, 
+      "probabilityBooster": 3
     }
    },
   "formulas": [
