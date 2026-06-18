@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mastery-Focused Picker (v17)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b0c10;
+      color: #c5c6c7;
+      margin: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/**
+ * allv17.html - MASTERY-FOCUSED PICKER
+ * 
+ * Cognitive Strategy: Deliberate Practice & Mastery Learning
+ * - Identifies areas needing reinforcement
+ * - Implements interleaved practice for better retention
+ * - Uses retrieval practice principles
+ * - Focuses on depth over breadth
+ * - Tracks mastery levels per repository
+ * - Optimal for deep understanding and skill consolidation
+ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories || {};
+
+    // Build repository entries
+    const entries = [];
+    for (const [repoName, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const issueCount = Math.max(0, end - start + 1);
+      const match = repoName.match(/x(\d+)$/i);
+      const multiplier = match ? Math.max(1, Number(match[1])) : 1;
+
+      entries.push({
+        repoName,
+        username: info.username,
+        start,
+        end,
+        issueCount,
+        multiplier
+      });
+    }
+
+    const n = entries.length;
+    const weights = new Array(n).fill(0);
+
+    // Mastery-Focused Storage
+    const MF_KEY = 'masteryFocused_v17';
+    let mfData = JSON.parse(localStorage.getItem(MF_KEY) || '{}');
+    const now = Date.now();
+    const MS_PER_HOUR = 3600000;
+
+    // Initialize mastery tracking
+    if (!mfData.masteryLevels) {
+      mfData.masteryLevels = {};
+      mfData.practiceHistory = [];
+      mfData.currentFocus = null;
+      mfData.focusStartTime = now;
+      mfData.sessionCount = 0;
+    }
+
+    mfData.sessionCount += 1;
+
+    // Mastery levels: 0 (novice) to 5 (master)
+    // Progress through: exposure -> familiarity -> competence -> proficiency -> mastery
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      const key = `${repo.username}/${repo.repoName}`;
+      
+      if (!mfData.masteryLevels[key]) {
+        mfData.masteryLevels[key] = {
+          level: 0,
+          exposures: 0,
+          lastPractice: 0,
+          consecutivePractices: 0,
+          totalTimeSpent: 0
+        };
+      }
+    }
+
+    // Determine if we should maintain focus or switch
+    const hoursSinceFocusStart = (now - mfData.focusStartTime) / MS_PER_HOUR;
+    const shouldMaintainFocus = mfData.currentFocus && hoursSinceFocusStart < 2;
+
+    // Calculate weights based on mastery principles
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      const key = `${repo.username}/${repo.repoName}`;
+      const mastery = mfData.masteryLevels[key];
+
+      let weight = repo.issueCount * repo.multiplier;
+
+      // Focus maintenance: if we have a current focus, heavily favor it
+      if (shouldMaintainFocus && key === mfData.currentFocus) {
+        weight *= 8.0; // Strong focus bias
+      }
+
+      // Mastery-based weighting
+      const level = mastery.level;
+      
+      if (level === 0) {
+        // Novice: needs initial exposure
+        weight *= 2.0;
+      } else if (level < 2) {
+        // Building familiarity: high priority
+        weight *= 3.5;
+      } else if (level < 4) {
+        // Developing competence: moderate priority
+        weight *= 2.0;
+      } else {
+        // High mastery: maintenance mode (lower priority)
+        weight *= 0.8;
+      }
+
+      // Retrieval practice: items not practiced recently need reinforcement
+      const hoursSinceLastPractice = (now - mastery.lastPractice) / MS_PER_HOUR;
+      
+      if (mastery.lastPractice === 0) {
+        weight *= 1.5; // Never practiced
+      } else if (hoursSinceLastPractice > 72) {
+        weight *= 2.5; // Forgetting likely
+      } else if (hoursSinceLastPractice > 24) {
+        weight *= 1.8; // Needs review
+      } else if (hoursSinceLastPractice < 1) {
+        weight *= 0.2; // Too recent
+      }
+
+      // Interleaving: avoid too many consecutive practices of same content
+      if (mastery.consecutivePractices > 3) {
+        weight *= 0.3; // Force interleaving
+      }
+
+      // Deliberate practice: favor content at edge of competence
+      const isAtEdge = level >= 1 && level <= 3;
+      if (isAtEdge) {
+        weight *= 1.6;
+      }
+
+      weights[i] = Math.max(0.0001, weight);
+    }
+
+    // Apply noise for natural variation
+    function applyNoise(weights) {
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      const stdDev = 0.10; // Lower variation for focused practice
+      return weights.map(w => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        return Math.max(0.0001, w + noise);
+      });
+    }
+
+    const adjusted = applyNoise(weights);
+    const sum = adjusted.reduce((a, b) => a + b, 0);
+    const normalized = adjusted.map(w => w / sum);
+
+    // Select repository
+    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+    let cumulative = 0;
+    let chosenIdx = normalized.length - 1;
+    for (let i = 0; i < normalized.length; i++) {
+      cumulative += normalized[i];
+      if (r < cumulative) {
+        chosenIdx = i;
+        break;
+      }
+    }
+
+    const repo = entries[chosenIdx];
+    const key = `${repo.username}/${repo.repoName}`;
+    const mastery = mfData.masteryLevels[key];
+
+    // Update mastery tracking
+    mastery.exposures += 1;
+    mastery.lastPractice = now;
+
+    // Update consecutive practices
+    if (mfData.currentFocus === key) {
+      mastery.consecutivePractices += 1;
+    } else {
+      // Reset consecutive counter for all repos when switching
+      for (const k in mfData.masteryLevels) {
+        mfData.masteryLevels[k].consecutivePractices = 0;
+      }
+      mastery.consecutivePractices = 1;
+      mfData.currentFocus = key;
+      mfData.focusStartTime = now;
+    }
+
+    // Progress mastery level based on exposures
+    if (mastery.exposures >= 50 && mastery.level < 5) {
+      mastery.level = 5; // Master
+    } else if (mastery.exposures >= 30 && mastery.level < 4) {
+      mastery.level = 4; // Proficient
+    } else if (mastery.exposures >= 15 && mastery.level < 3) {
+      mastery.level = 3; // Competent
+    } else if (mastery.exposures >= 7 && mastery.level < 2) {
+      mastery.level = 2; // Familiar
+    } else if (mastery.exposures >= 3 && mastery.level < 1) {
+      mastery.level = 1; // Exposed
+    }
+
+    // Add to practice history
+    mfData.practiceHistory.push({
+      key,
+      timestamp: now,
+      level: mastery.level
+    });
+
+    // Keep only recent history
+    if (mfData.practiceHistory.length > 100) {
+      mfData.practiceHistory = mfData.practiceHistory.slice(-100);
+    }
+
+    // Save updated data
+    localStorage.setItem(MF_KEY, JSON.stringify(mfData));
+
+    // Select random issue from chosen repository
+    const issueNumber = repo.start + Math.floor(
+      (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) *
+      (repo.end - repo.start + 1)
+    );
+
+    const chosenUrl = `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+    location.href = chosenUrl;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const masteryLabels = ['Novice', 'Exposed', 'Familiar', 'Competent', 'Proficient', 'Master'];
+      const avgMastery = Object.values(mfData.masteryLevels)
+        .reduce((sum, m) => sum + m.level, 0) / n;
+      
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Strategy: Mastery-Focused (v17)\n` +
+        `Repository: ${repo.repoName}\n` +
+        `Issue: ${issueNumber}\n` +
+        `Mastery Level: ${masteryLabels[mastery.level]} (${mastery.level}/5)\n` +
+        `Exposures: ${mastery.exposures}\n` +
+        `Consecutive: ${mastery.consecutivePractices}\n` +
+        `Avg Mastery: ${avgMastery.toFixed(2)}\n` +
+        `Session: ${mfData.sessionCount}\n` +
+        `URL: ${chosenUrl}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Repository Issue Randomizer (Optimized)</title>
+  <title>Difficulty-Adaptive Picker (v14)</title>
   <script src="common/random-utils.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: #fafafa;
+      background: #0b0c10;
+      color: #c5c6c7;
       margin: 2rem;
     }
   </style>
@@ -16,65 +17,49 @@
 <body>
 
 <script>
+/**
+ * allv14.html - DIFFICULTY-ADAPTIVE PICKER
+ * 
+ * Cognitive Strategy: Zone of Proximal Development (ZPD)
+ * - Tracks user's implicit skill level based on repository complexity
+ * - Gradually increases difficulty as user demonstrates mastery
+ * - Prevents overwhelming with too-hard content
+ * - Prevents boredom with too-easy content
+ * - Optimal for progressive skill building
+ */
 (async () => {
   try {
-
     const res = await fetch('config/all.json');
-
-    if (!res.ok)
-      throw new Error('Failed to load config');
-
+    if (!res.ok) throw new Error('Failed to load config');
     const cfg = await res.json();
-
     const repos = cfg.repositories || {};
 
-    const formulas =
-      Array.isArray(cfg.formulas)
-      ? cfg.formulas
-      : [];
-
-    let formulaParam = 'random';
-
-    if (formulas.length > 0) {
-      const idx =
-        Math.floor(
-          getSecureRandomNumber() *
-          formulas.length
-        );
-
-      formulaParam = formulas[idx];
-    }
-
-    // ============================================================
-    // Build repository entries only
-    // ============================================================
-
+    // Build repository entries with difficulty estimation
     const entries = [];
-
     for (const [repoName, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const issueCount = Math.max(0, end - start + 1);
+      const match = repoName.match(/x(\d+)$/i);
+      const multiplier = match ? Math.max(1, Number(match[1])) : 1;
 
-      const start =
-        Number(info.issueStartNumber);
-
-      const end =
-        Number(info.issueEndNumber);
-
-      const issueCount =
-        Math.max(
-          0,
-          end - start + 1
-        );
-
-      const match =
-        repoName.match(/x(\d+)$/i);
-
-      const multiplier =
-        match
-          ? Math.max(
-              1,
-              Number(match[1])
-            )
-          : 1;
+      // Estimate difficulty based on repository characteristics
+      let difficulty = 1.0;
+      
+      // Larger repositories = more complex
+      if (issueCount > 4000) difficulty += 0.8;
+      else if (issueCount > 2000) difficulty += 0.5;
+      else if (issueCount > 1000) difficulty += 0.3;
+      
+      // Star-rated knowledge repos have explicit difficulty
+      if (repoName.includes('five-star')) difficulty = 5.0;
+      else if (repoName.includes('four-star')) difficulty = 4.0;
+      else if (repoName.includes('three-star')) difficulty = 3.0;
+      else if (repoName.includes('two-star')) difficulty = 2.0;
+      else if (repoName.includes('one-star')) difficulty = 1.0;
+      
+      // Stash repos are intermediate
+      if (repoName.includes('stash')) difficulty = Math.max(difficulty, 2.5);
 
       entries.push({
         repoName,
@@ -82,260 +67,162 @@
         start,
         end,
         issueCount,
-        multiplier
+        multiplier,
+        difficulty
       });
     }
 
-    // ============================================================
-    // Compute repository weights
-    // ============================================================
-
     const n = entries.length;
+    const weights = new Array(n).fill(0);
 
-    const weights =
-      new Array(n).fill(0);
+    // Difficulty-Adaptive Storage
+    const DA_KEY = 'difficultyAdaptive_v14';
+    let daData = JSON.parse(localStorage.getItem(DA_KEY) || '{}');
+    const now = Date.now();
+    const MS_PER_HOUR = 3600000;
 
+    // Initialize user skill level
+    if (!daData.userSkillLevel) {
+      daData.userSkillLevel = 1.5; // Start at beginner-intermediate
+      daData.sessionCount = 0;
+      daData.lastUpdate = now;
+      daData.recentExposures = [];
+    }
+
+    // Gradually increase skill level over time (learning curve)
+    const hoursSinceLastUpdate = (now - daData.lastUpdate) / MS_PER_HOUR;
+    if (hoursSinceLastUpdate > 24) {
+      // Skill increases slowly with consistent practice
+      daData.userSkillLevel = Math.min(5.0, daData.userSkillLevel + 0.05);
+    }
+
+    daData.sessionCount += 1;
+    daData.lastUpdate = now;
+
+    // Calculate optimal difficulty range (ZPD)
+    const userLevel = daData.userSkillLevel;
+    const zpd_lower = Math.max(1.0, userLevel - 0.8);
+    const zpd_upper = Math.min(5.0, userLevel + 1.2);
+    const zpd_optimal = userLevel + 0.3; // Slightly challenging
+
+    // Weight repositories based on difficulty match
     for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      let weight = repo.issueCount * repo.multiplier;
 
-      const repo =
-        entries[i];
+      // Calculate difficulty match score
+      const diff = repo.difficulty;
+      let difficultyScore = 1.0;
 
-      let weight =
-        repo.issueCount *
-        repo.multiplier;
-
-      if (formulaParam === 'leftLeaning') {
-
-        const noise =
-          0.5 +
-          getSecureRandomNumber();
-
-        weight *=
-          (n - i) *
-          noise;
+      if (diff >= zpd_lower && diff <= zpd_upper) {
+        // Within ZPD: high priority
+        const distanceFromOptimal = Math.abs(diff - zpd_optimal);
+        difficultyScore = 3.0 - (distanceFromOptimal * 0.8);
+      } else if (diff < zpd_lower) {
+        // Too easy: reduce but don't eliminate (review value)
+        const gap = zpd_lower - diff;
+        difficultyScore = Math.max(0.3, 1.0 - (gap * 0.3));
+      } else {
+        // Too hard: significantly reduce
+        const gap = diff - zpd_upper;
+        difficultyScore = Math.max(0.1, 0.5 - (gap * 0.2));
       }
 
-      else if (
-        formulaParam ===
-        'rightLeaning1'
-      ) {
+      weight *= difficultyScore;
 
-        const noise =
-          0.5 +
-          getSecureRandomNumber();
-
-        weight *=
-          (i + 1) *
-          noise;
+      // Avoid recent repetition
+      const recentKey = `${repo.username}/${repo.repoName}`;
+      const recentIndex = daData.recentExposures.indexOf(recentKey);
+      if (recentIndex !== -1) {
+        const recency = (daData.recentExposures.length - recentIndex) / 10;
+        weight *= Math.max(0.2, 1 - recency);
       }
 
-      else if (
-        formulaParam ===
-        'recent20Percent'
-      ) {
-
-        const startIdx =
-          Math.floor(
-            n * 0.8
-          );
-
-        if (i >= startIdx) {
-          weight *= 5;
-        }
-      }
-
-      else if (
-        formulaParam ===
-        'recent5Percent'
-      ) {
-
-        const startIdx =
-          Math.floor(
-            n * 0.95
-          );
-
-        if (i >= startIdx) {
-          weight *= 20;
-        }
-      }
-
-      weights[i] =
-        Math.max(
-          0.0001,
-          weight
-        );
+      weights[i] = Math.max(0.0001, weight);
     }
 
-    // ============================================================
-    // Noise patch
-    // ============================================================
-
-    function noisePatch(weights) {
-
-      function cryptoRandom() {
-        const buf =
-          new Uint32Array(1);
-
+    // Apply noise for natural variation
+    function applyNoise(weights) {
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
         crypto.getRandomValues(buf);
-
-        return (
-          buf[0] /
-          0xffffffff
-        );
-      }
-
-      function cryptoNormal(
-        mean = 0,
-        stdDev = 1
-      ) {
-
-        let u1 = 0;
-        let u2 = 0;
-
-        while (u1 === 0)
-          u1 = cryptoRandom();
-
-        while (u2 === 0)
-          u2 = cryptoRandom();
-
-        const z0 =
-          Math.sqrt(
-            -2 *
-            Math.log(u1)
-          ) *
-          Math.cos(
-            2 *
-            Math.PI *
-            u2
-          );
-
-        return (
-          z0 *
-          stdDev +
-          mean
-        );
-      }
-
-      const erratic =
-        cryptoRandom() < 0.08;
-
-      const stdDev =
-        erratic
-          ? 0.35
-          : 0.08;
-
-      let adjusted =
-        weights.map(w => {
-
-          const noise =
-            cryptoNormal(
-              0,
-              stdDev
-            ) * w;
-
-          return Math.max(
-            0.0001,
-            w + noise
-          );
-        });
-
-      const sum =
-        adjusted.reduce(
-          (a, b) => a + b,
-          0
-        );
-
-      adjusted =
-        adjusted.map(
-          w => w / sum
-        );
-
-      const r =
-        cryptoRandom();
-
-      let cumulative =
-        0;
-
-      let chosen =
-        adjusted.length - 1;
-
-      for (
-        let i = 0;
-        i < adjusted.length;
-        i++
-      ) {
-
-        cumulative +=
-          adjusted[i];
-
-        if (
-          r <
-          cumulative
-        ) {
-          chosen = i;
-          break;
-        }
-      }
-
-      return {
-        index: chosen,
-        adjusted,
-        erratic
+        return buf[0] / 0xffffffff;
       };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      const stdDev = 0.15;
+      return weights.map(w => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        return Math.max(0.0001, w + noise);
+      });
     }
 
-    const result =
-      noisePatch(weights);
+    const adjusted = applyNoise(weights);
+    const sum = adjusted.reduce((a, b) => a + b, 0);
+    const normalized = adjusted.map(w => w / sum);
 
-    const repo =
-      entries[
-        result.index
-      ];
-
-    const issueNumber =
-      repo.start +
-      Math.floor(
-        getSecureRandomNumber() *
-        (
-          repo.end -
-          repo.start +
-          1
-        )
-      );
-
-    const chosenUrl =
-      `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
-
-    location.href =
-      chosenUrl;
-
-    document.addEventListener(
-      'DOMContentLoaded',
-      () => {
-
-        const pre =
-          document.createElement(
-            'pre'
-          );
-
-        pre.textContent =
-          `Formula: ${formulaParam}\n` +
-          `Repository: ${repo.repoName}\n` +
-          `Issue: ${issueNumber}\n` +
-          `URL: ${chosenUrl}\n` +
-          `Erratic: ${result.erratic}`;
-
-        document.body.appendChild(
-          pre
-        );
+    // Select repository
+    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+    let cumulative = 0;
+    let chosenIdx = normalized.length - 1;
+    for (let i = 0; i < normalized.length; i++) {
+      cumulative += normalized[i];
+      if (r < cumulative) {
+        chosenIdx = i;
+        break;
       }
+    }
+
+    const repo = entries[chosenIdx];
+    const recentKey = `${repo.username}/${repo.repoName}`;
+
+    // Update recent exposures
+    daData.recentExposures.push(recentKey);
+    if (daData.recentExposures.length > 10) {
+      daData.recentExposures.shift();
+    }
+
+    // Adaptive skill adjustment based on difficulty of chosen content
+    if (repo.difficulty > userLevel + 0.5) {
+      // Challenged with harder content: skill grows faster
+      daData.userSkillLevel = Math.min(5.0, daData.userSkillLevel + 0.02);
+    }
+
+    // Save updated data
+    localStorage.setItem(DA_KEY, JSON.stringify(daData));
+
+    // Select random issue from chosen repository
+    const issueNumber = repo.start + Math.floor(
+      (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) *
+      (repo.end - repo.start + 1)
     );
 
-  }
-  catch (e) {
+    const chosenUrl = `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+    location.href = chosenUrl;
 
-    document.body.textContent =
-      e.message;
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Strategy: Difficulty-Adaptive (v14)\n` +
+        `Repository: ${repo.repoName}\n` +
+        `Issue: ${issueNumber}\n` +
+        `User Skill Level: ${daData.userSkillLevel.toFixed(2)}\n` +
+        `Content Difficulty: ${repo.difficulty.toFixed(2)}\n` +
+        `ZPD Range: [${zpd_lower.toFixed(2)}, ${zpd_upper.toFixed(2)}]\n` +
+        `Session Count: ${daData.sessionCount}\n` +
+        `URL: ${chosenUrl}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
   }
 })();
 </script>
