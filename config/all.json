@@ -21,7 +21,8 @@
     "log": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 9,
-      "issueEndNumber": 254
+      "issueEndNumber": 254, 
+      "probabilityBooster": 9
     },
     "redirect0915": {
       "username": "mdr19ganseki95cf",
@@ -46,27 +47,32 @@
     "one-star-knowledge": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 481
+      "issueEndNumber": 481, 
+      "probabilityBooster": 3 
     },
     "two-star-knowledge": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 148
+      "issueEndNumber": 148, 
+      "probabilityBooster": 3
     },
     "three-star-knowledge": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 276
+      "issueEndNumber": 276, 
+      "probabilityBooster": 3
     },
     "four-star-knowledge": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 254
+      "issueEndNumber": 254, 
+      "probabilityBooster": 3
     },
     "five-star-knowledge": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 252
+      "issueEndNumber": 252, 
+      "probabilityBooster": 3
     },
     "stash3": {
       "username": "mdr19ganseki95cf",
