@@ -85,32 +85,42 @@
         return z0 * stdDev + mean;
       };
 
-      // Retrieve memory from localStorage
-      const STORAGE_KEY = "repo_randomizer_memory_v2";
+      // Retrieve memory from localStorage (optimized for low memory usage)
+      const STORAGE_KEY = "repo_randomizer_memory_v3";
       const MS_PER_DAY = 86400000;
       const DECAY_RATE = 0.15;
       const BIAS_FACTOR = 0.05;
       const ERRATIC_PROBABILITY = 0.08;
+      const MAX_RECENT_ITEMS = 100; // Only track recent 100 items
       
       let mem = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      let history = mem.history || new Array(weights.length).fill(0);
+      const recentItems = mem.recent || []; // Array of recent indices
       const lastTs = mem.lastTs || Date.now();
       const now = Date.now();
 
-      // Apply exponential decay based on time elapsed
+      // Apply exponential decay to recent items count
       const daysPassed = Math.max(0, (now - lastTs) / MS_PER_DAY);
+      let decayedRecent = recentItems;
       if (daysPassed > 0.1) {
         const decayFactor = Math.exp(-DECAY_RATE * daysPassed);
-        history = history.map(v => v * decayFactor);
+        // Probabilistically remove items based on decay
+        decayedRecent = recentItems.filter(() => cryptoRandom() < decayFactor);
       }
 
-      // Calculate adaptive bias to favor under-visited items
-      const total = history.reduce((a, b) => a + b, 0);
+      // Calculate adaptive bias using sparse representation
       const bias = new Array(weights.length).fill(0);
-      if (total > 0) {
-        const avg = total / history.length;
-        for (let i = 0; i < history.length; i++) {
-          bias[i] = (avg - history[i]) / avg * BIAS_FACTOR;
+      if (decayedRecent.length > 0) {
+        // Count frequency of recent items
+        const freq = {};
+        for (const idx of decayedRecent) {
+          freq[idx] = (freq[idx] || 0) + 1;
+        }
+        
+        // Apply bias to favor less-visited items
+        const avgFreq = decayedRecent.length / weights.length;
+        for (let i = 0; i < weights.length; i++) {
+          const itemFreq = freq[i] || 0;
+          bias[i] = Math.max(0, (avgFreq - itemFreq) / (avgFreq + 1)) * BIAS_FACTOR;
         }
       }
 
@@ -141,10 +151,15 @@
         }
       }
 
-      // Update memory
-      history[chosenIdx] = (history[chosenIdx] || 0) + 1;
+      // Update memory (sparse storage)
+      decayedRecent.push(chosenIdx);
+      // Keep only most recent items to limit memory
+      if (decayedRecent.length > MAX_RECENT_ITEMS) {
+        decayedRecent.shift();
+      }
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        history,
+        recent: decayedRecent,
         lastTs: now
       }));
 
