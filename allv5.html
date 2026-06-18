@@ -760,12 +760,14 @@ function noisePatch(weights, issues) {
 
     const repos = cfg.repositories || {};
     const issues = [];
+    const issueToRepo = [];
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
       const end = Number(info.issueEndNumber);
       const user = info.username;
       for (let i = start; i <= end; i++) {
         issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+        issueToRepo.push(repo);
       }
     }
     const n = issues.length;
@@ -813,21 +815,29 @@ async function proceedAfterMixSaved() {
   const cfg = await idbGet(STORE_CONFIG, 'all');
   const repos = cfg.repositories || {};
   const issues = [];
+  const issueToRepo = [];
   for (const [repo, info] of Object.entries(repos)) {
     const start = Number(info.issueStartNumber);
     const end = Number(info.issueEndNumber);
     const user = info.username;
     for (let i = start; i <= end; i++) {
       issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      issueToRepo.push(repo);
     }
   }
   const n = issues.length;
   const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
-  await proceedWithFormula(chosenFormula, n, issues);
+  await proceedWithFormula(chosenFormula, n, issues, issueToRepo, repos);
 }
 
-async function proceedWithFormula(formulaParam, n, issues) {
+async function proceedWithFormula(formulaParam, n, issues, issueToRepo, repos) {
   const weights = applyFormulaWeights(formulaParam, n);
+  // Apply probability booster
+  for (let i = 0; i < n; i++) {
+    const repoName = issueToRepo[i];
+    const booster = Number(repos[repoName]?.probabilityBooster) || 1;
+    weights[i] *= booster;
+  }
   const noisy = noisePatch(weights, issues);
   const chosen = issues[noisy.index];
 

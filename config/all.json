@@ -1,7 +1,7 @@
 {
   "skyway": {
     "scheduler-max": 33
-  },  
+  },
   "repositories": {
     "the-snackbar": {
       "username": "mdr19ganseki95cf",
@@ -11,7 +11,8 @@
     "img": {
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
-      "issueEndNumber": 195
+      "issueEndNumber": 195,
+      "probabilityBooster": 55
     },
     "stash1p5": {
       "username": "sktoushi",
@@ -85,7 +86,7 @@
     },
     "stash7": {
       "username": "sktoushi",
-      "images": true, 
+      "images": true,
       "issueStartNumber": 1,
       "issueEndNumber": 2398
     }
@@ -97,5 +98,6 @@
     "rightLeaning1",
     "recent20Percent",
     "recent5Percent"
-  ]
+  ],
+  "_comment": "probabilityBooster is optional per repository (default=1). If set to 2, the repository's weight is doubled in selection calculations, but the actual issue range remains unchanged."
 }

@@ -153,6 +153,10 @@
         }
       }
 
+      // Apply probability booster
+      const booster = Number(repos[repo.repoName]?.probabilityBooster) || 1;
+      weight *= booster;
+
       weights[i] = Math.max(0.0001, weight);
     }
 

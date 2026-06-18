@@ -102,6 +102,10 @@
       const forgettingFactor = 1 + (item.intervalDays / 30);
       weight *= Math.sqrt(forgettingFactor);
 
+      // Apply probability booster
+      const booster = Number(repos[repo.repoName]?.probabilityBooster) || 1;
+      weight *= booster;
+
       weights[i] = Math.max(0.0001, weight);
     }
 

@@ -30,14 +30,16 @@
     const cfg = await res.json();
     const repos = cfg.repositories || {};
     const issues = [];
+    const issueToRepo = [];
 
-    // --- Gather all issue URLs
+    // --- Gather all issue URLs and track repository mapping
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
       const end = Number(info.issueEndNumber);
       const user = info.username;
       for (let i = start; i <= end; i++) {
         issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+        issueToRepo.push(repo);
       }
     }
 
@@ -66,6 +68,13 @@
     } else if (formulaParam === 'recent5Percent') {
       const startIdx = Math.floor(n * 0.95);
       for (let i = startIdx; i < n; i++) weights[i] = 20;
+    }
+
+    // Apply probability booster
+    for (let i = 0; i < n; i++) {
+      const repoName = issueToRepo[i];
+      const booster = Number(repos[repoName]?.probabilityBooster) || 1;
+      weights[i] *= booster;
     }
 
     // ------------------------------------------------------------

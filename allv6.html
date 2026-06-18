@@ -502,7 +502,7 @@ function adaptCoefs(base, env) {
 }
 
 /* Build scores for a given family */
-function buildScoresForFamily(family, issues) {
+function buildScoresForFamily(family, issues, issueToRepo, repos) {
   const n = issues.length;
   if (!n) return { probs: [], diag: { reason:'no-issues' } };
 
@@ -575,7 +575,19 @@ function buildScoresForFamily(family, issues) {
   const maxZ = Math.max.apply(null, zScaled);
   const expZ = zScaled.map(v => Math.exp(Math.min(50, v - maxZ))); // numerical safety
   const sumExp = expZ.reduce((a,b)=>a+b,0) || 1;
-  const probs = expZ.map(v => v / sumExp);
+  let probs = expZ.map(v => v / sumExp);
+
+  // Apply probability booster
+  if (issueToRepo && repos) {
+    for (let i = 0; i < n; i++) {
+      const repoName = issueToRepo[i];
+      const booster = Number(repos[repoName]?.probabilityBooster) || 1;
+      probs[i] *= booster;
+    }
+    // Re-normalize probabilities
+    const totalProb = probs.reduce((a,b)=>a+b,0) || 1;
+    probs = probs.map(p => p / totalProb);
+  }
 
   return {
     probs,
@@ -628,12 +640,14 @@ function sampleIndex(probs, issues) {
 
     const repos = cfg.repositories || {};
     const issues = [];
+    const issueToRepo = [];
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
       const end = Number(info.issueEndNumber);
       const user = info.username;
       for (let i = start; i <= end; i++) {
         issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+        issueToRepo.push(repo);
       }
     }
     const n = issues.length;
@@ -683,12 +697,14 @@ async function proceedAfterMixSaved() {
   const cfg = await idbGet(STORE_CONFIG, 'all');
   const repos = cfg.repositories || {};
   const issues = [];
+  const issueToRepo = [];
   for (const [repo, info] of Object.entries(repos)) {
     const start = Number(info.issueStartNumber);
     const end = Number(info.issueEndNumber);
     const user = info.username;
     for (let i = start; i <= end; i++) {
       issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      issueToRepo.push(repo);
     }
   }
 
@@ -696,7 +712,7 @@ async function proceedAfterMixSaved() {
   const chosenFamily = weightedChoiceFromMix(currentMix, VISIBLE_FAMILIES);
 
   // 2) compute distribution with the revamped sampler
-  const { probs, diag } = buildScoresForFamily(chosenFamily, issues);
+  const { probs, diag } = buildScoresForFamily(chosenFamily, issues, issueToRepo, repos);
   if (!probs || probs.length === 0) throw new Error('No issues available.');
 
   // 3) sample one index, update fairness memory
