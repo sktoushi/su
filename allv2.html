@@ -32,7 +32,7 @@
     const repos = cfg.repositories || {};
     const issues = [];
 
-    // --- Gather all issue URLs
+    // Gather all issue URLs
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
       const end = Number(info.issueEndNumber);
@@ -43,122 +43,120 @@
     }
 
     const n = issues.length;
-    let formulaParam = 'random';
     const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
-    if (formulas.length > 0) {
-      const idx = Math.floor(getSecureRandomNumber() * formulas.length);
-      formulaParam = formulas[idx];
-    }
+    const formulaParam = formulas.length > 0
+      ? formulas[Math.floor(getSecureRandomNumber() * formulas.length)]
+      : 'random';
 
+    // Apply formula-based weights
     const weights = new Array(n).fill(1);
     if (formulaParam === 'leftLeaning') {
       for (let i = 0; i < n; i++) {
-        const noise = 0.5 + getSecureRandomNumber();
-        weights[i] = (n - i) * noise;
+        weights[i] = (n - i) * (0.5 + getSecureRandomNumber());
       }
     } else if (formulaParam === 'rightLeaning1') {
       for (let i = 0; i < n; i++) {
-        const noise = 0.5 + getSecureRandomNumber();
-        weights[i] = (i + 1) * noise;
+        weights[i] = (i + 1) * (0.5 + getSecureRandomNumber());
       }
     } else if (formulaParam === 'recent20Percent') {
       const startIdx = Math.floor(n * 0.8);
-      for (let i = startIdx; i < n; i++) weights[i] = 5;
+      weights.fill(5, startIdx);
     } else if (formulaParam === 'recent5Percent') {
       const startIdx = Math.floor(n * 0.95);
-      for (let i = startIdx; i < n; i++) weights[i] = 20;
+      weights.fill(20, startIdx);
     }
 
     /* ============================================================
        NOISE PATCH — adaptive volatility + erratic randomness + session decay
        ============================================================ */
     function noisePatch(weights, issues) {
-      // --- Secure RNG
-      function cryptoRandom() {
+      // Secure RNG utilities
+      const cryptoRandom = () => {
         const buf = new Uint32Array(1);
         window.crypto.getRandomValues(buf);
         return buf[0] / 0xffffffff;
-      }
+      };
 
-      function cryptoNormal(mean = 0, stdDev = 1) {
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
         let u1 = 0, u2 = 0;
         while (u1 === 0) u1 = cryptoRandom();
         while (u2 === 0) u2 = cryptoRandom();
         const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
         return z0 * stdDev + mean;
-      }
+      };
 
-      // --- Retrieve memory drift from localStorage
-      const key = "repo_randomizer_memory_v2";
-      let mem = JSON.parse(localStorage.getItem(key) || "{}");
+      // Retrieve memory from localStorage
+      const STORAGE_KEY = "repo_randomizer_memory_v2";
+      const MS_PER_DAY = 86400000;
+      const DECAY_RATE = 0.15;
+      const BIAS_FACTOR = 0.05;
+      const ERRATIC_PROBABILITY = 0.08;
+      
+      let mem = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
       let history = mem.history || new Array(weights.length).fill(0);
-      let lastTs = mem.lastTs || Date.now();
+      const lastTs = mem.lastTs || Date.now();
       const now = Date.now();
 
-      // --- Session decay (exponential decay)
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const daysPassed = Math.max(0, (now - lastTs) / msPerDay);
-      const decayRate = 0.15; // per day — 15% exponential decay
+      // Apply exponential decay based on time elapsed
+      const daysPassed = Math.max(0, (now - lastTs) / MS_PER_DAY);
       if (daysPassed > 0.1) {
-        const decayFactor = Math.exp(-decayRate * daysPassed);
+        const decayFactor = Math.exp(-DECAY_RATE * daysPassed);
         history = history.map(v => v * decayFactor);
       }
 
-      let total = history.reduce((a, b) => a + b, 0);
-
-      // --- Adaptive bias (favor under-visited)
-      let bias = new Array(weights.length).fill(0);
+      // Calculate adaptive bias to favor under-visited items
+      const total = history.reduce((a, b) => a + b, 0);
+      const bias = new Array(weights.length).fill(0);
       if (total > 0) {
         const avg = total / history.length;
-        bias = history.map(c => (avg - c) / avg * 0.05); // ±5% correction
+        for (let i = 0; i < history.length; i++) {
+          bias[i] = (avg - history[i]) / avg * BIAS_FACTOR;
+        }
       }
 
-      // --- Erratic mode probability
-      const erratic = cryptoRandom() < 0.08; // 8% chance
+      // Determine erratic mode (higher volatility)
+      const erratic = cryptoRandom() < ERRATIC_PROBABILITY;
       const stdDev = erratic ? 0.35 : 0.08;
 
-      // --- Apply noise and bias to weights
-      let adjusted = weights.map((w, i) => {
+      // Apply noise and bias to weights
+      const adjusted = weights.map((w, i) => {
         const noise = cryptoNormal(0, stdDev) * w;
-        const drift = bias[i] || 0;
-        const noisy = Math.max(0.0001, w + w * noise + w * drift);
-        return noisy;
+        const drift = bias[i];
+        return Math.max(0.0001, w + w * noise + w * drift);
       });
 
-      // --- Normalize to sum = 1
+      // Normalize to probability distribution
       const sum = adjusted.reduce((a, b) => a + b, 0);
-      adjusted = adjusted.map(w => w / sum);
+      const normalized = adjusted.map(w => w / sum);
 
-      // --- Choose index using adjusted probabilities
+      // Sample from distribution
       const r = cryptoRandom();
       let cumulative = 0;
-      let chosenIdx = adjusted.length - 1;
-      for (let i = 0; i < adjusted.length; i++) {
-        cumulative += adjusted[i];
+      let chosenIdx = normalized.length - 1;
+      for (let i = 0; i < normalized.length; i++) {
+        cumulative += normalized[i];
         if (r < cumulative) {
           chosenIdx = i;
           break;
         }
       }
 
-      // --- Memory update
+      // Update memory
       history[chosenIdx] = (history[chosenIdx] || 0) + 1;
-      localStorage.setItem(key, JSON.stringify({
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         history,
         lastTs: now
       }));
 
-      return { index: chosenIdx, erratic, adjusted, daysPassed };
+      return { index: chosenIdx, erratic, adjusted: normalized, daysPassed };
     }
 
-    // --- Execute noise patch
+    // Execute noise patch and redirect
     const noisy = noisePatch(weights, issues);
     const chosen = issues[noisy.index];
-
-    // --- Redirect
     location.href = chosen;
 
-    // --- Fallback: show diagnostic info if redirect blocked
+    // Fallback diagnostic display
     document.addEventListener('DOMContentLoaded', () => {
       const pre = document.createElement('pre');
       pre.textContent =

@@ -19,181 +19,182 @@ html,body{height:100%;margin:0;font-family:system-ui;background:#0b0c10;color:#c
 (function(){
 "use strict";
 
-var DEFAULT_MAX = 12;
-var HARD_MAX = 0x100000000;
+// Configuration constants
+const DEFAULT_MAX = 12;
+const HARD_MAX = 0x100000000;
+const LS_KEY = "dejavu_randomizer_v1";
+const SS_KEY = "dejavu_session_v1";
+const SESSION_TIMEOUT_MS = 7200000; // 2 hours
+const SESSION_SOFT_RESET_MS = 900000; // 15 minutes
+const ERA_DURATION_MS = 1200000; // 20 minutes
+const RECENT_HISTORY_LIMIT = 30;
+const PURE_RANDOM_CHANCE = 0.02;
 
-var LS_KEY = "dejavu_randomizer_v1";
-var SS_KEY = "dejavu_session_v1";
+// Crypto-secure random number generation
+const cryptoRand32 = () => crypto.getRandomValues(new Uint32Array(1))[0];
+const randomFloat = () => cryptoRand32() / 4294967296;
 
-var SESSION_TIMEOUT_MS = 2*60*60*1000;
-var SESSION_SOFT_RESET_MS = 15*60*1000;
-
-function cryptoRand32(){
-  var a=new Uint32Array(1);
-  crypto.getRandomValues(a);
-  return a[0];
-}
-
-function randomFloat(){
-  return cryptoRand32()/4294967296;
-}
-
+// Weighted random selection
 function weightedPick(items){
-  var total=0;
-  for(var i=0;i<items.length;i++) total+=items[i].weight;
-  if(total<=0) return items[Math.floor(randomFloat()*items.length)].value;
-
-  var r=randomFloat()*total;
-  var c=0;
-  for(var j=0;j<items.length;j++){
-    c+=items[j].weight;
-    if(r<c) return items[j].value;
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+  if(total <= 0) return items[Math.floor(randomFloat() * items.length)].value;
+  
+  let r = randomFloat() * total;
+  for(const item of items){
+    r -= item.weight;
+    if(r < 0) return item.value;
   }
-  return items[items.length-1].value;
+  return items[items.length - 1].value;
 }
 
+// Parse max parameter from URL
 function parseMax(){
   try{
-    var p=new URLSearchParams(location.search);
-    var raw=p.get("max");
-    if(raw===null||raw==="") return DEFAULT_MAX;
-    var n=Math.floor(Number(raw));
-    if(!Number.isFinite(n)||n<1) return DEFAULT_MAX;
-    return Math.min(n,HARD_MAX);
+    const raw = new URLSearchParams(location.search).get("max");
+    if(!raw) return DEFAULT_MAX;
+    const n = Math.floor(Number(raw));
+    return (Number.isFinite(n) && n >= 1) ? Math.min(n, HARD_MAX) : DEFAULT_MAX;
   }catch(e){
     return DEFAULT_MAX;
   }
 }
 
-function loadJSON(storage,key,fallback){
+// Storage helpers
+const loadJSON = (storage, key, fallback) => {
   try{
-    var v=storage.getItem(key);
-    if(!v) return fallback;
-    return JSON.parse(v);
+    const v = storage.getItem(key);
+    return v ? JSON.parse(v) : fallback;
   }catch(e){
     return fallback;
   }
-}
+};
 
-function saveJSON(storage,key,obj){
+const saveJSON = (storage, key, obj) => {
   try{
-    storage.setItem(key,JSON.stringify(obj));
+    storage.setItem(key, JSON.stringify(obj));
   }catch(e){}
-}
+};
 
-var now=Date.now();
-var max=Math.max(DEFAULT_MAX,parseMax());
+// Initialize state
+const now = Date.now();
+const max = Math.max(DEFAULT_MAX, parseMax());
 
-var longMem=loadJSON(localStorage,LS_KEY,{
-  transitions:{},
-  regionAffinity:{},
-  totalPicks:0
+const longMem = loadJSON(localStorage, LS_KEY, {
+  transitions: {},
+  regionAffinity: {},
+  totalPicks: 0
 });
 
-var session=loadJSON(sessionStorage,SS_KEY,null);
+let session = loadJSON(sessionStorage, SS_KEY, null);
 
-if(!session || !session.lastSeen || (now-session.lastSeen)>SESSION_TIMEOUT_MS){
-  session={
-    sessionStart:now,
-    lastSeen:now,
-    current:null,
-    recent:[],
-    eraCenter:1+Math.floor(randomFloat()*max),
-    eraExpiry:now+(20*60*1000)
+// Session initialization/reset logic
+if(!session || !session.lastSeen || (now - session.lastSeen) > SESSION_TIMEOUT_MS){
+  session = {
+    sessionStart: now,
+    lastSeen: now,
+    current: null,
+    recent: [],
+    eraCenter: 1 + Math.floor(randomFloat() * max),
+    eraExpiry: now + ERA_DURATION_MS
   };
 }
 
-if((now-session.lastSeen)>SESSION_SOFT_RESET_MS){
-  session.eraCenter=1+Math.floor(randomFloat()*max);
-  session.eraExpiry=now+(20*60*1000);
+if((now - session.lastSeen) > SESSION_SOFT_RESET_MS){
+  session.eraCenter = 1 + Math.floor(randomFloat() * max);
+  session.eraExpiry = now + ERA_DURATION_MS;
 }
 
-session.lastSeen=now;
+session.lastSeen = now;
 
-if(now>session.eraExpiry){
-  session.eraCenter=1+Math.floor(randomFloat()*max);
-  session.eraExpiry=now+(20*60*1000);
+if(now > session.eraExpiry){
+  session.eraCenter = 1 + Math.floor(randomFloat() * max);
+  session.eraExpiry = now + ERA_DURATION_MS;
 }
 
-var sessionMinutes=(now-session.sessionStart)/60000;
+// Calculate adaptive weights based on session duration
+const sessionMinutes = (now - session.sessionStart) / 60000;
+let novelty = 0.7, eraW = 0.2, echoW = 0.05, replayW = 0.03, walkW = 0.02;
 
-var novelty=0.7,eraW=0.2,echoW=0.05,replayW=0.03,walkW=0.02;
-
-if(sessionMinutes>10){
-  novelty=0.4; eraW=0.3; echoW=0.2; replayW=0.1; walkW=0.1;
-}
-if(sessionMinutes>30){
-  novelty=0.2; eraW=0.4; echoW=0.25; replayW=0.15; walkW=0.15;
-}
-if(sessionMinutes>90){
-  novelty=0.1; eraW=0.25; echoW=0.35; replayW=0.3; walkW=0.2;
+if(sessionMinutes > 90){
+  novelty = 0.1; eraW = 0.25; echoW = 0.35; replayW = 0.3; walkW = 0.2;
+}else if(sessionMinutes > 30){
+  novelty = 0.2; eraW = 0.4; echoW = 0.25; replayW = 0.15; walkW = 0.15;
+}else if(sessionMinutes > 10){
+  novelty = 0.4; eraW = 0.3; echoW = 0.2; replayW = 0.1; walkW = 0.1;
 }
 
-if(randomFloat()<0.02){
-  var pure=1+Math.floor(randomFloat()*max);
-  redirect(pure);
+// Pure random escape hatch (2% chance)
+if(randomFloat() < PURE_RANDOM_CHANCE){
+  redirect(1 + Math.floor(randomFloat() * max));
   return;
 }
 
-var candidates=[];
+// Build weighted candidates
+const candidates = [];
+const recent = session.recent || [];
 
-for(var v=1;v<=max;v++){
-  var score=1;
-
-  score += novelty;
-
-  var distEra=Math.abs(v-session.eraCenter);
-  score += eraW * (max/(distEra+1));
-
-  var recent=session.recent||[];
-  for(var r=0;r<recent.length;r++){
-    var d=Math.abs(v-recent[r]);
-    score += echoW*(1/(d+1));
+for(let v = 1; v <= max; v++){
+  let score = 1 + novelty;
+  
+  // Era proximity bonus
+  const distEra = Math.abs(v - session.eraCenter);
+  score += eraW * (max / (distEra + 1));
+  
+  // Echo effect from recent history
+  for(const r of recent){
+    const d = Math.abs(v - r);
+    score += echoW * (1 / (d + 1));
   }
-
-  if(session.current!==null){
-    var wd=Math.abs(v-session.current);
-    score += walkW*(1/(wd+1))*5;
-  }
-
-  if(session.current!==null){
-    var key=session.current+"->"+v;
+  
+  // Random walk bonus
+  if(session.current !== null){
+    const wd = Math.abs(v - session.current);
+    score += walkW * (1 / (wd + 1)) * 5;
+    
+    // Replay bonus from transition history
+    const key = session.current + "->" + v;
     if(longMem.transitions[key]){
-      score += replayW*Math.log(1+longMem.transitions[key]);
+      score += replayW * Math.log(1 + longMem.transitions[key]);
     }
   }
-
+  
+  // Regional affinity bonus
   if(longMem.regionAffinity[v]){
-    score += Math.log(1+longMem.regionAffinity[v])*0.15;
+    score += Math.log(1 + longMem.regionAffinity[v]) * 0.15;
   }
-
-  candidates.push({value:v,weight:score});
+  
+  candidates.push({value: v, weight: score});
 }
 
-var chosen=weightedPick(candidates);
+// Select and redirect
+const chosen = weightedPick(candidates);
 
 function redirect(versionNumber){
-
-  if(session.current!==null){
-    var tk=session.current+"->"+versionNumber;
-    longMem.transitions[tk]=(longMem.transitions[tk]||0)+1;
+  // Update transition history
+  if(session.current !== null){
+    const tk = session.current + "->" + versionNumber;
+    longMem.transitions[tk] = (longMem.transitions[tk] || 0) + 1;
   }
-
-  longMem.regionAffinity[versionNumber]=(longMem.regionAffinity[versionNumber]||0)+1;
+  
+  // Update regional affinity
+  longMem.regionAffinity[versionNumber] = (longMem.regionAffinity[versionNumber] || 0) + 1;
   longMem.totalPicks++;
-
-  session.current=versionNumber;
+  
+  // Update session state
+  session.current = versionNumber;
   session.recent.push(versionNumber);
-
-  while(session.recent.length>30){
-    session.recent.shift();
+  
+  // Trim recent history
+  if(session.recent.length > RECENT_HISTORY_LIMIT){
+    session.recent = session.recent.slice(-RECENT_HISTORY_LIMIT);
   }
-
-  saveJSON(localStorage,LS_KEY,longMem);
-  saveJSON(sessionStorage,SS_KEY,session);
-
-  var target="https://sktoushi.github.io/su/allv"+String(versionNumber)+".html";
-  window.location.replace(target);
+  
+  // Persist state
+  saveJSON(localStorage, LS_KEY, longMem);
+  saveJSON(sessionStorage, SS_KEY, session);
+  
+  // Navigate
+  window.location.replace("https://sktoushi.github.io/su/allv" + versionNumber + ".html");
 }
 
 redirect(chosen);
