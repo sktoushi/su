@@ -170,14 +170,37 @@ async function saveAndRedirect(){
  },1000);
 }
 
-const saved=localStorage.getItem(STORAGE_KEY);
-if(saved){
- document.getElementById("jsonInput").value=saved;
+// Auto-load values.json on page load
+async function autoLoadValuesJson(){
  try{
-  data=JSON.parse(saved);
-  renderControls();
- }catch(e){}
+  const response=await fetch('values.json');
+  if(response.ok){
+   const jsonText=await response.text();
+   document.getElementById("jsonInput").value=jsonText;
+   data=JSON.parse(jsonText);
+   renderControls();
+   persist();
+   return true;
+  }
+ }catch(e){
+  console.log("Could not auto-load values.json:",e);
+ }
+ return false;
 }
+
+// Try to auto-load values.json first, fallback to localStorage
+autoLoadValuesJson().then(loaded=>{
+ if(!loaded){
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(saved){
+   document.getElementById("jsonInput").value=saved;
+   try{
+    data=JSON.parse(saved);
+    renderControls();
+   }catch(e){}
+  }
+ }
+});
 </script>
 </body>
 </html>
