@@ -28,18 +28,16 @@
     const res = await fetch('config/all.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to load config');
     const cfg = await res.json();
-    const repos = cfg.repositories2x || {};
+    const repos = cfg.repositories || {};
     const issues = [];
-    const issueToRepo = [];
 
-    // --- Gather all issue URLs and track repository mapping
+    // --- Gather all issue URLs
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
       const end = Number(info.issueEndNumber);
       const user = info.username;
       for (let i = start; i <= end; i++) {
         issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
-        issueToRepo.push(repo);
       }
     }
 
@@ -70,20 +68,13 @@
       for (let i = startIdx; i < n; i++) weights[i] = 20;
     }
 
-    // Apply probability booster
-    for (let i = 0; i < n; i++) {
-      const repoName = issueToRepo[i];
-      const booster = Number(repos[repoName]?.probabilityBooster) || 1;
-      weights[i] *= booster;
-    }
-
     // ------------------------------------------------------------
     // Configuration Constants
     // ------------------------------------------------------------
-    const DB_NAME = 'repoRandomizerDB_v2x';
+    const DB_NAME = 'repoRandomizerDB_v12x';
     const STORE_ISSUES = 'issues';
     const STORE_META = 'meta';
-    const STORAGE_KEY_FALLBACK = "repo_randomizer_memory_v2x_fallback";
+    const STORAGE_KEY_FALLBACK = "repo_randomizer_memory_v32x";
     
     const MS_PER_HOUR = 3600000;
     const MS_PER_DAY = 86400000;
