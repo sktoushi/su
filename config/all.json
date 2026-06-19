@@ -97,15 +97,13 @@
       "probabilityBooster": 3
     },
     "stash7x2": {
-      "username": "sktoushi",
-      "images": true,
+      "username": "sktoushi",  
       "issueStartNumber": 1,
       "issueEndNumber": 11, 
       "probabilityBooster": 3
     },
     "stash7x3": {
       "username": "sktoushi",
-      "images": true,
       "issueStartNumber": 1,
       "issueEndNumber": 6, 
       "probabilityBooster": 3
@@ -207,7 +205,6 @@
     },
     "stash7x2": {
       "username": "sktoushi",
-      "images": true,
       "issueStartNumber": 1,
       "issueEndNumber": 11, 
       "probabilityBooster": 3
