@@ -52,7 +52,7 @@
         }
 
         const cfg = await res.json();
-        const repos = cfg.repositories3x2x || {};
+        const repos = cfg.repositories3x || {};
 
         const imageRepos = Object.entries(repos)
           .filter(([_, info]) => info && info.images === true)
