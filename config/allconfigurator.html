@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All.json Configurator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0b0c10;
+      --fg:#cfd8dc;
+      --muted:#90a4ae;
+      --accent:#7cb342;
+      --btn:#263238;
+      --btn-hover:#37474f;
+      --btn-active:#455a64;
+      --danger:#e53935;
+      --success:#66bb6a;
+    }
+    html,body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      background:var(--bg);
+      color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    .container{
+      max-width:800px;
+      margin:0 auto;
+      padding:2rem 1.5rem;
+    }
+    h1{
+      margin:0 0 .5rem;
+      font-size:1.8rem;
+      font-weight:700;
+    }
+    .subtitle{
+      color:var(--muted);
+      margin:0 0 2rem;
+      font-size:.95rem;
+    }
+    .card{
+      background:#11161a;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      padding:1.5rem;
+      margin-bottom:1.5rem;
+    }
+    .field-group{
+      margin-bottom:1.25rem;
+    }
+    .field-group:last-child{
+      margin-bottom:0;
+    }
+    label{
+      display:block;
+      margin-bottom:.5rem;
+      font-weight:600;
+      font-size:.95rem;
+    }
+    .repo-name{
+      color:var(--accent);
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    }
+    input[type="number"]{
+      width:100%;
+      padding:.75rem;
+      background:#0f1519;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:.5rem;
+      color:var(--fg);
+      font-size:1rem;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+      transition:border-color .2s;
+    }
+    input[type="number"]:focus{
+      outline:none;
+      border-color:var(--accent);
+    }
+    .btn{
+      border:1px solid #111;
+      background:var(--btn);
+      color:var(--fg);
+      padding:.75rem 1.5rem;
+      border-radius:.5rem;
+      font-size:1rem;
+      cursor:pointer;
+      transition:transform .05s,background .15s,box-shadow .15s;
+      box-shadow:0 2px 0 rgba(0,0,0,.3);
+      user-select:none;
+      font-weight:600;
+    }
+    .btn:hover{
+      background:var(--btn-hover);
+    }
+    .btn:active{
+      transform:translateY(1px);
+      background:var(--btn-active);
+    }
+    .btn-primary{
+      background:var(--accent);
+      color:#0b0c10;
+      border-color:#5a8e2f;
+    }
+    .btn-primary:hover{
+      background:#8bc34a;
+    }
+    .btn-primary:active{
+      background:#689f38;
+    }
+    .actions{
+      display:flex;
+      gap:1rem;
+      margin-top:2rem;
+    }
+    .status{
+      margin-top:1.5rem;
+      padding:1rem;
+      border-radius:.5rem;
+      font-size:.95rem;
+      display:none;
+    }
+    .status.success{
+      display:block;
+      background:rgba(102,187,106,.15);
+      border:1px solid rgba(102,187,106,.3);
+      color:var(--success);
+    }
+    .status.error{
+      display:block;
+      background:rgba(229,57,53,.15);
+      border:1px solid rgba(229,57,53,.3);
+      color:var(--danger);
+    }
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    }
+    .loading{
+      text-align:center;
+      padding:3rem;
+      color:var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>All.json Configurator</h1>
+    <p class="subtitle">Edit issueEndNumber for the last three repositories in repositories3x</p>
+    
+    <div id="loading" class="loading">
+      <p>Loading config/all.json...</p>
+    </div>
+
+    <div id="editor" style="display:none;">
+      <div class="card" id="fieldsContainer">
+        <!-- Fields will be dynamically generated here -->
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn" class="btn btn-primary">Save & Copy to Clipboard</button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      let configData = null;
+      let reposToEdit = [];
+
+      async function loadConfig() {
+        try {
+          const response = await fetch('./all.json');
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          configData = await response.json();
+          
+          // Dynamically get the last three repositories from repositories3x
+          const repos3xKeys = Object.keys(configData.repositories3x);
+          if (repos3xKeys.length < 3) {
+            throw new Error('repositories3x must have at least 3 repositories');
+          }
+          
+          // Get last three elements
+          reposToEdit = repos3xKeys.slice(-3);
+
+          populateForm();
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('editor').style.display = 'block';
+        } catch (error) {
+          showStatus('error', `Failed to load config: ${error.message}`);
+          document.getElementById('loading').style.display = 'none';
+        }
+      }
+
+      function populateForm() {
+        const container = document.getElementById('fieldsContainer');
+        container.innerHTML = '';
+
+        for (const repo of reposToEdit) {
+          const value = configData.repositories3x[repo].issueEndNumber;
+          
+          const fieldGroup = document.createElement('div');
+          fieldGroup.className = 'field-group';
+          
+          const label = document.createElement('label');
+          label.setAttribute('for', repo);
+          label.innerHTML = `<span class="repo-name">${repo}</span> issueEndNumber`;
+          
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.id = repo;
+          input.min = '1';
+          input.step = '1';
+          input.value = value;
+          
+          fieldGroup.appendChild(label);
+          fieldGroup.appendChild(input);
+          container.appendChild(fieldGroup);
+        }
+      }
+
+      function getUpdatedValues() {
+        const values = {};
+        for (const repo of reposToEdit) {
+          const input = document.getElementById(repo);
+          const value = parseInt(input.value, 10);
+          if (!Number.isFinite(value) || value < 1) {
+            throw new Error(`Invalid value for ${repo}: must be a positive integer`);
+          }
+          values[repo] = value;
+        }
+        return values;
+      }
+
+      function applyUpdates(values) {
+        // Update repositories3x
+        for (const repo of reposToEdit) {
+          configData.repositories3x[repo].issueEndNumber = values[repo];
+        }
+
+        // Update repositories2x (if repo exists)
+        for (const repo of reposToEdit) {
+          if (configData.repositories2x && configData.repositories2x[repo]) {
+            configData.repositories2x[repo].issueEndNumber = values[repo];
+          }
+        }
+
+        // Update repositories (if repo exists)
+        for (const repo of reposToEdit) {
+          if (configData.repositories && configData.repositories[repo]) {
+            configData.repositories[repo].issueEndNumber = values[repo];
+          }
+        }
+      }
+
+      async function copyToClipboard(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (err) {
+          // Fallback for older browsers
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            return true;
+          } catch (e) {
+            document.body.removeChild(textarea);
+            return false;
+          }
+        }
+      }
+
+      function showStatus(type, message) {
+        const statusEl = document.getElementById('status');
+        statusEl.className = `status ${type}`;
+        statusEl.textContent = message;
+      }
+
+      async function handleSave() {
+        try {
+          const values = getUpdatedValues();
+          applyUpdates(values);
+
+          const jsonString = JSON.stringify(configData, null, 2);
+          const copied = await copyToClipboard(jsonString);
+
+          if (copied) {
+            showStatus('success', 'Configuration updated and copied to clipboard! Redirecting to GitHub in 3 seconds...');
+            
+            setTimeout(() => {
+              window.location.href = 'https://github.com/sktoushi/su/edit/in/config/all.json';
+            }, 3000);
+          } else {
+            showStatus('error', 'Failed to copy to clipboard. Please try again.');
+          }
+        } catch (error) {
+          showStatus('error', error.message);
+        }
+      }
+
+      // Initialize
+      document.addEventListener('DOMContentLoaded', () => {
+        loadConfig();
+        document.getElementById('saveBtn').addEventListener('click', handleSave);
+      });
+    })();
+  </script>
+</body>
+</html>

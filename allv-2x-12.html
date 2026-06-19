@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Skyway Scheduler Redirect</title>
+</head>
+<body>
+
+<script>
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+
+    if (!res.ok) {
+      throw new Error('Failed to load config/all.json');
+    }
+
+    const cfg = await res.json();
+    const max = cfg?.skyway?.["scheduler-max"];
+
+    if (max === undefined || max === null) {
+      throw new Error('skyway.scheduler-max not found');
+    }
+
+    location.replace(
+      `https://sktoushi.github.io/su/skyway-scheduler.html?max=${encodeURIComponent(max)}`
+    );
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>

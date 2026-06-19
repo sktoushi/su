@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Balanced Exploration Picker (v16)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b0c10;
+      color: #c5c6c7;
+      margin: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/**
+ * allv16.html - BALANCED EXPLORATION PICKER
+ * 
+ * Cognitive Strategy: Multi-Armed Bandit (UCB1 Algorithm)
+ * - Balances exploration (trying new content) with exploitation (revisiting valuable content)
+ * - Uses Upper Confidence Bound to make optimal trade-offs
+ * - Adapts to user's implicit preferences over time
+ * - Ensures all content gets fair sampling while favoring better performers
+ * - Optimal for discovering personal preferences while maintaining variety
+ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories3x || {};
+
+    // Build repository entries
+    const entries = [];
+    for (const [repoName, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const issueCount = Math.max(0, end - start + 1);
+      const match = repoName.match(/x(\d+)$/i);
+      const multiplier = match ? Math.max(1, Number(match[1])) : 1;
+
+      entries.push({
+        repoName,
+        username: info.username,
+        start,
+        end,
+        issueCount,
+        multiplier
+      });
+    }
+
+    const n = entries.length;
+    const weights = new Array(n).fill(0);
+
+    // Balanced Exploration Storage (UCB1)
+    const BE_KEY = 'balancedExploration_v16';
+    let beData = JSON.parse(localStorage.getItem(BE_KEY) || '{}');
+    const now = Date.now();
+
+    // Initialize UCB1 tracking
+    if (!beData.arms) {
+      beData.arms = {};
+      beData.totalPulls = 0;
+      beData.sessionStart = now;
+    }
+
+    beData.totalPulls += 1;
+
+    // Initialize arms for all repositories3x
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      const key = `${repo.username}/${repo.repoName}`;
+      
+      if (!beData.arms[key]) {
+        beData.arms[key] = {
+          pulls: 0,
+          totalReward: 0,
+          lastPull: 0,
+          avgReward: 0
+        };
+      }
+    }
+
+    // Calculate UCB1 scores for each repository
+    const explorationParam = 2.0; // Higher = more exploration
+    
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      const key = `${repo.username}/${repo.repoName}`;
+      const arm = beData.arms[key];
+
+      let weight = repo.issueCount * repo.multiplier;
+
+      if (arm.pulls === 0) {
+        // Never tried: give maximum exploration bonus
+        weight *= 10.0;
+      } else {
+        // UCB1 formula: avgReward + sqrt(explorationParam * ln(totalPulls) / pulls)
+        const avgReward = arm.avgReward;
+        const explorationBonus = Math.sqrt(
+          (explorationParam * Math.log(beData.totalPulls)) / arm.pulls
+        );
+        
+        const ucbScore = avgReward + explorationBonus;
+        weight *= (1 + ucbScore * 2);
+
+        // Time-based decay: prefer less recently visited
+        const hoursSinceLastPull = (now - arm.lastPull) / 3600000;
+        const freshnessBonus = Math.min(2.0, 1 + (hoursSinceLastPull / 24));
+        weight *= freshnessBonus;
+      }
+
+      // Diversity bonus: balance across repository types
+      const repoType = repo.repoName.includes('stash') ? 'stash' :
+                       repo.repoName.includes('star') ? 'star' :
+                       repo.repoName.includes('knowledge') ? 'knowledge' : 'other';
+      
+      // Count recent pulls by type
+      let typeCount = 0;
+      for (const [k, v] of Object.entries(beData.arms)) {
+        if (v.pulls > 0) {
+          const kt = k.includes('stash') ? 'stash' :
+                     k.includes('star') ? 'star' :
+                     k.includes('knowledge') ? 'knowledge' : 'other';
+          if (kt === repoType) typeCount += v.pulls;
+        }
+      }
+      
+      const diversityBonus = 1.0 / (1 + (typeCount / beData.totalPulls) * 0.5);
+      weight *= diversityBonus;
+
+      // Apply probability booster
+      const booster = Number(repos[repo.repoName]?.probabilityBooster) || 1;
+      weight *= booster;
+
+      weights[i] = Math.max(0.0001, weight);
+    }
+
+    // Apply noise for natural variation
+    function applyNoise(weights) {
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      const stdDev = 0.12;
+      return weights.map(w => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        return Math.max(0.0001, w + noise);
+      });
+    }
+
+    const adjusted = applyNoise(weights);
+    const sum = adjusted.reduce((a, b) => a + b, 0);
+    const normalized = adjusted.map(w => w / sum);
+
+    // Select repository
+    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+    let cumulative = 0;
+    let chosenIdx = normalized.length - 1;
+    for (let i = 0; i < normalized.length; i++) {
+      cumulative += normalized[i];
+      if (r < cumulative) {
+        chosenIdx = i;
+        break;
+      }
+    }
+
+    const repo = entries[chosenIdx];
+    const key = `${repo.username}/${repo.repoName}`;
+    const arm = beData.arms[key];
+
+    // Update arm statistics
+    arm.pulls += 1;
+    arm.lastPull = now;
+
+    // Implicit reward: based on repository characteristics
+    // Larger repos = more content = higher implicit value
+    // More recent activity = higher value
+    let reward = 0.5; // Base reward
+    
+    if (repo.issueCount > 4000) reward += 0.3;
+    else if (repo.issueCount > 2000) reward += 0.2;
+    else if (repo.issueCount > 1000) reward += 0.1;
+    
+    // Star-rated knowledge gets bonus
+    if (repo.repoName.includes('five-star')) reward += 0.4;
+    else if (repo.repoName.includes('four-star')) reward += 0.3;
+    else if (repo.repoName.includes('three-star')) reward += 0.2;
+    
+    // Add small random component (simulates user satisfaction variance)
+    const rewardNoise = (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) * 0.2 - 0.1;
+    reward = Math.max(0, Math.min(1, reward + rewardNoise));
+
+    arm.totalReward += reward;
+    arm.avgReward = arm.totalReward / arm.pulls;
+
+    // Save updated data
+    localStorage.setItem(BE_KEY, JSON.stringify(beData));
+
+    // Select random issue from chosen repository
+    const issueNumber = repo.start + Math.floor(
+      (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) *
+      (repo.end - repo.start + 1)
+    );
+
+    const chosenUrl = `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+    location.href = chosenUrl;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const explorationRate = Object.values(beData.arms)
+        .filter(a => a.pulls === 0).length / n;
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Strategy: Balanced Exploration (v16 - UCB1)\n` +
+        `Repository: ${repo.repoName}\n` +
+        `Issue: ${issueNumber}\n` +
+        `Arm Pulls: ${arm.pulls}\n` +
+        `Avg Reward: ${arm.avgReward.toFixed(3)}\n` +
+        `Total Pulls: ${beData.totalPulls}\n` +
+        `Unexplored: ${(explorationRate * 100).toFixed(1)}%\n` +
+        `URL: ${chosenUrl}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>

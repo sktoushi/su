@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repository Issue Randomizer (with Noise Patch + Session Decay)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #fafafa;
+      margin: 2rem;
+    }
+    code {
+      background: #eee;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/* ============================================================
+   BASE IMPLEMENTATION — preserved exactly as the guiding logic
+   ============================================================ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories3x || {};
+    const issues = [];
+    const issueToRepo = []; // Track which repo each issue belongs to
+
+    // Gather all issue URLs and track repository mapping
+    for (const [repo, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for (let i = start; i <= end; i++) {
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+        issueToRepo.push(repo); // Track which repo this issue belongs to
+      }
+    }
+
+    const n = issues.length;
+    const formulas = Array.isArray(cfg.formulas) ? cfg.formulas : [];
+    const formulaParam = formulas.length > 0
+      ? formulas[Math.floor(getSecureRandomNumber() * formulas.length)]
+      : 'random';
+
+    // Apply formula-based weights
+    const weights = new Array(n).fill(1);
+    if (formulaParam === 'leftLeaning') {
+      for (let i = 0; i < n; i++) {
+        weights[i] = (n - i) * (0.5 + getSecureRandomNumber());
+      }
+    } else if (formulaParam === 'rightLeaning1') {
+      for (let i = 0; i < n; i++) {
+        weights[i] = (i + 1) * (0.5 + getSecureRandomNumber());
+      }
+    } else if (formulaParam === 'recent20Percent') {
+      const startIdx = Math.floor(n * 0.8);
+      weights.fill(5, startIdx);
+    } else if (formulaParam === 'recent5Percent') {
+      const startIdx = Math.floor(n * 0.95);
+      weights.fill(20, startIdx);
+    }
+
+    // Apply probability booster (multiplies weight, doesn't change issue range)
+    for (let i = 0; i < n; i++) {
+      const repoName = issueToRepo[i];
+      const booster = Number(repos[repoName]?.probabilityBooster) || 1;
+      weights[i] *= booster;
+    }
+
+    /* ============================================================
+       NOISE PATCH — adaptive volatility + erratic randomness + session decay
+       ============================================================ */
+    function noisePatch(weights, issues) {
+      // Secure RNG utilities
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      // Retrieve memory from localStorage (optimized for low memory usage)
+      const STORAGE_KEY = "repo_randomizer_memory_v3";
+      const MS_PER_DAY = 86400000;
+      const DECAY_RATE = 0.15;
+      const BIAS_FACTOR = 0.05;
+      const ERRATIC_PROBABILITY = 0.08;
+      const MAX_RECENT_ITEMS = 100; // Only track recent 100 items
+      
+      let mem = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const recentItems = mem.recent || []; // Array of recent indices
+      const lastTs = mem.lastTs || Date.now();
+      const now = Date.now();
+
+      // Apply exponential decay to recent items count
+      const daysPassed = Math.max(0, (now - lastTs) / MS_PER_DAY);
+      let decayedRecent = recentItems;
+      if (daysPassed > 0.1) {
+        const decayFactor = Math.exp(-DECAY_RATE * daysPassed);
+        // Probabilistically remove items based on decay
+        decayedRecent = recentItems.filter(() => cryptoRandom() < decayFactor);
+      }
+
+      // Calculate adaptive bias using sparse representation
+      const bias = new Array(weights.length).fill(0);
+      if (decayedRecent.length > 0) {
+        // Count frequency of recent items
+        const freq = {};
+        for (const idx of decayedRecent) {
+          freq[idx] = (freq[idx] || 0) + 1;
+        }
+        
+        // Apply bias to favor less-visited items
+        const avgFreq = decayedRecent.length / weights.length;
+        for (let i = 0; i < weights.length; i++) {
+          const itemFreq = freq[i] || 0;
+          bias[i] = Math.max(0, (avgFreq - itemFreq) / (avgFreq + 1)) * BIAS_FACTOR;
+        }
+      }
+
+      // Determine erratic mode (higher volatility)
+      const erratic = cryptoRandom() < ERRATIC_PROBABILITY;
+      const stdDev = erratic ? 0.35 : 0.08;
+
+      // Apply noise and bias to weights
+      const adjusted = weights.map((w, i) => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        const drift = bias[i];
+        return Math.max(0.0001, w + w * noise + w * drift);
+      });
+
+      // Normalize to probability distribution
+      const sum = adjusted.reduce((a, b) => a + b, 0);
+      const normalized = adjusted.map(w => w / sum);
+
+      // Sample from distribution
+      const r = cryptoRandom();
+      let cumulative = 0;
+      let chosenIdx = normalized.length - 1;
+      for (let i = 0; i < normalized.length; i++) {
+        cumulative += normalized[i];
+        if (r < cumulative) {
+          chosenIdx = i;
+          break;
+        }
+      }
+
+      // Update memory (sparse storage)
+      decayedRecent.push(chosenIdx);
+      // Keep only most recent items to limit memory
+      if (decayedRecent.length > MAX_RECENT_ITEMS) {
+        decayedRecent.shift();
+      }
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        recent: decayedRecent,
+        lastTs: now
+      }));
+
+      return { index: chosenIdx, erratic, adjusted: normalized, daysPassed };
+    }
+
+    // Execute noise patch and redirect
+    const noisy = noisePatch(weights, issues);
+    const chosen = issues[noisy.index];
+    location.href = chosen;
+
+    // Fallback diagnostic display
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Selected: ${chosen}\n` +
+        `Erratic mode: ${noisy.erratic ? "⚡ yes" : "⤵ stable"}\n` +
+        `Days since last session: ${noisy.daysPassed.toFixed(2)}\n` +
+        `Weights (top 5): ${noisy.adjusted.slice(0,5).map(w => w.toFixed(4)).join(', ')}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>

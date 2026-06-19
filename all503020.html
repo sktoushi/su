@@ -193,8 +193,24 @@ function redirect(versionNumber){
   saveJSON(localStorage, LS_KEY, longMem);
   saveJSON(sessionStorage, SS_KEY, session);
   
+  // Determine URL prefix based on weighted random selection
+  // 16.67% (1/6): allv, 33.33% (2/6): allv-2x-, 50% (3/6): allv-3x-
+  const prefixRand = randomFloat();
+  let urlPrefix;
+  
+  if(prefixRand < 0.1667){
+    // 16.67% chance
+    urlPrefix = "allv";
+  }else if(prefixRand < 0.5){
+    // 33.33% chance (0.1667 to 0.5)
+    urlPrefix = "allv-2x-";
+  }else{
+    // 50% chance (0.5 to 1.0)
+    urlPrefix = "allv-3x-";
+  }
+  
   // Navigate
-  window.location.replace("https://sktoushi.github.io/su/allv" + versionNumber + ".html");
+  window.location.replace("https://sktoushi.github.io/su/" + urlPrefix + versionNumber + ".html");
 }
 
 redirect(chosen);

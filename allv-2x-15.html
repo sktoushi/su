@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Novelty-Seeking Picker (v15)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b0c10;
+      color: #c5c6c7;
+      margin: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/**
+ * allv15.html - NOVELTY-SEEKING PICKER
+ * 
+ * Cognitive Strategy: Curiosity-Driven Exploration
+ * - Maximizes exposure to unexplored content
+ * - Prevents filter bubbles and echo chambers
+ * - Balances novelty with occasional familiar anchors
+ * - Uses exploration bonus that decays with familiarity
+ * - Optimal for breadth-first learning and discovery
+ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories2x || {};
+
+    // Build repository entries
+    const entries = [];
+    for (const [repoName, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const issueCount = Math.max(0, end - start + 1);
+      const match = repoName.match(/x(\d+)$/i);
+      const multiplier = match ? Math.max(1, Number(match[1])) : 1;
+
+      entries.push({
+        repoName,
+        username: info.username,
+        start,
+        end,
+        issueCount,
+        multiplier
+      });
+    }
+
+    const n = entries.length;
+    const weights = new Array(n).fill(0);
+
+    // Novelty-Seeking Storage
+    const NS_KEY = 'noveltySeeking_v15';
+    let nsData = JSON.parse(localStorage.getItem(NS_KEY) || '{}');
+    const now = Date.now();
+    const MS_PER_DAY = 86400000;
+
+    // Initialize exploration tracking
+    if (!nsData.explorationMap) {
+      nsData.explorationMap = {};
+      nsData.totalExplorations = 0;
+      nsData.lastReset = now;
+      nsData.explorationPhase = 'high'; // high, medium, low
+    }
+
+    // Reset exploration bonuses periodically (monthly) to maintain freshness
+    const daysSinceReset = (now - nsData.lastReset) / MS_PER_DAY;
+    if (daysSinceReset > 30) {
+      // Decay all exploration counts by 50%
+      for (const key in nsData.explorationMap) {
+        nsData.explorationMap[key] = Math.floor(nsData.explorationMap[key] * 0.5);
+      }
+      nsData.lastReset = now;
+    }
+
+    // Determine exploration phase based on total explorations
+    const totalExp = nsData.totalExplorations;
+    if (totalExp < 50) {
+      nsData.explorationPhase = 'high'; // Aggressive exploration
+    } else if (totalExp < 200) {
+      nsData.explorationPhase = 'medium'; // Balanced
+    } else {
+      nsData.explorationPhase = 'low'; // More exploitation
+    }
+
+    // Calculate novelty scores
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      const key = `${repo.username}/${repo.repoName}`;
+      const explorationCount = nsData.explorationMap[key] || 0;
+
+      let weight = repo.issueCount * repo.multiplier;
+
+      // Novelty bonus: exponentially decays with familiarity
+      let noveltyBonus = 1.0;
+      if (explorationCount === 0) {
+        // Never explored: massive bonus
+        noveltyBonus = 5.0;
+      } else {
+        // Decay formula: 1 / (1 + log(count + 1))
+        noveltyBonus = 1.0 / (1 + Math.log(explorationCount + 1));
+      }
+
+      // Phase-dependent novelty emphasis
+      if (nsData.explorationPhase === 'high') {
+        noveltyBonus *= 3.0; // Triple novelty bonus
+      } else if (nsData.explorationPhase === 'medium') {
+        noveltyBonus *= 1.8;
+      } else {
+        noveltyBonus *= 1.2;
+      }
+
+      weight *= noveltyBonus;
+
+      // Diversity bonus: prefer repositories2x from different categories
+      const recentCategories = Object.keys(nsData.explorationMap)
+        .filter(k => nsData.explorationMap[k] > 0)
+        .map(k => {
+          if (k.includes('stash')) return 'stash';
+          if (k.includes('star')) return 'star';
+          if (k.includes('knowledge')) return 'knowledge';
+          return 'other';
+        });
+
+      let repoCategory = 'other';
+      if (repo.repoName.includes('stash')) repoCategory = 'stash';
+      if (repo.repoName.includes('star')) repoCategory = 'star';
+      if (repo.repoName.includes('knowledge')) repoCategory = 'knowledge';
+
+      const categoryCount = recentCategories.filter(c => c === repoCategory).length;
+      const diversityBonus = 1.0 / (1 + categoryCount * 0.1);
+      weight *= diversityBonus;
+
+      // Anti-recency: penalize very recently visited
+      if (explorationCount > 0) {
+        const lastVisitKey = `${key}_lastVisit`;
+        const lastVisit = nsData[lastVisitKey] || 0;
+        const hoursSinceVisit = (now - lastVisit) / 3600000;
+        
+        if (hoursSinceVisit < 2) {
+          weight *= 0.1; // Strong penalty for recent visits
+        } else if (hoursSinceVisit < 12) {
+          weight *= 0.4;
+        } else if (hoursSinceVisit < 48) {
+          weight *= 0.7;
+        }
+      }
+
+      // Apply probability booster
+      const booster = Number(repos[repo.repoName]?.probabilityBooster) || 1;
+      weight *= booster;
+
+      weights[i] = Math.max(0.0001, weight);
+    }
+
+    // Apply noise for natural variation
+    function applyNoise(weights) {
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      const stdDev = 0.18; // Higher variation for exploration
+      return weights.map(w => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        return Math.max(0.0001, w + noise);
+      });
+    }
+
+    const adjusted = applyNoise(weights);
+    const sum = adjusted.reduce((a, b) => a + b, 0);
+    const normalized = adjusted.map(w => w / sum);
+
+    // Select repository
+    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+    let cumulative = 0;
+    let chosenIdx = normalized.length - 1;
+    for (let i = 0; i < normalized.length; i++) {
+      cumulative += normalized[i];
+      if (r < cumulative) {
+        chosenIdx = i;
+        break;
+      }
+    }
+
+    const repo = entries[chosenIdx];
+    const key = `${repo.username}/${repo.repoName}`;
+
+    // Update exploration tracking
+    nsData.explorationMap[key] = (nsData.explorationMap[key] || 0) + 1;
+    nsData[`${key}_lastVisit`] = now;
+    nsData.totalExplorations += 1;
+
+    // Save updated data
+    localStorage.setItem(NS_KEY, JSON.stringify(nsData));
+
+    // Select random issue from chosen repository
+    const issueNumber = repo.start + Math.floor(
+      (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) *
+      (repo.end - repo.start + 1)
+    );
+
+    const chosenUrl = `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+    location.href = chosenUrl;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const explorationCount = nsData.explorationMap[key] || 0;
+      const uniqueRepos = Object.keys(nsData.explorationMap).length;
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Strategy: Novelty-Seeking (v15)\n` +
+        `Repository: ${repo.repoName}\n` +
+        `Issue: ${issueNumber}\n` +
+        `Exploration Count: ${explorationCount}\n` +
+        `Total Explorations: ${nsData.totalExplorations}\n` +
+        `Unique Repos Visited: ${uniqueRepos}/${n}\n` +
+        `Exploration Phase: ${nsData.explorationPhase}\n` +
+        `URL: ${chosenUrl}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>

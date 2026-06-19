@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cognitive Load Optimizer (v18)</title>
+  <script src="common/random-utils.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b0c10;
+      color: #c5c6c7;
+      margin: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+/**
+ * allv18.html - COGNITIVE LOAD OPTIMIZER
+ * 
+ * Cognitive Strategy: Adaptive Cognitive Load Management
+ * - Monitors user's cognitive state based on time of day and session patterns
+ * - Adjusts content complexity to match cognitive capacity
+ * - Implements optimal spacing for mental energy
+ * - Uses circadian rhythm awareness
+ * - Prevents cognitive overload and fatigue
+ * - Optimal for sustainable long-term learning
+ */
+(async () => {
+  try {
+    const res = await fetch('config/all.json');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    const repos = cfg.repositories3x || {};
+
+    // Build repository entries with cognitive load estimation
+    const entries = [];
+    for (const [repoName, info] of Object.entries(repos)) {
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const issueCount = Math.max(0, end - start + 1);
+      const match = repoName.match(/x(\d+)$/i);
+      const multiplier = match ? Math.max(1, Number(match[1])) : 1;
+
+      // Estimate cognitive load (1=low, 5=high)
+      let cognitiveLoad = 2.0;
+      
+      // Larger repositories3x = higher cognitive load
+      if (issueCount > 4000) cognitiveLoad += 1.5;
+      else if (issueCount > 2000) cognitiveLoad += 1.0;
+      else if (issueCount > 1000) cognitiveLoad += 0.5;
+      
+      // Star-rated knowledge has explicit load
+      if (repoName.includes('five-star')) cognitiveLoad = 5.0;
+      else if (repoName.includes('four-star')) cognitiveLoad = 4.0;
+      else if (repoName.includes('three-star')) cognitiveLoad = 3.0;
+      else if (repoName.includes('two-star')) cognitiveLoad = 2.0;
+      else if (repoName.includes('one-star')) cognitiveLoad = 1.5;
+      
+      // Stash repos are moderate load
+      if (repoName.includes('stash')) cognitiveLoad = Math.max(cognitiveLoad, 2.5);
+
+      entries.push({
+        repoName,
+        username: info.username,
+        start,
+        end,
+        issueCount,
+        multiplier,
+        cognitiveLoad
+      });
+    }
+
+    const n = entries.length;
+    const weights = new Array(n).fill(0);
+
+    // Cognitive Load Storage
+    const CL_KEY = 'cognitiveLoad_v18';
+    let clData = JSON.parse(localStorage.getItem(CL_KEY) || '{}');
+    const now = Date.now();
+    const MS_PER_MINUTE = 60000;
+
+    // Initialize cognitive state tracking
+    if (!clData.cognitiveState) {
+      clData.cognitiveState = {
+        currentCapacity: 3.0, // 1-5 scale
+        sessionStartTime: now,
+        itemsThisSession: 0,
+        totalCognitiveLoad: 0,
+        lastItemTime: now,
+        fatigueLevel: 0, // 0-1 scale
+        circadianPhase: 'peak' // peak, moderate, low
+      };
+    }
+
+    const state = clData.cognitiveState;
+    state.itemsThisSession += 1;
+
+    // Calculate time-based factors
+    const sessionDurationMinutes = (now - state.sessionStartTime) / MS_PER_MINUTE;
+    const minutesSinceLastItem = (now - state.lastItemTime) / MS_PER_MINUTE;
+
+    // Update fatigue based on session duration
+    if (sessionDurationMinutes > 90) {
+      state.fatigueLevel = Math.min(1.0, 0.8);
+    } else if (sessionDurationMinutes > 45) {
+      state.fatigueLevel = Math.min(1.0, 0.5);
+    } else if (sessionDurationMinutes > 20) {
+      state.fatigueLevel = Math.min(1.0, 0.3);
+    } else {
+      state.fatigueLevel = Math.min(1.0, 0.1);
+    }
+
+    // Recovery from breaks
+    if (minutesSinceLastItem > 30) {
+      state.fatigueLevel = Math.max(0, state.fatigueLevel - 0.3);
+      state.sessionStartTime = now; // Reset session
+      state.itemsThisSession = 1;
+      state.totalCognitiveLoad = 0;
+    } else if (minutesSinceLastItem > 10) {
+      state.fatigueLevel = Math.max(0, state.fatigueLevel - 0.1);
+    }
+
+    // Circadian rhythm awareness (based on local time)
+    const hour = new Date().getHours();
+    if (hour >= 9 && hour < 12) {
+      state.circadianPhase = 'peak'; // Morning peak
+      state.currentCapacity = 4.5;
+    } else if (hour >= 14 && hour < 17) {
+      state.circadianPhase = 'peak'; // Afternoon peak
+      state.currentCapacity = 4.0;
+    } else if ((hour >= 12 && hour < 14) || (hour >= 17 && hour < 20)) {
+      state.circadianPhase = 'moderate';
+      state.currentCapacity = 3.0;
+    } else {
+      state.circadianPhase = 'low'; // Early morning or late evening
+      state.currentCapacity = 2.0;
+    }
+
+    // Adjust capacity based on fatigue
+    state.currentCapacity = state.currentCapacity * (1 - state.fatigueLevel * 0.6);
+
+    // Calculate average cognitive load this session
+    const avgLoadThisSession = state.itemsThisSession > 0 
+      ? state.totalCognitiveLoad / state.itemsThisSession 
+      : 2.5;
+
+    // Weight repositories3x based on cognitive load matching
+    for (let i = 0; i < n; i++) {
+      const repo = entries[i];
+      let weight = repo.issueCount * repo.multiplier;
+
+      const load = repo.cognitiveLoad;
+      const capacity = state.currentCapacity;
+
+      // Match content load to current capacity
+      let loadMatchScore = 1.0;
+      
+      if (load <= capacity) {
+        // Within capacity: good match
+        const utilizationRatio = load / capacity;
+        if (utilizationRatio > 0.7 && utilizationRatio <= 1.0) {
+          loadMatchScore = 3.0; // Optimal challenge
+        } else if (utilizationRatio > 0.4) {
+          loadMatchScore = 2.0; // Good match
+        } else {
+          loadMatchScore = 1.2; // Easy, but acceptable
+        }
+      } else {
+        // Exceeds capacity: penalize heavily
+        const overload = load - capacity;
+        loadMatchScore = Math.max(0.1, 0.5 - (overload * 0.2));
+      }
+
+      weight *= loadMatchScore;
+
+      // Variety bonus: alternate between different load levels
+      const loadDifference = Math.abs(load - avgLoadThisSession);
+      if (state.itemsThisSession > 3 && loadDifference > 1.0) {
+        weight *= 1.4; // Encourage variety to prevent monotony
+      }
+
+      // Fatigue protection: strongly favor lighter content when fatigued
+      if (state.fatigueLevel > 0.5) {
+        if (load <= 2.0) {
+          weight *= 2.5; // Strongly prefer easy content
+        } else if (load >= 4.0) {
+          weight *= 0.2; // Avoid hard content
+        }
+      }
+
+      // Spacing effect: prefer content not seen in last few items
+      const recentKey = `${repo.username}/${repo.repoName}`;
+      const recentHistory = clData.recentHistory || [];
+      const recentIndex = recentHistory.indexOf(recentKey);
+      if (recentIndex !== -1 && recentIndex >= recentHistory.length - 5) {
+        weight *= 0.3; // Strong recency penalty
+      }
+
+      // Apply probability booster
+      const booster = Number(repos[repo.repoName]?.probabilityBooster) || 1;
+      weight *= booster;
+
+      weights[i] = Math.max(0.0001, weight);
+    }
+
+    // Apply noise for natural variation
+    function applyNoise(weights) {
+      const cryptoRandom = () => {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] / 0xffffffff;
+      };
+
+      const cryptoNormal = (mean = 0, stdDev = 1) => {
+        let u1 = 0, u2 = 0;
+        while (u1 === 0) u1 = cryptoRandom();
+        while (u2 === 0) u2 = cryptoRandom();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+      };
+
+      const stdDev = 0.14;
+      return weights.map(w => {
+        const noise = cryptoNormal(0, stdDev) * w;
+        return Math.max(0.0001, w + noise);
+      });
+    }
+
+    const adjusted = applyNoise(weights);
+    const sum = adjusted.reduce((a, b) => a + b, 0);
+    const normalized = adjusted.map(w => w / sum);
+
+    // Select repository
+    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+    let cumulative = 0;
+    let chosenIdx = normalized.length - 1;
+    for (let i = 0; i < normalized.length; i++) {
+      cumulative += normalized[i];
+      if (r < cumulative) {
+        chosenIdx = i;
+        break;
+      }
+    }
+
+    const repo = entries[chosenIdx];
+    const recentKey = `${repo.username}/${repo.repoName}`;
+
+    // Update cognitive state
+    state.totalCognitiveLoad += repo.cognitiveLoad;
+    state.lastItemTime = now;
+
+    // Update recent history
+    if (!clData.recentHistory) clData.recentHistory = [];
+    clData.recentHistory.push(recentKey);
+    if (clData.recentHistory.length > 20) {
+      clData.recentHistory.shift();
+    }
+
+    // Save updated data
+    localStorage.setItem(CL_KEY, JSON.stringify(clData));
+
+    // Select random issue from chosen repository
+    const issueNumber = repo.start + Math.floor(
+      (crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff) *
+      (repo.end - repo.start + 1)
+    );
+
+    const chosenUrl = `https://github.com/${repo.username}/${repo.repoName}/issues/${issueNumber}`;
+    location.href = chosenUrl;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const pre = document.createElement('pre');
+      pre.textContent =
+        `Strategy: Cognitive Load Optimizer (v18)\n` +
+        `Repository: ${repo.repoName}\n` +
+        `Issue: ${issueNumber}\n` +
+        `Content Load: ${repo.cognitiveLoad.toFixed(1)}/5\n` +
+        `Current Capacity: ${state.currentCapacity.toFixed(1)}/5\n` +
+        `Circadian Phase: ${state.circadianPhase}\n` +
+        `Fatigue Level: ${(state.fatigueLevel * 100).toFixed(0)}%\n` +
+        `Session Duration: ${sessionDurationMinutes.toFixed(0)}m\n` +
+        `Items This Session: ${state.itemsThisSession}\n` +
+        `URL: ${chosenUrl}`;
+      document.body.appendChild(pre);
+    });
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>
