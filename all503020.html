@@ -77,7 +77,11 @@ const saveJSON = (storage, key, obj) => {
 
 // Initialize state
 const now = Date.now();
-const max = Math.max(DEFAULT_MAX, parseMax());
+// 75% chance that the default max becomes 12
+// 12 max is a good algorithm 
+const effectiveDefaultMax = randomFloat() < 0.75 ? 12 : DEFAULT_MAX;
+const max = Math.max(effectiveDefaultMax, parseMax());
+// const max = Math.max(DEFAULT_MAX, parseMax());
 
 const longMem = loadJSON(localStorage, LS_KEY, {
   transitions: {},
