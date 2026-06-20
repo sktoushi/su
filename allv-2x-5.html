@@ -758,7 +758,7 @@ function noisePatch(weights, issues) {
       await idbSet(STORE_CONFIG, 'all', cfg);
     }
 
-    const repos = cfg.repositories2x || {};
+    const repos = cfg.repositories || {};
     const issues = [];
     for (const [repo, info] of Object.entries(repos)) {
       const start = Number(info.issueStartNumber);
@@ -811,7 +811,7 @@ async function proceedAfterMixSaved() {
   }
 
   const cfg = await idbGet(STORE_CONFIG, 'all');
-  const repos = cfg.repositories2x || {};
+  const repos = cfg.repositories || {};
   const issues = [];
   for (const [repo, info] of Object.entries(repos)) {
     const start = Number(info.issueStartNumber);
