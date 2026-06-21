@@ -128,41 +128,17 @@
 </dialog>
 
 <script>
-/* ============================================================
-   Configuration Constants
-   ============================================================ */
-const NS = 'rrx_v4_3e2f9b7a3x';
+/* ========= HARDENING FOR GITHUB PAGES =========
+   1) Provide a local fallback for getSecureRandomNumber()
+   2) Slightly more robust config fetch path + assertive error surface
+*/
+const NS = 'rrx_v4_3e2f9b7a3xasdfdsd';
 
-// IndexedDB Configuration
 const DB_NAME = `${NS}_db`;
 const DB_VERSION = 1;
 const STORE_CONFIG = `${NS}_cfg`;
 const STORE_SETTINGS = `${NS}_settings`;
 const STORE_META = `${NS}_meta`;
-
-// Time Constants
-const MS_PER_MINUTE = 60000;
-const MS_PER_HOUR = 3600000;
-const MS_PER_DAY = 86400000;
-const FORCED_MIN_INTERVAL_MS = 15 * MS_PER_MINUTE;
-const DEFAULT_USER_INTERVAL_MS = 10 * MS_PER_MINUTE;
-const MODAL_AUTO_DISMISS_MS = 30000;
-
-// Modal Configuration
-const MODAL_SHOW_PROBABILITY = 0.15;
-const KEY_FREQ_MINUTES = 'modalFreqMinutes';
-const USER_MIN_FREQ_MINUTES = 5;
-const STEP_MINUTES = 5;
-
-// Noise Patch Constants
-const DECAY_RATE = 0.15;
-const RECENT_AVOID_HOURS = 6;
-const ERRATIC_PROBABILITY = 0.08;
-const ERRATIC_STD_DEV = 0.35;
-const STABLE_STD_DEV = 0.08;
-const DEJA_SCALE = 0.6;
-const BIAS_FACTOR = 0.05;
-const BETA_MAX = 0.499;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -254,6 +230,13 @@ const DEFAULT_MIX = {
   antiZigZag: 1,
   noveltyWave: 1
 };
+
+const FORCED_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_USER_INTERVAL_MS = 10 * 60 * 1000;
+const MODAL_SHOW_PROBABILITY = 0.15;
+const KEY_FREQ_MINUTES = 'modalFreqMinutes';
+const USER_MIN_FREQ_MINUTES = 5;
+const STEP_MINUTES = 5;
 
 /* ================== Utilities ================== */
 function getSecureRandom01() {
@@ -647,9 +630,11 @@ function noisePatch(weights, issues) {
   let lastTs = mem.lastTs || Date.now();
   const now = Date.now();
 
-  const daysPassed = Math.max(0, (now - lastTs) / MS_PER_DAY);
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysPassed = Math.max(0, (now - lastTs) / msPerDay);
+  const decayRate = 0.15;
   if (daysPassed > 0.1) {
-    const decayFactor = Math.exp(-DECAY_RATE * daysPassed);
+    const decayFactor = Math.exp(-decayRate * daysPassed);
     history = history.map(v => v * decayFactor);
   }
 
@@ -658,10 +643,10 @@ function noisePatch(weights, issues) {
   let bias = new Array(weights.length).fill(0);
   if (total > 0) {
     const avg = total / history.length;
-    bias = history.map(c => (avg - c) / avg * BIAS_FACTOR);
+    bias = history.map(c => (avg - c) / avg * 0.05);
   }
 
-  const sixHours = RECENT_AVOID_HOURS * MS_PER_HOUR;
+  const sixHours = 6 * 60 * 60 * 1000;
   const seenDeltas = [];
   for (let i = 0; i < weights.length; i++) {
     if (lastSeen[i] != null) seenDeltas.push(now - lastSeen[i]);
@@ -677,14 +662,14 @@ function noisePatch(weights, issues) {
     if (delta < sixHours) return 0.1;
 
     if (meanDelta == null || meanDelta <= 0) return 1.0;
-    const sigma = meanDelta * DEJA_SCALE;
+    const sigma = meanDelta * 0.6;
     const x = (delta - meanDelta) / (sigma || 1);
     const due = Math.exp(-(x * x));
-    return 1 + DEJA_SCALE * due;
+    return 1 + 0.6 * due;
   });
 
-  const erratic = cryptoRandom() < ERRATIC_PROBABILITY;
-  const stdDev = erratic ? ERRATIC_STD_DEV : STABLE_STD_DEV;
+  const erratic = cryptoRandom() < 0.08;
+  const stdDev = erratic ? 0.35 : 0.08;
 
   const base = weights.map((w, i) => {
     const noise = cryptoNormal(0, stdDev) * w;
@@ -703,7 +688,7 @@ function noisePatch(weights, issues) {
     const u = new Uint32Array(1); window.crypto.getRandomValues(u);
     const j = (u[0] / 0xffffffff);
     beta = 0.5 * g * (1 - Hnorm) * (0.75 + 0.25*j);
-    if (beta >= 0.5) beta = BETA_MAX;
+    if (beta >= 0.5) beta = 0.499;
     if (beta < 0) beta = 0;
   }
 
@@ -790,7 +775,7 @@ function noisePatch(weights, issues) {
         closeModal();
         const chosenFormula = weightedChoiceFromMix(currentMix, FORMULAS_CANON);
         proceedWithFormula(chosenFormula, n, issues);
-      }, MODAL_AUTO_DISMISS_MS);
+      }, 30_000);
       return;
     }
 
