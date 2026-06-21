@@ -93,19 +93,19 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 2675,
+      "issueEndNumber": 2750,
       "probabilityBooster": 3
     },
     "stash7x2": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 35,
+      "issueEndNumber": 40,
       "probabilityBooster": 3
     },
     "stash7x3": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 29,
+      "issueEndNumber": 43,
       "probabilityBooster": 3
     }
   },
@@ -200,13 +200,13 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 2675,
+      "issueEndNumber": 2750,
       "probabilityBooster": 3
     },
     "stash7x2": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 35,
+      "issueEndNumber": 40,
       "probabilityBooster": 3
     }
   },
@@ -301,7 +301,7 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 2675,
+      "issueEndNumber": 2750,
       "probabilityBooster": 3
     }
   },
