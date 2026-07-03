@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coding Horror Randomizer</title>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+<script>
+const urls = [
+    "https://ryspare25.github.io/ref2603/viewer-pdfjs-4chan2.html?fileName=markup-and-profit.pdf"
+];
+
+function secureRandomIndex(max) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] % max;
+}
+
+const chosen = urls[secureRandomIndex(urls.length)];
+window.location.replace(chosen);
+</script>
+</head>
+
+<body>
+<p>Redirecting...</p>
+</body>
+</html>
