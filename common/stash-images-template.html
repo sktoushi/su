@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="1">
+    <title>Random Image Redirect</title>
+</head>
+<body>
+    <p>Redirecting...</p>
+
+    <script>
+        const prefix = "GITHUB_PREFIX_PLACEHOLDER";
+        const images = IMAGES_ARRAY_PLACEHOLDER;
+        
+        if (!images || images.length === 0) {
+            window.location.replace("https://www.google.com/search?sca_esv=98b7ef604edf4258&sxsrf=APpeQntVCOgbpIadcrbRZh-HGsFc757VIw:1783144662562&udm=2&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYQR84vEJkyW62ul7Q3Bkhu9i-p_ALr7slx3OYYzZdb8If6UlQdzA3eae6DyEgB_K-Oo1DvwvNqNRv3gdbsoRfWHVTF95OvL34AXg7os5ZtnLg-hyVSE-sxRQ5Br450XBMGBoSj7SjsaRwd0OfiTicAThWwJFQ&q=lc300+white&sa=X&ved=2ahUKEwjgscfBq7iVAxVLkK8BHQydGc4QtKgLegQIFhAB&biw=1920&bih=911&dpr=1");
+        } else {
+            const randomImage = images[Math.floor(Math.random() * images.length)];
+            window.location.replace(prefix + encodeURIComponent(randomImage));
+        }
+    </script>
+</body>
+</html>
