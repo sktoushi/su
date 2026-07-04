@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All503020 Version Scheduler</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: #0a0e27;
+  color: #e0e6ed;
+}
+
+.wrap {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 1rem;
+  text-align: center;
+}
+
+.card {
+  max-width: 600px;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #1a1f3a 0%, #0f1429 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #66fcf1;
+}
+
+.status {
+  margin: 1rem 0;
+  font-size: 1rem;
+  color: #c5c6c7;
+  line-height: 1.6;
+}
+
+code {
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(102, 252, 241, 0.1);
+  color: #66fcf1;
+  font-size: 0.9em;
+}
+
+.info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(102, 252, 241, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(102, 252, 241, 0.2);
+  font-size: 0.9rem;
+  color: #8892b0;
+}
+
+.info strong {
+  color: #66fcf1;
+}
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(102, 252, 241, 0.3);
+  border-top-color: #66fcf1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 1.5rem 1rem;
+    border-radius: 12px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  .status {
+    font-size: 0.95rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🎲 All503020 Scheduler</h1>
+    <div class="status" id="status">
+      <span class="spinner"></span>
+      Selecting version...
+    </div>
+    <div class="info" id="info" style="display:none;">
+      <strong>Selected:</strong> <span id="selected">—</span><br>
+      <strong>Max:</strong> <span id="maxValue">—</span><br>
+      <strong>Target:</strong> <code id="targetUrl">—</code>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const DEFAULT_MAX = 2;
+const statusEl = document.getElementById('status');
+const infoEl = document.getElementById('info');
+const selectedEl = document.getElementById('selected');
+const maxValueEl = document.getElementById('maxValue');
+const targetUrlEl = document.getElementById('targetUrl');
+
+// Crypto-secure random number generation
+function cryptoRandomInt(min, max){
+  const range = max - min + 1;
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return min + (buf[0] % range);
+}
+
+// Parse max parameter from URL
+function parseMax(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('max');
+    if(!raw) return DEFAULT_MAX;
+    const n = Math.floor(Number(raw));
+    return (Number.isFinite(n) && n >= 1) ? n : DEFAULT_MAX;
+  }catch(e){
+    return DEFAULT_MAX;
+  }
+}
+
+// Main logic
+const max = parseMax();
+const pickedNumber = cryptoRandomInt(1, max);
+const targetUrl = `https://sktoushi.github.io/su/all503020v${pickedNumber}.html`;
+
+// Update UI
+statusEl.innerHTML = '✓ Version selected!';
+infoEl.style.display = 'block';
+selectedEl.textContent = `all503020v${pickedNumber}.html`;
+maxValueEl.textContent = max;
+targetUrlEl.textContent = targetUrl;
+
+// Redirect after brief display
+setTimeout(() => {
+  window.location.replace(targetUrl);
+}, 500);
+
+})();
+</script>
+</body>
+</html>
