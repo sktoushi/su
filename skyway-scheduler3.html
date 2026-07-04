@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect — Learning-Optimized (No-Collision Keys)</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -30,49 +31,17 @@
 
   <script>
     /************ Utilities available before namespacing ************/
-    // Using SkywayUtils.SkywayUtils.fnv1aHex()
-      return ('00000000' + h.toString(16)).slice(-8);
-    }
-    // Using SkywayUtils.SkywayUtils.secureRandomFloat01()
-    // Using SkywayUtils.SkywayUtils.hexFromBytes()
-    // Using SkywayUtils.SkywayUtils.isValidHttpUrl()
-      catch { return false; }
-    }
-    // Using SkywayUtils.SkywayUtils.safeParseSeed()
-      catch {
-        const cleaned = raw.replace(/,\s*([\]}])/g, '$1').replace(/\/\/.*$/gm, '');
-        try { return JSON.parse(cleaned); } catch { return { items: [] }; }
-      }
-    }
-    // Using SkywayUtils.SkywayUtils.canonicalSeedString()))};
-      return JSON.stringify(canon);
-    }
-    // Using SkywayUtils.SkywayUtils.domainOf() catch { return ''; }
-    }
-    // Using SkywayUtils.SkywayUtils.downloadJSON());
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-    // Using SkywayUtils.SkywayUtils.downloadText());
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-    // Using SkywayUtils.SkywayUtils.downloadHTML());
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-      } catch {}
-    }
-    // Using SkywayUtils.SkywayUtils.fmtDateStamp()${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-    }
+    // Using SkywayUtils.fnv1aHex()
+    // Using SkywayUtils.secureRandomFloat01()
+    // Using SkywayUtils.hexFromBytes()
+    // Using SkywayUtils.isValidHttpUrl()
+    // Using SkywayUtils.safeParseSeed()
+    // Using SkywayUtils.canonicalSeedString()
+    // Using SkywayUtils.domainOf()
+    // Using SkywayUtils.downloadJSON()
+    // Using SkywayUtils.downloadText()
+    // Using SkywayUtils.downloadHTML()
+    // Using SkywayUtils.fmtDateStamp()
 
     /************ Strong namespace (no-collision) ************/
     // 1) Compute a seed signature from the embedded JSON
@@ -205,7 +174,7 @@
     }
 
     /************ Weighted + SRS chooser ************/
-    // Using SkywayUtils.SkywayUtils.chooseWeighted()
+    // Using SkywayUtils.chooseWeighted()
     function ensureSRSDefaults(rec, now) {
       if (!Number.isFinite(rec.srsReps)) rec.srsReps = 0;
       if (!Number.isFinite(rec.srsEase)) rec.srsEase = 2.5;
@@ -215,7 +184,7 @@
       if (!Number.isFinite(rec.srsLapses)) rec.srsLapses = 0;
       return rec;
     }
-    // Using SkywayUtils.SkywayUtils.clamp()
+    // Using SkywayUtils.clamp()
     function scoreRecord(rec, now, prevDomain) {
       const base = Number(rec.baseWeight || 0) || 0;
       const delta = Number(rec.delta || 0) || 0;
@@ -342,6 +311,37 @@
       return Array.isArray(list) ? list.filter(isValidHttpUrl) : [];
     }
 
+    /************ Failover cache integration ************/
+    async function generateNextURL(db, records, wildcardList, now) {
+      const u = SkywayUtils.secureRandomFloat01();
+
+      if (u < MIX_PROB_EDIT) {
+        return EDIT_URL;
+      } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
+        if (SkywayUtils.secureRandomFloat01() < 0.5) {
+          return `https://sktoushi.github.io/su/allrecent100.html`;
+        } else {
+          const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+          return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+        }
+      } else if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < MIX_PROB_WILDCARD) {
+        const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
+        return wildcardList[idx];
+      } else {
+        const prevDomain = null;
+        const chosen = chooseByScore(records.length ? records : (RAW_SEED.items || []).map(it => ({
+          url: it.url, baseWeight: it.probabilityWeight, delta: 0
+        })), now, prevDomain);
+        
+        // Update SRS stats for the chosen record
+        const rec = await getOne(db, chosen.url);
+        const updated = srsReviewUpdate(rec || chosen, now);
+        await putMany(db, [updated]);
+        
+        return chosen.url;
+      }
+    }
+
     /************ Main flow ************/
     async function main() {
       const watchdog = setTimeout(() => {
@@ -352,9 +352,23 @@
         const db = await openDB();
         const records = await bootstrapDB(db);
         const wildcardList = await getWildcards(db);
+        const now = Date.now();
+
+        // Initialize failover cache
+        const failoverCache = new FailoverCache(
+          'skyway-scheduler3',
+          async () => await generateNextURL(db, records, wildcardList, now),
+          {
+            cacheSize: 2,
+            maxTotalCached: 30,
+            resetThreshold: 50
+          }
+        );
+
+        // Pre-warm cache
+        failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 
         // Visit tracking w/ rolling receipts
-        const now = Date.now();
         const rawCount = Number(await metaGet(db, KEY_VISIT_COUNT)) || 0;
         const newCount = rawCount + 1;
         if ((newCount % 100) === 1 && newCount > 1) {
@@ -407,33 +421,13 @@ Duration:  ${pretty}`;
           SkywayUtils.downloadHTML(`random-redirect-srs-ns-${SkywayUtils.fmtDateStamp()}.html`);
         });
 
-        // ===== Decide next URL using the learning-optimized picker =====
+        // ===== Decide next URL using failover cache =====
         let nextUrl = null;
-        const u = SkywayUtils.secureRandomFloat01();
-
-        if (u < MIX_PROB_EDIT) {
-          nextUrl = EDIT_URL;
-        } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
-          if (SkywayUtils.secureRandomFloat01() < 0.5) {
-            nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
-          } else {
-            const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
-            nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-          }
-        } else if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < MIX_PROB_WILDCARD) {
-          const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
-          nextUrl = wildcardList[idx];
-        } else {
-          const prevDomain = null;
-          const chosen = chooseByScore(records.length ? records : (RAW_SEED.items || []).map(it => ({
-            url: it.url, baseWeight: it.probabilityWeight, delta: 0
-          })), now, prevDomain);
-          nextUrl = chosen.url;
-
-          // Update SRS stats for the chosen record before redirect
-          const rec = await getOne(db, chosen.url);
-          const updated = srsReviewUpdate(rec || chosen, now);
-          await putMany(db, [updated]);
+        try {
+          nextUrl = await failoverCache.getURL();
+        } catch (e) {
+          console.error('Failover failed, using direct generation:', e);
+          nextUrl = await generateNextURL(db, records, wildcardList, now);
         }
 
         clearTimeout(watchdog);

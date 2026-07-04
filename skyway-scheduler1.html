@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect (IndexedDB + Ratings)</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -81,9 +82,7 @@
     const STEP_MINUTES = 5;                         // +/- step
 
     /* ===== Deterministic namespace (obfuscated) ===== */
-    // Using SkywayUtils.SkywayUtils.fnv1aHex()
-      return ('00000000' + h.toString(16)).slice(-8);
-    }
+    // Using SkywayUtils.fnv1aHex()
     const NS = SkywayUtils.fnv1aHex(location.origin + '|' + location.pathname);
     const META_STORE = `m_${NS}`; // e.g., m_9f3a12c4
 
@@ -159,16 +158,10 @@
     }
 
     /************ Utilities ************/
-    // Using SkywayUtils.SkywayUtils.secureRandomFloat01()
-
-    // Using SkywayUtils.SkywayUtils.chooseWeighted()
-
-    // Using SkywayUtils.SkywayUtils.downloadJSON()),url=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-    }
-
-    // Using SkywayUtils.SkywayUtils.fmtDateStamp()${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-    }
+    // Using SkywayUtils.secureRandomFloat01()
+    // Using SkywayUtils.chooseWeighted()
+    // Using SkywayUtils.downloadJSON()
+    // Using SkywayUtils.fmtDateStamp()
 
     /* ===== Frequency helpers (use meta store) ===== */
     function roundToStep(valueMinutes) {
@@ -316,10 +309,42 @@
       }, 30_000);
     }
 
+    /************ Failover cache integration ************/
+    async function generateNextURL(db, records) {
+      const u = SkywayUtils.secureRandomFloat01();
+      if (u < 0.02) {
+        return EDIT_URL;
+      } else if (u < 0.12) {
+        if (Math.random() < 0.5) {
+          return `https://sktoushi.github.io/su/allrecent100books.html`;
+        } else {
+          const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
+          return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+        }
+      } else {
+        const chosen = SkywayUtils.chooseWeighted(records);
+        return chosen.url;
+      }
+    }
+
     /************ Main flow ************/
     async function main() {
       const db = await openDB();
       const records = await bootstrapDB(db);
+
+      // Initialize failover cache
+      const failoverCache = new FailoverCache(
+        'skyway-scheduler1',
+        async () => await generateNextURL(db, records),
+        {
+          cacheSize: 2,
+          maxTotalCached: 30,
+          resetThreshold: 50
+        }
+      );
+
+      // Pre-warm cache
+      failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 
       // Controls toolbar (download button)
       document.getElementById('downloadBtn').addEventListener('click', async () => {
@@ -331,22 +356,13 @@
         SkywayUtils.downloadJSON(`items-updated-${SkywayUtils.fmtDateStamp()}.json`, { items });
       });
 
-      // ===== Decide next URL first (no redirects yet) =====
+      // ===== Decide next URL using failover cache =====
       let nextUrl = null;
-      const u = SkywayUtils.secureRandomFloat01();
-      if (u < 0.02) {
-        nextUrl = EDIT_URL;
-      } else if (u < 0.12) {
-        if (Math.random() < 0.5) {
-          // nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
-          nextUrl = `https://sktoushi.github.io/su/allrecent100books.html`;
-        } else {
-          const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
-          nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-        }
-      } else {
-        const chosen = SkywayUtils.chooseWeighted(records);
-        nextUrl = chosen.url;
+      try {
+        nextUrl = await failoverCache.getURL();
+      } catch (e) {
+        console.error('Failover failed, using direct generation:', e);
+        nextUrl = await generateNextURL(db, records);
       }
 
       // ===== Modal timing decision (from meta store) =====

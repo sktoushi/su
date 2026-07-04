@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>All503020 Version Scheduler</title>
 <meta name="robots" content="noindex,nofollow">
+<script src="common/failover-cache.js"></script>
 <style>
 html, body {
   height: 100%;
@@ -148,22 +149,57 @@ function parseMax(){
   }
 }
 
-// Main logic
-const max = parseMax();
-const pickedNumber = cryptoRandomInt(1, max);
-const targetUrl = `https://sktoushi.github.io/su/all503020v${pickedNumber}.html`;
+// ===== FAILOVER CACHE INTEGRATION =====
+async function generateTargetURL() {
+  const max = parseMax();
+  const pickedNumber = cryptoRandomInt(1, max);
+  return `https://sktoushi.github.io/su/all503020v${pickedNumber}.html`;
+}
 
-// Update UI
-statusEl.innerHTML = '✓ Version selected!';
-infoEl.style.display = 'block';
-selectedEl.textContent = `all503020v${pickedNumber}.html`;
-maxValueEl.textContent = max;
-targetUrlEl.textContent = targetUrl;
+// Initialize failover cache
+const failoverCache = new FailoverCache(
+  'all503020-scheduler',
+  generateTargetURL,
+  {
+    cacheSize: 2,           // Keep 2 backup URLs
+    maxTotalCached: 30,     // Reset after 30 URLs (smaller for child pages)
+    resetThreshold: 50      // Hard reset after 50 iterations
+  }
+);
 
-// Redirect after brief display
-setTimeout(() => {
-  window.location.replace(targetUrl);
-}, 500);
+// Pre-warm cache in background
+failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
+
+// Main logic with failover
+(async function main() {
+  try {
+    // Get URL from cache (instant if available)
+    const targetUrl = await failoverCache.getURL();
+    
+    // Parse max for UI display
+    const max = parseMax();
+    const match = targetUrl.match(/all503020v(\d+)\.html/);
+    const pickedNumber = match ? match[1] : '?';
+    
+    // Update UI
+    statusEl.innerHTML = '✓ Version selected!';
+    infoEl.style.display = 'block';
+    selectedEl.textContent = `all503020v${pickedNumber}.html`;
+    maxValueEl.textContent = max;
+    targetUrlEl.textContent = targetUrl;
+    
+    // Redirect after brief display
+    setTimeout(() => {
+      window.location.replace(targetUrl);
+    }, 500);
+    
+  } catch (e) {
+    console.error('Failover failed, using direct generation:', e);
+    // Ultimate fallback
+    const targetUrl = await generateTargetURL();
+    window.location.replace(targetUrl);
+  }
+})();
 
 })();
 </script>

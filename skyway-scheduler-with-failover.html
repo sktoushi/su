@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skyway Scheduler Randomizer (with Failover)</title>
+  <meta name="description" content="Redirects to a random Skyway Scheduler version with instant failover cache.">
+  <script src="common/failover-cache.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .wrap { display: grid; place-items: center; height: 100%; text-align: center; padding: 2rem; }
+    .card { max-width: 720px; }
+    code { padding: .2rem .4rem; border-radius: .25rem; background: rgba(0,0,0,.06); }
+    a { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Redirecting…</h1>
+      <p>If you are not redirected automatically, <a id="target" href="#" rel="nofollow noopener">click here</a>.</p>
+      <p>
+        <small>
+          Tip: Control the maximum version via <code>?max=<number></code>. The default is <code>6</code>.
+          <br>
+          Also: <code>10%</code> of the time you'll be redirected to a recent books page.
+          <br>
+          <strong>✨ Now with instant failover cache!</strong>
+        </small>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var DEFAULT_MAX = 6;
+
+      var SPECIAL_URLS = [
+        "https://sktoushi.github.io/su/allrecentbooks445.html",
+        "https://sktoushi.github.io/su/allrecent100books.html"
+      ];
+      var SPECIAL_PROBABILITY = 0.10;
+
+      var STATEFUL_PROBABILITY = 0.50;
+
+      var DEJAVU_PROBABILITY = 0.50;
+
+      var DB_NAME = "skyway_scheduler_state";
+      var DB_VERSION = 1;
+      var STORE_NAME = "state";
+      var STATE_KEY = "lastTarget";
+
+      var TIME_OVERRIDE_URL =
+        "https://github.com/mdr19ganseki95cf/log/blob/main/Flag_of_the_Greek_Orthodox_Church_svg.png";
+
+      function parseMaxParam() {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (!params.has('max')) return NaN;
+          var raw = params.get('max');
+          var n = Math.floor(Number(raw));
+          if (!Number.isFinite(n) || n < 1) return NaN;
+          return n;
+        } catch (e) {
+          return NaN;
+        }
+      }
+
+      function getEffectiveMax() {
+        var maxFromParam = parseMaxParam();
+        var effectiveMax = Math.max(
+          DEFAULT_MAX,
+          Number.isNaN(maxFromParam) ? 0 : maxFromParam
+        );
+        return Math.max(1, Math.floor(effectiveMax));
+      }
+
+      function openDB() {
+        return new Promise(function (resolve, reject) {
+          var req = indexedDB.open(DB_NAME, DB_VERSION);
+
+          req.onupgradeneeded = function () {
+            var db = req.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              db.createObjectStore(STORE_NAME, { keyPath: "key" });
+            }
+          };
+
+          req.onsuccess = function () {
+            resolve(req.result);
+          };
+
+          req.onerror = function () {
+            reject(req.error);
+          };
+        });
+      }
+
+      function getLastTarget(db) {
+        return new Promise(function (resolve) {
+          var tx = db.transaction(STORE_NAME, "readonly");
+          var store = tx.objectStore(STORE_NAME);
+          var req = store.get(STATE_KEY);
+
+          req.onsuccess = function () {
+            resolve(req.result ? req.result.value : null);
+          };
+
+          req.onerror = function () {
+            resolve(null);
+          };
+        });
+      }
+
+      function setLastTarget(db, value) {
+        return new Promise(function (resolve) {
+          var tx = db.transaction(STORE_NAME, "readwrite");
+          var store = tx.objectStore(STORE_NAME);
+
+          store.put({
+            key: STATE_KEY,
+            value: value
+          });
+
+          tx.oncomplete = function () {
+            resolve();
+          };
+        });
+      }
+
+      function computeOriginalTarget() {
+        if (Math.random() < SPECIAL_PROBABILITY) {
+          return SPECIAL_URLS[
+            Math.floor(Math.random() * SPECIAL_URLS.length)
+          ];
+        }
+
+        var effectiveMax = getEffectiveMax();
+
+        var version =
+          1 + Math.floor(Math.random() * effectiveMax);
+
+        return "https://sktoushi.github.io/su/skyway-scheduler" +
+          String(version) +
+          ".html";
+      }
+
+      function computeDejavuTarget() {
+        var effectiveMax = getEffectiveMax();
+
+        return "https://sktoushi.github.io/su/skyway-scheduler-dejavu.html?max=" +
+          encodeURIComponent(effectiveMax);
+      }
+
+      function applyRedirect(target) {
+        var a = document.getElementById('target');
+
+        if (a) {
+          a.href = target;
+          a.textContent = target;
+        }
+
+        try {
+          window.location.replace(target);
+        } catch (e) {
+          window.location.href = target;
+        }
+      }
+
+      // ===== FAILOVER CACHE INTEGRATION =====
+      async function generateTargetURL() {
+        // TIME-BASED OVERRIDE
+        var now = new Date();
+        var minute = now.getMinutes();
+        var second = now.getSeconds();
+
+        if (minute % 3 === 0 && second === 33) {
+          return TIME_OVERRIDE_URL;
+        }
+
+        // 50/50 DEJAVU SPLIT
+        if (Math.random() < DEJAVU_PROBABILITY) {
+          return computeDejavuTarget();
+        }
+
+        // ORIGINAL IMPLEMENTATION
+        var useStateful = Math.random() < STATEFUL_PROBABILITY;
+        var target;
+
+        if (useStateful) {
+          try {
+            var db = await openDB();
+            var last = await getLastTarget(db);
+
+            if (typeof last === "string") {
+              return last;
+            }
+
+            target = computeOriginalTarget();
+            await setLastTarget(db, target);
+
+          } catch (e) {
+            target = computeOriginalTarget();
+          }
+
+        } else {
+
+          target = computeOriginalTarget();
+
+          try {
+            var db2 = await openDB();
+            await setLastTarget(db2, target);
+          } catch (e) {}
+
+        }
+
+        return target;
+      }
+
+      // Initialize failover cache
+      const failoverCache = new FailoverCache(
+        'skyway-scheduler-main',
+        generateTargetURL,
+        {
+          cacheSize: 2,           // Keep 2 backup URLs
+          maxTotalCached: 50,     // Reset after 50 URLs
+          resetThreshold: 100     // Hard reset after 100 iterations
+        }
+      );
+
+      // Pre-warm cache in background (non-blocking)
+      failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
+
+      // Main execution with failover
+      (async function run() {
+        try {
+          // Get URL from cache (instant if available)
+          const target = await failoverCache.getURL();
+          
+          // Apply redirect
+          applyRedirect(target);
+          
+        } catch (e) {
+          console.error('Failover failed, using direct generation:', e);
+          // Ultimate fallback
+          const target = await generateTargetURL();
+          applyRedirect(target);
+        }
+      })();
+
+    })();
+  </script>
+
+  <noscript>
+    <div style="text-align:center; padding:1rem;">
+      JavaScript is required to redirect. Please enable JavaScript or open:
+      <div>
+        <code>https://sktoushi.github.io/su/skyway-scheduler1.html</code> or
+        <code>https://sktoushi.github.io/su/skyway-scheduler2.html</code>
+      </div>
+      <div style="margin-top:.5rem;">
+        Or the recent books pages:
+        <div>
+          <code>https://sktoushi.github.io/su/allrecentbooks445.html</code> or
+          <code>https://sktoushi.github.io/su/allrecent100books.html</code>
+        </div>
+      </div>
+    </div>
+  </noscript>
+</body>
+</html>

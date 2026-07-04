@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Skyway Scheduler Randomizer</title>
   <meta name="description" content="Redirects to a random Skyway Scheduler version based on the ?max= URL parameter, with a 10% chance to redirect to recent books pages.">
+  <script src="common/failover-cache.js"></script>
   <style>
     html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     .wrap { display: grid; place-items: center; height: 100%; text-align: center; padding: 2rem; }
@@ -164,60 +165,86 @@
           window.location.href = target;
         }
       }
-
-      (async function run() {
-
-        // ===== TIME-BASED OVERRIDE =====
+  
+      // ===== FAILOVER CACHE INTEGRATION =====
+      async function generateTargetURL() {
+        // TIME-BASED OVERRIDE
         var now = new Date();
         var minute = now.getMinutes();
         var second = now.getSeconds();
-
+  
         if (minute % 3 === 0 && second === 33) {
-          applyRedirect(TIME_OVERRIDE_URL);
-          return;
+          return TIME_OVERRIDE_URL;
         }
-        // ===== END OVERRIDE =====
-
-        // ===== NEW 50/50 DEJAVU SPLIT =====
+  
+        // 50/50 DEJAVU SPLIT
         if (Math.random() < DEJAVU_PROBABILITY) {
-          applyRedirect(computeDejavuTarget());
-          return;
+          return computeDejavuTarget();
         }
-        // ===== OTHERWISE RUN ORIGINAL IMPLEMENTATION =====
-
+  
+        // ORIGINAL IMPLEMENTATION
         var useStateful = Math.random() < STATEFUL_PROBABILITY;
         var target;
-
+  
         if (useStateful) {
           try {
             var db = await openDB();
             var last = await getLastTarget(db);
-
+  
             if (typeof last === "string") {
-              applyRedirect(last);
-              return;
+              return last;
             }
-
+  
             target = computeOriginalTarget();
             await setLastTarget(db, target);
-
+  
           } catch (e) {
             target = computeOriginalTarget();
           }
-
+  
         } else {
-
+  
           target = computeOriginalTarget();
-
+  
           try {
             var db2 = await openDB();
             await setLastTarget(db2, target);
           } catch (e) {}
-
+  
         }
-
-        applyRedirect(target);
-
+  
+        return target;
+      }
+  
+      // Initialize failover cache
+      const failoverCache = new FailoverCache(
+        'skyway-scheduler-main',
+        generateTargetURL,
+        {
+          cacheSize: 2,           // Keep 2 backup URLs
+          maxTotalCached: 50,     // Reset after 50 URLs
+          resetThreshold: 100     // Hard reset after 100 iterations
+        }
+      );
+  
+      // Pre-warm cache in background (non-blocking)
+      failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
+  
+      // Main execution with failover
+      (async function run() {
+        try {
+          // Get URL from cache (instant if available)
+          const target = await failoverCache.getURL();
+          
+          // Apply redirect
+          applyRedirect(target);
+          
+        } catch (e) {
+          console.error('Failover failed, using direct generation:', e);
+          // Ultimate fallback
+          const target = await generateTargetURL();
+          applyRedirect(target);
+        }
       })();
 
     })();

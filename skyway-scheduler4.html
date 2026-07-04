@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Pure Uniform Random Redirect</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -41,18 +42,48 @@
       return x % n;
     }
 
-    function go(){
+    // ===== FAILOVER CACHE INTEGRATION =====
+    function generateTargetURL() {
       const fallback = "https://sktoushi.github.io/su/allrecent100.html";
       const list = Array.from(new Set(URLS.filter(Boolean))); // de-dup and sanitize
-      const target = list.length ? list[randIndex(list.length)] : fallback;
+      return list.length ? list[randIndex(list.length)] : fallback;
+    }
 
-      // Show the chosen link (helps if redirects are blocked)
-      const a = document.getElementById("chosen");
-      if (a){ a.textContent = target; a.href = target; }
+    // Initialize failover cache
+    const failoverCache = new FailoverCache(
+      'skyway-scheduler4',
+      generateTargetURL,
+      {
+        cacheSize: 2,
+        maxTotalCached: 30,
+        resetThreshold: 50
+      }
+    );
 
-      // Redirect now
-      try { window.location.replace(target); }
-      catch { window.location.assign(target); }
+    // Pre-warm cache
+    failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
+
+    async function go(){
+      try {
+        // Get URL from cache (instant if available)
+        const target = await failoverCache.getURL();
+
+        // Show the chosen link (helps if redirects are blocked)
+        const a = document.getElementById("chosen");
+        if (a){ a.textContent = target; a.href = target; }
+
+        // Redirect now
+        try { window.location.replace(target); }
+        catch { window.location.assign(target); }
+      } catch (e) {
+        console.error('Failover failed, using direct generation:', e);
+        // Ultimate fallback
+        const target = generateTargetURL();
+        const a = document.getElementById("chosen");
+        if (a){ a.textContent = target; a.href = target; }
+        try { window.location.replace(target); }
+        catch { window.location.assign(target); }
+      }
     }
 
     document.addEventListener("DOMContentLoaded", go);
