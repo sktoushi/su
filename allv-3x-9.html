@@ -39,6 +39,9 @@
 
   <script>
     (async () => {
+  // Check for stash excess on page load
+  StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
+
       try {
         const res = await fetch(
           'config/all.json?t=' + Date.now(),

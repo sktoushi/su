@@ -6,6 +6,7 @@
 
   <!-- Optional: external helper; local fallback below keeps things safe if 404 -->
   <script src="common/random-utils.js"></script>
+  <script src="common/stash-excess-detector.js"></script>
 
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -614,6 +615,9 @@ function sampleIndex(probs, issues) {
 
 /* ================== Boot ================== */
 (async () => {
+  // Check for stash excess on page load
+  StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
+
   try {
     // Load or seed settings
     let existingMix = await idbGet(STORE_SETTINGS, 'formulaMix');

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>All.json Configurator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="../common/stash-excess-detector.js"></script>
   <style>
     :root{
       --bg:#0b0c10;
@@ -140,6 +141,30 @@
       padding:3rem;
       color:var(--muted);
     }
+    .warning{
+      margin-top:1.5rem;
+      padding:1rem;
+      border-radius:.5rem;
+      font-size:.95rem;
+      display:none;
+      background:rgba(255,152,0,.15);
+      border:1px solid rgba(255,152,0,.3);
+      color:#ffa726;
+    }
+    .warning.show{
+      display:block;
+    }
+    .warning-title{
+      font-weight:700;
+      margin-bottom:.5rem;
+    }
+    .warning-formula{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+      background:rgba(0,0,0,.3);
+      padding:.5rem;
+      border-radius:.25rem;
+      margin-top:.5rem;
+    }
   </style>
 </head>
 <body>
@@ -154,6 +179,12 @@
     <div id="editor" style="display:none;">
       <div class="card" id="fieldsContainer">
         <!-- Fields will be dynamically generated here -->
+      </div>
+
+      <div id="warning" class="warning">
+        <div class="warning-title">⚠️ Warning: Total exceeds 4500</div>
+        <div>The calculated value is too high. Consider reducing the values.</div>
+        <div class="warning-formula" id="warningFormula"></div>
       </div>
 
       <div class="actions">
@@ -218,9 +249,53 @@
           input.step = '1';
           input.value = value;
           
+          // Add input event listener to check warning
+          input.addEventListener('input', checkWarning);
+          
           fieldGroup.appendChild(label);
           fieldGroup.appendChild(input);
           container.appendChild(fieldGroup);
+        }
+        
+        // Initial warning check
+        checkWarning();
+      }
+
+      function checkWarning() {
+        try {
+          // Get current values from inputs
+          const values = [];
+          for (const repo of reposToEdit) {
+            const input = document.getElementById(repo);
+            const value = parseInt(input.value, 10);
+            if (Number.isFinite(value) && value >= 1) {
+              values.push(value);
+            } else {
+              // If any value is invalid, hide warning
+              document.getElementById('warning').classList.remove('show');
+              return;
+            }
+          }
+          
+          // Use the utility to calculate
+          if (values.length === 3) {
+            const repos = values.map((v, i) => ({ name: reposToEdit[i], value: v }));
+            const result = StashExcessDetector.calculate(repos);
+            
+            const warningEl = document.getElementById('warning');
+            const formulaEl = document.getElementById('warningFormula');
+            
+            if (result.exceeds) {
+              formulaEl.textContent = `${result.formula} > ${result.threshold}`;
+              warningEl.classList.add('show');
+            } else {
+              warningEl.classList.remove('show');
+            }
+          }
+        } catch (error) {
+          // Silently fail on calculation errors
+          console.error('Warning check failed:', error);
+          document.getElementById('warning').classList.remove('show');
         }
       }
 

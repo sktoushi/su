@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Cognitive Load Optimizer (v18)</title>
   <script src="common/random-utils.js"></script>
+  <script src="common/stash-excess-detector.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
     body {
@@ -29,6 +30,9 @@
  * - Optimal for sustainable long-term learning
  */
 (async () => {
+  // Check for stash excess on page load
+  StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
+
   try {
     const res = await fetch('config/all.json');
     if (!res.ok) throw new Error('Failed to load config');

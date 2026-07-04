@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Repository Issue Randomizer (IndexedDB + Time-Aware Deja Vu)</title>
   <script src="common/random-utils.js"></script>
+  <script src="common/stash-excess-detector.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
     body {
@@ -24,6 +25,9 @@
 
 <script>
 (async () => {
+  // Check for stash excess on page load
+  StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
+
   try {
     const res = await fetch('config/all.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to load config');
