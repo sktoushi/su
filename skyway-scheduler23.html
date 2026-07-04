@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coding Horror Randomizer</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
@@ -99,8 +100,15 @@ function secureRandomIndex(max) {
     return array[0] % max;
 }
 
-const chosen = urls[secureRandomIndex(urls.length)];
-window.location.replace(chosen);
+function generateTargetURL() {
+    return urls[secureRandomIndex(urls.length)];
+}
+
+FailoverCache.redirect('skyway-scheduler23', generateTargetURL, {
+    cacheSize: 2,
+    maxTotalCached: 30,
+    resetThreshold: 50
+});
 </script>
 </head>
 

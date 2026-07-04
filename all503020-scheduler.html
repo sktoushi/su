@@ -174,7 +174,7 @@ failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 (async function main() {
   try {
     // Get URL from cache (instant if available)
-    const targetUrl = await failoverCache.getURL();
+    const targetUrl = await failoverCache.getURLWithTimeout();
     
     // Parse max for UI display
     const max = parseMax();

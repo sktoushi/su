@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Random Redirect</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
     <script>
@@ -25,11 +26,17 @@
             "https://www.google.com/search?client=firefox-b-m&hs=Db1p&sca_esv=d03d033d4d41c010&sxsrf=ANbL-n5AnWfk2X8h41c15G636oavFHcbHA:1780717561729&udm=2&fbs=ADc_l-byipRaccqV0jmfPhi1DgzPtklXGmVkws8Z_lBff884vwWzYGOXmwhR8m6ZBpcqcPLGZsMcHzb046MbOWR3c9PUkQtOJTidy_NJs1CY9LQFajn3Mxu4n7xEQ9NDM-DKA7RDM7cr6m0uON-ThHb5M-dWapsHFTiTAoGYaSoCNXT-7x02ZIxXUaYFbhpSM5vHT2aXbNFjXizjRnsqAl81ppFU6ZPxRaIz8zmtr1LevzIff_spfLw&q=mori+Nana&sa=X&ved=2ahUKEwjNytjt2fGUAxV5X-sIHQmtLLwQtKgLegQIDRAB&biw=160&bih=312&dpr=3"
         ];
 
-        // Pick a random element
-        const randomLink = links[Math.floor(Math.random() * links.length)];
+        // ===== FAILOVER CACHE INTEGRATION =====
+        function generateTargetURL() {
+          return links[Math.floor(Math.random() * links.length)];
+        }
 
-        // Redirect the user
-        window.location.href = randomLink;
+        FailoverCache.redirect('skyway-scheduler20', generateTargetURL, {
+          cacheSize: 2,
+          maxTotalCached: 30,
+          resetThreshold: 50,
+          redirect: function(target) { window.location.href = target; }
+        });
     </script>
 </head>
 <body>
@@ -38,4 +45,3 @@
     </noscript>
 </body>
 </html>
-

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect (IndexedDB + Ratings)</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -30,9 +31,7 @@
 
   <script>
     /************ Deterministic namespace + obfuscation helpers ************/
-    // Using SkywayUtils.SkywayUtils.fnv1aHex()
-      return ('00000000' + h.toString(16)).slice(-8);
-    }
+    // Using SkywayUtils.fnv1aHex()
     const NS = SkywayUtils.fnv1aHex(location.origin + '|' + location.pathname);
     function obf(scope, name) {
       return `${scope}_${NS}_${SkywayUtils.fnv1aHex(scope + '|' + name + '|' + NS)}`;
@@ -151,43 +150,7 @@
     }
 
     /************ Utilities ************/
-    // Using SkywayUtils.SkywayUtils.secureRandomFloat01()
-    // Using SkywayUtils.SkywayUtils.chooseWeighted()
-    // Using SkywayUtils.SkywayUtils.downloadJSON()),url=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-    }
-    /* ▼▼ NEW: download plain text */
-    // Using SkywayUtils.SkywayUtils.downloadText());
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-    /* ▲▲ NEW */
-
-    // Using SkywayUtils.SkywayUtils.fmtDateStamp()${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-    }
-    // Using SkywayUtils.SkywayUtils.safeParseSeed() catch (e) {
-        const cleaned = raw
-          .replace(/,\s*([\]}])/g, '$1')
-          .replace(/\/\/.*$/gm, '');
-        try {
-          return JSON.parse(cleaned);
-        } catch (e2) {
-          console.error('Failed to parse seed JSON', e2);
-          return { items: [] };
-        }
-      }
-    }
-
-    /* ▼▼ NEW: canonical string for seed to build a stable signature */
-    // Using SkywayUtils.SkywayUtils.canonicalSeedString()))};
-      return JSON.stringify(canon);
-    }
-    /* ▲▲ NEW */
+    // Shared helpers are provided by common/skyway-scheduler-utils.js.
 
     /************ Frequency helpers (use meta store) ************/
     const USER_MIN = USER_MIN_FREQ_MINUTES;
@@ -213,7 +176,8 @@
     }
 
     /************ Wildcard helpers (array of URLs in meta) ************/
-    // Using SkywayUtils.SkywayUtils.isValidHttpUrl() catch { return false; }
+    function isValidHttpUrl(str) {
+      return SkywayUtils.isValidHttpUrl(str);
     }
     async function getWildcards(db) {
       const list = await metaGet(db, KEY_WILDCARD_LIST);
@@ -231,7 +195,7 @@
 
     /************ Bootstrap DB from embedded JSON with redeploy sync ************/
     async function bootstrapDB(db) {
-      const seed = SkywayUtils.safeParseSeed();
+      const seed = SkywayUtils.safeParseSeed(document.getElementById('urlProbability').textContent);
       const seedMap = new Map((seed.items || []).map(it => [it.url, Number(it.probabilityWeight || 0)]));
 
       // Compute a stable signature of the current seed (order-insensitive)
@@ -453,6 +417,33 @@
     }
     /* ▲▲ NEW */
 
+    async function generateNextURL(records, wildcardList) {
+      const u = SkywayUtils.secureRandomFloat01();
+
+      if (u < 0.02) {
+        return EDIT_URL;
+      }
+
+      if (u < 0.12) {
+        if (SkywayUtils.secureRandomFloat01() < 0.5) {
+          return `https://sktoushi.github.io/su/allrecent100.html`;
+        }
+
+        const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+        return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+      }
+
+      if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < 0.10) {
+        const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
+        return wildcardList[idx];
+      }
+
+      const chosen = SkywayUtils.chooseWeighted(records.length ? records : (SkywayUtils.safeParseSeed(document.getElementById('urlProbability').textContent).items || []).map(it => ({
+        url: it.url, baseWeight: it.probabilityWeight, delta: 0
+      })));
+      return chosen.url;
+    }
+
     /************ Main flow ************/
     async function main() {
       const watchdog = setTimeout(() => {
@@ -524,30 +515,19 @@ Notes:
         });
 
         // ===== Decide next URL first (no redirect yet) =====
+        const failoverCache = new FailoverCache(
+          'skyway-scheduler30',
+          async () => await generateNextURL(records, wildcardList),
+          { cacheSize: 2, maxTotalCached: 30, resetThreshold: 50 }
+        );
+        failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
+
         let nextUrl = null;
-        const u = SkywayUtils.secureRandomFloat01();
-
-        if (u < 0.02) {
-          nextUrl = EDIT_URL;
-
-        } else if (u < 0.12) {
-          if (SkywayUtils.secureRandomFloat01() < 0.5) {
-            nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
-          } else {
-            const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
-            nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-          }
-
-        /* NEW: 10% chance to pick from wildcard array if non-empty */
-        } else if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < 0.10) {
-          const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
-          nextUrl = wildcardList[idx];
-
-        } else {
-          const chosen = SkywayUtils.chooseWeighted(records.length ? records : (SkywayUtils.safeParseSeed().items || []).map(it => ({
-            url: it.url, baseWeight: it.probabilityWeight, delta: 0
-          })));
-          nextUrl = chosen.url;
+        try {
+          nextUrl = await failoverCache.getURLWithTimeout();
+        } catch (e) {
+          console.error('Failover failed, using direct generation:', e);
+          nextUrl = await generateNextURL(records, wildcardList);
         }
 
         // ===== Modal timing decision (from meta store) =====

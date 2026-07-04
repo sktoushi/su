@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Random Redirect</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
     <script>
@@ -28,11 +29,17 @@
             "https://sktoushi.github.io/su/issue-randomizer-username-repo-start-end.html?username=mdr19ganseki95cf&repo=log&start=1&end=253"
         ];
 
-        // Pick a random element
-        const randomLink = links[Math.floor(Math.random() * links.length)];
+        // ===== FAILOVER CACHE INTEGRATION =====
+        function generateTargetURL() {
+          return links[Math.floor(Math.random() * links.length)];
+        }
 
-        // Redirect the user
-        window.location.href = randomLink;
+        FailoverCache.redirect('skyway-scheduler7', generateTargetURL, {
+          cacheSize: 2,
+          maxTotalCached: 30,
+          resetThreshold: 50,
+          redirect: function(target) { window.location.href = target; }
+        });
     </script>
 </head>
 <body>

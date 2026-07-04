@@ -71,7 +71,7 @@
 
     async function go(){
       try {
-        const target = await failoverCache.getURL();
+        const target = await failoverCache.getURLWithTimeout();
         const a = document.getElementById("chosen");
         if (a){ a.textContent = target; a.href = target; }
         try { window.location.replace(target); }

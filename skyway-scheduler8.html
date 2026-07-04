@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>GitHub Issue Randomizer Hub</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
 
@@ -27,13 +28,16 @@
     }
 
     window.onload = () => {
-      const targetUrl = pickRandomUrl();
-      window.location.replace(targetUrl);
+      FailoverCache.redirect('skyway-scheduler8', pickRandomUrl, {
+        cacheSize: 2,
+        maxTotalCached: 30,
+        resetThreshold: 50
+      });
     };
   </script>
 </head>
 
 <body>
-  <p>Choosing a random repository…</p>
+  <p>Choosing a random repositoryâ€¦</p>
 </body>
 </html>

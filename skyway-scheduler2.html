@@ -532,7 +532,7 @@ Notes:
         // ===== Decide next URL using failover cache =====
         let nextUrl = null;
         try {
-          nextUrl = await failoverCache.getURL();
+          nextUrl = await failoverCache.getURLWithTimeout();
         } catch (e) {
           console.error('Failover failed, using direct generation:', e);
           nextUrl = await generateNextURL(db, records, wildcardList);

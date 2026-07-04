@@ -108,6 +108,7 @@ class FailoverCache {
    * Generate and cache new URLs
    */
   async refillCache(cache) {
+    cache.urls = cache.urls.slice(0, this.cacheSize);
     const needed = this.cacheSize - cache.urls.length;
     
     for (let i = 0; i < needed; i++) {
@@ -126,9 +127,33 @@ class FailoverCache {
   }
 
   /**
+   * Take one already-cached URL without waiting for a refill.
+   */
+  async takeCachedURLOnly() {
+    const cache = await this.getCache();
+    if (!cache.urls.length) {
+      return null;
+    }
+
+    const url = cache.urls.shift();
+    await this.saveCache(cache);
+
+    if (cache.urls.length < this.cacheSize) {
+      this.backgroundRefill();
+    }
+
+    return url;
+  }
+
+  /**
    * Check if cache needs reset (to keep browser lean)
    */
   shouldReset(cache) {
+    // Reset if the cache has generated more URLs than this page should retain over time
+    if (cache.totalGenerated >= this.maxTotalCached) {
+      return true;
+    }
+
     // Reset if too many iterations
     if (cache.totalGenerated >= this.resetThreshold) {
       return true;
@@ -195,6 +220,41 @@ class FailoverCache {
   }
 
   /**
+   * Get a URL with a time budget. If IndexedDB or generation is slow,
+   * try an already-cached URL before falling back to direct generation.
+   */
+  async getURLWithTimeout(timeoutMs) {
+    const waitMs = Number.isFinite(Number(timeoutMs))
+      ? Math.max(0, Number(timeoutMs))
+      : this.slowLoadTimeout;
+
+    if (waitMs <= 0) {
+      return await this.getURL();
+    }
+
+    let timer = null;
+    try {
+      return await Promise.race([
+        this.getURL(),
+        new Promise((resolve, reject) => {
+          timer = setTimeout(async () => {
+            try {
+              console.warn(`[FailoverCache] Timed out for ${this.cacheId}; using cached fallback`);
+              resolve(await this.takeCachedURLOnly() || await this.urlGenerator());
+            } catch (e) {
+              reject(e);
+            }
+          }, waitMs);
+        })
+      ]);
+    } finally {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+    }
+  }
+
+  /**
    * Background refill (non-blocking)
    */
   async backgroundRefill() {
@@ -246,6 +306,51 @@ class FailoverCache {
     const cache = this.resetCache();
     await this.saveCache(cache);
     console.log(`[FailoverCache] Cleared cache for ${this.cacheId}`);
+  }
+
+  /**
+   * Shared redirect helper for scheduler pages.
+   */
+  static redirect(cacheId, urlGenerator, options = {}) {
+    const cache = new FailoverCache(cacheId, urlGenerator, {
+      cacheSize: 2,
+      maxTotalCached: 30,
+      resetThreshold: 50,
+      ...options
+    });
+
+    cache.prewarm().catch(e => console.error('Prewarm failed:', e));
+
+    const redirect = options.redirect || function (target) {
+      try {
+        window.location.replace(target);
+      } catch (e) {
+        window.location.href = target;
+      }
+    };
+
+    const onTarget = options.onTarget;
+    const timeoutMs = options.slowLoadTimeout || cache.slowLoadTimeout;
+
+    (async function () {
+      let target = null;
+      try {
+        target = await cache.getURLWithTimeout(timeoutMs);
+      } catch (e) {
+        console.error('Failover failed, using direct generation:', e);
+        target = await urlGenerator();
+      }
+
+      if (typeof onTarget === 'function') {
+        try {
+          onTarget(target);
+        } catch (e) {}
+      }
+
+      redirect(target);
+    })();
+
+    return cache;
   }
 }
 

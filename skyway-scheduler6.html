@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Pure Uniform Random Redirect</title>
+  <script src="common/failover-cache.js"></script>
   <script src="common/skyway-scheduler-utils.js"></script>
   <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -343,12 +344,26 @@
     async function go(){
       const fallback = "https://sktoushi.github.io/su/allrecent100.html";
       const list = Array.from(new Set(URLS.filter(Boolean)));
+      const failoverCache = new FailoverCache(
+        'skyway-scheduler6',
+        function generateTargetURL() {
+          return list.length ? list[randIndex(list.length)] : fallback;
+        },
+        { cacheSize: 2, maxTotalCached: 30, resetThreshold: 50 }
+      );
+      failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 
       // Decide branch first
       const pdfBranch = (randFloat() < PDF_REDIRECT_PROB);
 
       if (!pdfBranch) {
-        const target = list.length ? list[randIndex(list.length)] : fallback;
+        let target;
+        try {
+          target = await failoverCache.getURLWithTimeout();
+        } catch (e) {
+          console.error('Failover failed, using direct generation:', e);
+          target = list.length ? list[randIndex(list.length)] : fallback;
+        }
         return doRedirect(target);
       }
 
@@ -361,8 +376,24 @@
       RANDOM_PDF_MAX = await showRandomMaxModal25s(RANDOM_PDF_MAX);
 
       // Use the (possibly updated) value onwards
-      const chosenNumber = randIndex(RANDOM_PDF_MAX) + 1;
-      const nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+      const pdfFailoverCache = new FailoverCache(
+        'skyway-scheduler6-pdf',
+        function generatePdfTargetURL() {
+          const chosenNumber = randIndex(RANDOM_PDF_MAX) + 1;
+          return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+        },
+        { cacheSize: 2, maxTotalCached: 30, resetThreshold: 50 }
+      );
+      pdfFailoverCache.prewarm().catch(e => console.error('PDF prewarm failed:', e));
+
+      let nextUrl;
+      try {
+        nextUrl = await pdfFailoverCache.getURLWithTimeout();
+      } catch (e) {
+        console.error('PDF failover failed, using direct generation:', e);
+        const chosenNumber = randIndex(RANDOM_PDF_MAX) + 1;
+        nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+      }
 
       doRedirect(nextUrl);
     }

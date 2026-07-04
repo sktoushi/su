@@ -234,7 +234,7 @@
       (async function run() {
         try {
           // Get URL from cache (instant if available)
-          const target = await failoverCache.getURL();
+          const target = await failoverCache.getURLWithTimeout();
           
           // Apply redirect
           applyRedirect(target);
