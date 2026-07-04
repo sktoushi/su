@@ -1,15 +1,19 @@
 /**
  * Stash Excess Detector Utility
- * 
+ *
  * Retrieves the last three repositories from repositories3x and checks if
  * (firstField × 1) + (secondField × 2) + (thirdField × 3) > 4500
- * 
+ *
+ * Dependencies:
+ *   - common/config-loader.js (optional, will fallback to direct fetch)
+ *
  * Usage:
+ *   <script src="common/config-loader.js"></script> <!-- optional -->
  *   <script src="common/stash-excess-detector.js"></script>
- *   
+ *
  *   // In your code:
  *   StashExcessDetector.checkAndAlert();
- *   
+ *
  *   // Or get the result without alert:
  *   const result = await StashExcessDetector.check();
  *   if (result.exceeds) {
@@ -26,10 +30,17 @@
 
     /**
      * Fetch and parse the config file
+     * Uses ConfigLoader if available, otherwise falls back to direct fetch
      * @returns {Promise<Object>} The parsed config object
      */
     async fetchConfig() {
       try {
+        // Use ConfigLoader if available (with caching benefits)
+        if (global.ConfigLoader) {
+          return await global.ConfigLoader.load('all');
+        }
+        
+        // Fallback to direct fetch
         const response = await fetch(this.CONFIG_PATH);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);

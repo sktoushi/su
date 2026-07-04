@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Novelty-Seeking Picker (v15)</title>
   <script src="common/random-utils.js"></script>
+  <script src="common/config-loader.js"></script>
   <script src="common/stash-excess-detector.js"></script>
   <meta http-equiv="Cache-Control" content="no-store" />
   <style>
@@ -33,9 +34,7 @@
   StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
 
   try {
-    const res = await fetch('config/all.json');
-    if (!res.ok) throw new Error('Failed to load config');
-    const cfg = await res.json();
+    const cfg = await ConfigLoader.load('all');
     const repos = cfg.repositories2x || {};
 
     // Build repository entries

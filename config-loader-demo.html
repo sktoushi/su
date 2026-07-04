@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Config Loader Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="common/config-loader.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      background: #0b0c10;
+      color: #cfd8dc;
+    }
+    h1 { color: #7cb342; }
+    h2 { color: #90a4ae; margin-top: 2rem; }
+    .example {
+      background: #11161a;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+    }
+    .example h3 {
+      margin-top: 0;
+      color: #b2dfdb;
+    }
+    pre {
+      background: #0f1519;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 4px;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    .btn {
+      background: #263238;
+      color: #cfd8dc;
+      border: 1px solid #111;
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 0.5rem 0.5rem 0.5rem 0;
+    }
+    .btn:hover {
+      background: #37474f;
+    }
+    .btn-primary {
+      background: #7cb342;
+      color: #0b0c10;
+      border-color: #5a8e2f;
+    }
+    .btn-primary:hover {
+      background: #8bc34a;
+    }
+    .output {
+      background: #0f1519;
+      border: 1px solid rgba(124, 179, 66, 0.3);
+      border-radius: 4px;
+      padding: 1rem;
+      margin-top: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { color: #66bb6a; }
+    .error { color: #e53935; }
+    .info { color: #90a4ae; }
+  </style>
+</head>
+<body>
+  <h1>Config Loader Utility Demo</h1>
+  <p>Demonstration of the centralized configuration loading system with caching and validation.</p>
+
+  <h2>Basic Usage</h2>
+  
+  <div class="example">
+    <h3>1. Load Single Config</h3>
+    <pre><code>const allConfig = await ConfigLoader.load('all');
+console.log(allConfig.repositories3x);</code></pre>
+    <button class="btn btn-primary" onclick="demo1()">Run Demo</button>
+    <div id="output1" class="output" style="display:none;"></div>
+  </div>
+
+  <div class="example">
+    <h3>2. Load Multiple Configs</h3>
+    <pre><code>const configs = await ConfigLoader.loadMultiple(['all', 'values']);
+console.log(configs.all, configs.values);</code></pre>
+    <button class="btn btn-primary" onclick="demo2()">Run Demo</button>
+    <div id="output2" class="output" style="display:none;"></div>
+  </div>
+
+  <div class="example">
+    <h3>3. Get Specific Repository</h3>
+    <pre><code>const stash7 = await ConfigLoader.getRepository('stash7');
+console.log(stash7);</code></pre>
+    <button class="btn btn-primary" onclick="demo3()">Run Demo</button>
+    <div id="output3" class="output" style="display:none;"></div>
+  </div>
+
+  <div class="example">
+    <h3>4. Get Specific Value</h3>
+    <pre><code>const ending = await ConfigLoader.getValue('stash7Ending');
+console.log('stash7Ending:', ending);</code></pre>
+    <button class="btn btn-primary" onclick="demo4()">Run Demo</button>
+    <div id="output4" class="output" style="display:none;"></div>
+  </div>
+
+  <h2>Advanced Features</h2>
+
+  <div class="example">
+    <h3>5. Cache Management</h3>
+    <pre><code>// Get cache stats
+const stats = ConfigLoader.getCacheStats();
+
+// Clear specific cache
+ConfigLoader.clearCache('all');
+
+// Clear all cache
+ConfigLoader.clearCache();</code></pre>
+    <button class="btn" onclick="demo5()">View Cache Stats</button>
+    <button class="btn" onclick="clearCache()">Clear All Cache</button>
+    <div id="output5" class="output" style="display:none;"></div>
+  </div>
+
+  <div class="example">
+    <h3>6. Force Reload (Skip Cache)</h3>
+    <pre><code>const fresh = await ConfigLoader.load('all', { skipCache: true });</code></pre>
+    <button class="btn btn-primary" onclick="demo6()">Force Reload</button>
+    <div id="output6" class="output" style="display:none;"></div>
+  </div>
+
+  <div class="example">
+    <h3>7. Preload Configs</h3>
+    <pre><code>// Preload configs for better performance
+await ConfigLoader.preload(['all', 'values', 'allrecent']);</code></pre>
+    <button class="btn btn-primary" onclick="demo7()">Preload Configs</button>
+    <div id="output7" class="output" style="display:none;"></div>
+  </div>
+
+  <h2>Available Configs</h2>
+  <div class="example">
+    <pre><code>ConfigLoader.getRegisteredConfigs()</code></pre>
+    <button class="btn" onclick="demo8()">Show Available Configs</button>
+    <div id="output8" class="output" style="display:none;"></div>
+  </div>
+
+  <script>
+    function showOutput(id, content, type = 'info') {
+      const output = document.getElementById(id);
+      output.style.display = 'block';
+      output.innerHTML = `<div class="${type}">${content}</div>`;
+    }
+
+    async function demo1() {
+      try {
+        const start = performance.now();
+        const config = await ConfigLoader.load('all');
+        const time = (performance.now() - start).toFixed(2);
+        
+        const repos = Object.keys(config.repositories3x || {});
+        showOutput('output1', 
+          `<strong class="success">✓ Loaded all.json in ${time}ms</strong><br><br>` +
+          `Found ${repos.length} repositories in repositories3x:<br>` +
+          `<pre>${JSON.stringify(repos.slice(0, 10), null, 2)}</pre>` +
+          (repos.length > 10 ? `<em>...and ${repos.length - 10} more</em>` : ''),
+          'success'
+        );
+      } catch (error) {
+        showOutput('output1', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    async function demo2() {
+      try {
+        const start = performance.now();
+        const configs = await ConfigLoader.loadMultiple(['all', 'values']);
+        const time = (performance.now() - start).toFixed(2);
+        
+        showOutput('output2',
+          `<strong class="success">✓ Loaded multiple configs in ${time}ms</strong><br><br>` +
+          `<strong>all.json:</strong> ${Object.keys(configs.all || {}).length} top-level keys<br>` +
+          `<strong>values.json:</strong> ${Object.keys(configs.values?.base || {}).length} base values<br><br>` +
+          `<pre>${JSON.stringify({
+            all: Object.keys(configs.all || {}),
+            values: Object.keys(configs.values || {})
+          }, null, 2)}</pre>`,
+          'success'
+        );
+      } catch (error) {
+        showOutput('output2', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    async function demo3() {
+      try {
+        const start = performance.now();
+        const stash7 = await ConfigLoader.getRepository('stash7');
+        const time = (performance.now() - start).toFixed(2);
+        
+        if (stash7) {
+          showOutput('output3',
+            `<strong class="success">✓ Retrieved stash7 in ${time}ms</strong><br><br>` +
+            `<pre>${JSON.stringify(stash7, null, 2)}</pre>`,
+            'success'
+          );
+        } else {
+          showOutput('output3', `<strong class="info">Repository 'stash7' not found</strong>`, 'info');
+        }
+      } catch (error) {
+        showOutput('output3', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    async function demo4() {
+      try {
+        const start = performance.now();
+        const ending = await ConfigLoader.getValue('stash7Ending');
+        const time = (performance.now() - start).toFixed(2);
+        
+        showOutput('output4',
+          `<strong class="success">✓ Retrieved value in ${time}ms</strong><br><br>` +
+          `<strong>stash7Ending:</strong> ${ending}`,
+          'success'
+        );
+      } catch (error) {
+        showOutput('output4', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    function demo5() {
+      const stats = ConfigLoader.getCacheStats();
+      showOutput('output5',
+        `<strong>Cache Statistics</strong><br><br>` +
+        `<strong>Total cached configs:</strong> ${stats.size}<br><br>` +
+        `<pre>${JSON.stringify(stats.configs, null, 2)}</pre>`,
+        'info'
+      );
+    }
+
+    function clearCache() {
+      ConfigLoader.clearCache();
+      showOutput('output5',
+        `<strong class="success">✓ All cache cleared</strong>`,
+        'success'
+      );
+    }
+
+    async function demo6() {
+      try {
+        const start = performance.now();
+        const config = await ConfigLoader.load('all', { skipCache: true });
+        const time = (performance.now() - start).toFixed(2);
+        
+        showOutput('output6',
+          `<strong class="success">✓ Force reloaded all.json in ${time}ms</strong><br><br>` +
+          `Cache was bypassed. Fresh data loaded from server.`,
+          'success'
+        );
+      } catch (error) {
+        showOutput('output6', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    async function demo7() {
+      try {
+        const start = performance.now();
+        await ConfigLoader.preload(['all', 'values', 'allrecent']);
+        const time = (performance.now() - start).toFixed(2);
+        
+        const stats = ConfigLoader.getCacheStats();
+        showOutput('output7',
+          `<strong class="success">✓ Preloaded configs in ${time}ms</strong><br><br>` +
+          `Cached configs: ${stats.size}<br>` +
+          `<pre>${JSON.stringify(stats.configs.map(c => c.name), null, 2)}</pre>`,
+          'success'
+        );
+      } catch (error) {
+        showOutput('output7', `<strong>Error:</strong> ${error.message}`, 'error');
+      }
+    }
+
+    function demo8() {
+      const configs = ConfigLoader.getRegisteredConfigs();
+      showOutput('output8',
+        `<strong>Available Configs</strong><br><br>` +
+        `<pre>${JSON.stringify(configs, null, 2)}</pre>`,
+        'info'
+      );
+    }
+  </script>
+</body>
+</html>

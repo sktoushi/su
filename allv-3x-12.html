@@ -13,7 +13,7 @@
   StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
 
   try {
-    const res = await fetch('config/all.json');
+    const res = await ConfigLoader.load('all').then(() => ({ ok: true, json: async () => await ConfigLoader.load('all') }));
 
     if (!res.ok) {
       throw new Error('Failed to load config/all.json');
