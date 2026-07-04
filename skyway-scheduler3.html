@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect — Learning-Optimized (No-Collision Keys)</title>
+  <script src="common/skyway-scheduler-utils.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Seed items: central source of truth (initial load only).
@@ -28,60 +29,40 @@
 
   <script>
     /************ Utilities available before namespacing ************/
-    function fnv1aHex(str) {
-      let h = 0x811c9dc5 >>> 0;
-      for (let i = 0; i < str.length; i++) {
-        h ^= str.charCodeAt(i);
-        h = Math.imul(h, 0x01000193) >>> 0;
-      }
+    // Using SkywayUtils.SkywayUtils.fnv1aHex()
       return ('00000000' + h.toString(16)).slice(-8);
     }
-    const _rndBuf=new Uint32Array(1);
-    function secureRandomFloat01(){crypto.getRandomValues(_rndBuf);return _rndBuf[0]/4294967296}
-    function hexFromBytes(bytes) {
-      return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
-    }
-    function isValidHttpUrl(str) {
-      try { const u = new URL(str); return u.protocol === 'http:' || u.protocol === 'https:'; }
+    // Using SkywayUtils.SkywayUtils.secureRandomFloat01()
+    // Using SkywayUtils.SkywayUtils.hexFromBytes()
+    // Using SkywayUtils.SkywayUtils.isValidHttpUrl()
       catch { return false; }
     }
-    function safeParseSeed() {
-      const raw = document.getElementById('urlProbability')?.textContent ?? '';
-      try { return JSON.parse(raw); }
+    // Using SkywayUtils.SkywayUtils.safeParseSeed()
       catch {
         const cleaned = raw.replace(/,\s*([\]}])/g, '$1').replace(/\/\/.*$/gm, '');
         try { return JSON.parse(cleaned); } catch { return { items: [] }; }
       }
     }
-    function canonicalSeedString(seed) {
-      const items = Array.isArray(seed?.items) ? seed.items.slice() : [];
-      items.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
-      const canon = { items: items.map(it => ({ url: String(it.url || ''), probabilityWeight: Number(it.probabilityWeight || 0) }))};
+    // Using SkywayUtils.SkywayUtils.canonicalSeedString()))};
       return JSON.stringify(canon);
     }
-    function domainOf(url) {
-      try { return new URL(url).hostname || ''; } catch { return ''; }
+    // Using SkywayUtils.SkywayUtils.domainOf() catch { return ''; }
     }
-    function downloadJSON(filename, obj) {
-      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    // Using SkywayUtils.SkywayUtils.downloadJSON());
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     }
-    function downloadText(filename, text) {
-      const blob = new Blob([text], { type: 'text/plain' });
+    // Using SkywayUtils.SkywayUtils.downloadText());
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     }
-    function downloadHTML(filename) {
-      try {
-        const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-        const blob = new Blob([html], { type: 'text/html' });
+    // Using SkywayUtils.SkywayUtils.downloadHTML());
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
@@ -89,25 +70,22 @@
         URL.revokeObjectURL(url);
       } catch {}
     }
-    function fmtDateStamp() {
-      const d = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    // Using SkywayUtils.SkywayUtils.fmtDateStamp()${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
     }
 
     /************ Strong namespace (no-collision) ************/
     // 1) Compute a seed signature from the embedded JSON
-    const RAW_SEED = safeParseSeed();
-    const SEED_SIG = fnv1aHex(canonicalSeedString(RAW_SEED));
+    const RAW_SEED = SkywayUtils.safeParseSeed();
+    const SEED_SIG = SkywayUtils.fnv1aHex(SkywayUtils.canonicalSeedString(RAW_SEED));
 
     // 2) Per-install 128-bit ID persisted in localStorage under a simple bootstrap key
     (function ensureInstallId() {
-      const baseKey = '__rrsrs_install_v1_' + fnv1aHex(location.origin + '|' + location.pathname);
+      const baseKey = '__rrsrs_install_v1_' + SkywayUtils.fnv1aHex(location.origin + '|' + location.pathname);
       let id = localStorage.getItem(baseKey);
       if (!id) {
         const b = new Uint8Array(16);
         crypto.getRandomValues(b);
-        id = hexFromBytes(b);
+        id = SkywayUtils.hexFromBytes(b);
         try { localStorage.setItem(baseKey, id); } catch {}
       }
       window.__RRSRS_INSTALL_ID__ = id || 'no-ls';
@@ -115,11 +93,11 @@
     })();
 
     // 3) Final namespace: origin + path + SEED_SIG + INSTALL_ID
-    const NS = fnv1aHex([location.origin, location.pathname, SEED_SIG, window.__RRSRS_INSTALL_ID__].join('|'));
+    const NS = SkywayUtils.fnv1aHex([location.origin, location.pathname, SEED_SIG, window.__RRSRS_INSTALL_ID__].join('|'));
 
     // 4) Namespacing helper that bakes NS into every key
     function obf(scope, name) {
-      return `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
+      return `${scope}_${NS}_${SkywayUtils.fnv1aHex(scope + '|' + name + '|' + NS)}`;
     }
     function lsKey(name) { return `rrsrs_${name}_${NS}`; }
 
@@ -226,31 +204,7 @@
     }
 
     /************ Weighted + SRS chooser ************/
-    function chooseWeighted(items) {
-      let total = 0;
-      for (const it of items) {
-        const base = Number(it.baseWeight || 0) || 0;
-        const dlt  = Number(it.delta || 0) || 0;
-        const w = Math.max(0, base + dlt);
-        it.effectiveWeight = w;
-        total += w;
-      }
-      if (total <= 0) {
-        total = items.reduce((s, it) => s + (Number(it.baseWeight || 0) || 0), 0) || 1;
-        let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
-        for (const it of items) {
-          acc += (Number(it.baseWeight || 0) || 0);
-          if (threshold < acc) return it;
-        }
-        return items[0];
-      }
-      let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
-      for (const it of items) {
-        acc += it.effectiveWeight;
-        if (threshold < acc) return it;
-      }
-      return items[0];
-    }
+    // Using SkywayUtils.SkywayUtils.chooseWeighted()
     function ensureSRSDefaults(rec, now) {
       if (!Number.isFinite(rec.srsReps)) rec.srsReps = 0;
       if (!Number.isFinite(rec.srsEase)) rec.srsEase = 2.5;
@@ -260,7 +214,7 @@
       if (!Number.isFinite(rec.srsLapses)) rec.srsLapses = 0;
       return rec;
     }
-    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+    // Using SkywayUtils.SkywayUtils.clamp()
     function scoreRecord(rec, now, prevDomain) {
       const base = Number(rec.baseWeight || 0) || 0;
       const delta = Number(rec.delta || 0) || 0;
@@ -276,16 +230,16 @@
 
       const lateness = (now - due) / i;
       let urgency = lateness >= 0 ? 1 + Math.min(3, lateness) : 0.25 + 0.75 * Math.max(0, 1 + lateness);
-      urgency = clamp(urgency, URGENCY_FLOOR, URGENCY_CEIL);
+      urgency = SkywayUtils.clamp(urgency, URGENCY_FLOOR, URGENCY_CEIL);
 
       const since = Math.max(0, now - last);
-      const recencyFactor = clamp(since / RECENCY_SOFT_MS, 0.05, 1.0);
+      const recencyFactor = SkywayUtils.clamp(since / RECENCY_SOFT_MS, 0.05, 1.0);
 
-      const sameDomain = prevDomain && (domainOf(rec.url) === prevDomain);
+      const sameDomain = prevDomain && (SkywayUtils.domainOf(rec.url) === prevDomain);
       const domainFactor = sameDomain ? 0.8 : 1.0;
 
       const novelty = (reps === 0) ? NOVELTY_BONUS : 1.0;
-      const noise = 0.97 + secureRandomFloat01() * 0.06;
+      const noise = 0.97 + SkywayUtils.secureRandomFloat01() * 0.06;
 
       return w * urgency * recencyFactor * domainFactor * novelty * noise;
     }
@@ -296,8 +250,8 @@
         const s = scoreRecord(records[i], now, prevDomain);
         scores[i] = s; total += s;
       }
-      if (!(total > 0)) return chooseWeighted(records);
-      let threshold = secureRandomFloat01() * total;
+      if (!(total > 0)) return SkywayUtils.chooseWeighted(records);
+      let threshold = SkywayUtils.secureRandomFloat01() * total;
       for (let i = 0; i < records.length; i++) {
         threshold -= scores[i];
         if (threshold <= 0) return records[i];
@@ -430,7 +384,7 @@ Window:    visits ${windowStartVisit} to ${windowEndVisit}
 From:      ${rangeFrom}
 To:        ${rangeTo}
 Duration:  ${pretty}`;
-            downloadText(`visit-receipt-${fmtDateStamp()}.txt`, receipt);
+            SkywayUtils.downloadText(`visit-receipt-${SkywayUtils.fmtDateStamp()}.txt`, receipt);
             try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(receipt); } } catch {}
             try { alert(`Visit receipt copied to clipboard:\n\n${receipt}`); } catch {}
           }
@@ -446,27 +400,27 @@ Duration:  ${pretty}`;
             probabilityWeight: Math.max(0, Math.round((Number(r.baseWeight) || 0) + (Number(r.delta) || 0))),
             url: r.url
           }));
-          downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
+          SkywayUtils.downloadJSON(`items-updated-${SkywayUtils.fmtDateStamp()}.json`, { items });
         });
         document.getElementById('downloadHtmlBtn')?.addEventListener('click', () => {
-          downloadHTML(`random-redirect-srs-ns-${fmtDateStamp()}.html`);
+          SkywayUtils.downloadHTML(`random-redirect-srs-ns-${SkywayUtils.fmtDateStamp()}.html`);
         });
 
         // ===== Decide next URL using the learning-optimized picker =====
         let nextUrl = null;
-        const u = secureRandomFloat01();
+        const u = SkywayUtils.secureRandomFloat01();
 
         if (u < MIX_PROB_EDIT) {
           nextUrl = EDIT_URL;
         } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
-          if (secureRandomFloat01() < 0.5) {
+          if (SkywayUtils.secureRandomFloat01() < 0.5) {
             nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
           } else {
-            const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+            const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
             nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
           }
-        } else if (wildcardList.length > 0 && secureRandomFloat01() < MIX_PROB_WILDCARD) {
-          const idx = Math.floor(secureRandomFloat01() * wildcardList.length);
+        } else if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < MIX_PROB_WILDCARD) {
+          const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
           nextUrl = wildcardList[idx];
         } else {
           const prevDomain = null;
