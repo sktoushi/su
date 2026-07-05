@@ -1,20 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Random Google Drive File</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Google Drive File</title>
+
+<style>
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-family:Arial,sans-serif;
+    background:#111;
+    color:white;
+}
+
+#panel{
+    width:350px;
+    text-align:center;
+}
+
+progress{
+    width:100%;
+    height:28px;
+}
+
+#status{
+    margin-top:12px;
+    font-size:15px;
+}
+</style>
 </head>
 <body>
 
-<script>
-    // Common URL parts
-    const PREFIX = "https://drive.google.com/file/d/";
-    const SUFFIX = "/view?usp=drivesdk";
+<div id="panel">
+    <progress id="bar" value="0" max="100"></progress>
+    <div id="status">Starting...</div>
+</div>
 
-    // Only the unique file IDs are stored
-    const FILE_IDS = [
-        "13TqRZc2i8dHTNGo7Zawmm1_bVJgu1n5D",
+<script>
+const PREFIX = "https://drive.google.com/file/d/";
+const SUFFIX = "/view?usp=drivesdk";
+
+const CACHE_VERSION = 1;
+
+const FILE_IDS = [
+    "13TqRZc2i8dHTNGo7Zawmm1_bVJgu1n5D",
 		"14Ql6oXc-85LW1R9ZiYQpgyXAV4B457fV",
 		"16c56zYQ7N055Pps7KEiivUIzhyLmYYQq",
 		"16u0n1C2oaeZSF8wkLio7zEO-mfFEZKeB",
@@ -12087,13 +12120,94 @@
 		"1x--g8-01nFjGB-HossPxpd1Pa0VOXd5V",
 		"1yLGj_YaT5Utx4Ks9qu3jx0JRlNbIUHn5",
 		"1XlH_xvJfWJ3u5UIE5zExySvlCsg1AotX"
-    ];
+];
 
-    // Pick a random file ID
-    const randomId = FILE_IDS[Math.floor(Math.random() * FILE_IDS.length)];
+const DB_NAME = "DriveFileCache";
+const STORE = "cache";
 
-    // Redirect immediately
-    window.location.replace(PREFIX + randomId + SUFFIX);
+const bar = document.getElementById("bar");
+const status = document.getElementById("status");
+
+function gauge(percent, text){
+    bar.value = percent;
+    status.textContent = text;
+}
+
+function openDB(){
+    return new Promise((resolve,reject)=>{
+        gauge(10,"Opening database...");
+
+        const req = indexedDB.open(DB_NAME,1);
+
+        req.onupgradeneeded = e=>{
+            const db=e.target.result;
+            if(!db.objectStoreNames.contains(STORE)){
+                db.createObjectStore(STORE);
+            }
+        };
+
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function get(db,key){
+    return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE,"readonly");
+        const req=tx.objectStore(STORE).get(key);
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function put(db,key,val){
+    return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE,"readwrite");
+        const req=tx.objectStore(STORE).put(val,key);
+        req.onsuccess=()=>resolve();
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function redirect(ids){
+    gauge(100,"Redirecting...");
+    const id=ids[Math.floor(Math.random()*ids.length)];
+    location.replace(PREFIX + id + SUFFIX);
+}
+
+(async()=>{
+
+    const db=await openDB();
+
+    gauge(25,"Checking cache...");
+
+    const version=await get(db,"version");
+
+    if(version===CACHE_VERSION){
+
+        gauge(50,"Loading cached IDs...");
+
+        const ids=await get(db,"ids");
+
+        if(ids){
+
+            gauge(90,"Choosing random file...");
+            redirect(ids);
+            return;
+        }
+    }
+
+    gauge(60,"Building cache (first run only)...");
+
+    await put(db,"ids",FILE_IDS);
+
+    gauge(85,"Saving cache...");
+
+    await put(db,"version",CACHE_VERSION);
+
+    redirect(FILE_IDS);
+
+})();
 </script>
 
 </body>
