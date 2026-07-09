@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random GitHub Issue Redirect</title>
+</head>
+<body>
+    <script>
+        function getUrlParam(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+        const max = parseInt(getUrlParam("max"), 10);
+        if (!isNaN(max) && max >= 1) {
+            const array = new Uint32Array(1);
+            crypto.getRandomValues(array);
+            const issueNumber = (array[0] % max) + 1;
+            window.location.replace(`https://github.com/needacounto/stash8/issues/${issueNumber}`);
+        } else {
+            document.body.innerHTML = `<h2>Missing or invalid "max" parameter.</h2><p>Example:</p><pre>?max=500</pre>`;
+        }
+    </script>
+</body>
+</html>

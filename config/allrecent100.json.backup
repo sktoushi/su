@@ -1,0 +1,13 @@
+{
+  "repositories": {
+    "stash7": {
+      "username": "sktoushi", 
+      "issueStartNumber": 1, 
+      "issueEndNumber": 890
+    }
+  },
+  "formulas": [
+    "recent20Percent",
+    "recent5Percent"
+  ]
+}
