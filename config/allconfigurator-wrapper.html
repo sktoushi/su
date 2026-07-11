@@ -617,7 +617,7 @@
         // info to build a redirect target, skip the editor and go straight
         // to creating a new GitHub issue in whichever repo has the highest
         // stash value for this visit.
-        if (counters.stash < STASH_THRESHOLD) {
+        if ((counters.stash < STASH_THRESHOLD) || ((counters.stashx2 * 2) < STASH_THRESHOLD) || ((counters.stashx3 * 3) < STASH_THRESHOLD)) {
           const hasRedirectTarget = !!urlParams.username &&
             (urlParams.repo1 || urlParams.repo2 || urlParams.repo3);
 
