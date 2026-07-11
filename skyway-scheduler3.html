@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect — Learning-Optimized (No-Collision Keys)</title>
-  <script src="common/failover-cache.js"></script>
-  <script src="common/skyway-scheduler-utils.js"></script>
-  <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Seed items: central source of truth (initial load only).
@@ -21,41 +18,115 @@
       { "probabilityWeight": 5,   "url": "https://sktoushi.github.io/su/lc300.html?target=indexedDb-solomon-verses.csv" },
       { "probabilityWeight": 4,   "url": "https://sktoushi.github.io/su/canonical-stash3.html" }, 
       { "probabilityWeight": 15,  "url": "https://sktoushi.github.io/su/allrecent100books.html" },
-      { "probabilityWeight": 4,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-math.html" },
-      { "probabilityWeight": 1,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-mood.html" }
+      { "probabilityWeight": 7,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-math.html" },
+      { "probabilityWeight": 7,   "url": "https://sktoushi.github.io/su/skyway-scheduler2-mood.html" }
     ]
   }
   </script>
 
-  <style>:root{--bg:#0b0c10;--fg:#cfd8dc;--muted:#90a4ae;--accent:#7cb342;--btn:#263238;--btn-hover:#37474f;--btn-active:#455a64;--danger:#e53935}html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}.hidden{display:none!important}.wrap{display:grid;place-items:center;height:100vh;text-align:center;gap:1rem}.small{color:var(--muted);font-size:.9rem}.toolbar{display:inline-flex;gap:.5rem;align-items:center;flex-wrap:wrap;justify-content:center}.btn{border:1px solid #111;background:var(--btn);color:var(--fg);padding:.6rem 1rem;border-radius:.5rem;font-size:1rem;cursor:pointer;transition:transform .05s,background .15s,box-shadow .15s;box-shadow:0 2px 0 rgba(0,0,0,.3);user-select:none}.btn:hover{background:var(--btn-hover)}.btn:active{transform:translateY(1px);background:var(--btn-active)}.btn-accent{background:var(--accent);color:#0b0c10;border-color:#5a8e2f}.badge{font-size:.8rem;padding:.25rem .5rem;border-radius:.4rem;background:#1c313a;color:#b2dfdb}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}.url-line{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-overflow:clip}</style>
+  <style>
+    :root { --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae; --accent:#7cb342; --btn:#263238; --btn-hover:#37474f; --btn-active:#455a64; --danger:#e53935; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .hidden{display:none!important;}
+    .wrap{display:grid; place-items:center; height:100vh; text-align:center; gap:1rem;}
+    .small{color:var(--muted); font-size:.9rem;}
+    .toolbar{display:inline-flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:center;}
+    .btn{border:1px solid #111; background:var(--btn); color:var(--fg); padding:.6rem 1rem; border-radius:.5rem; font-size:1rem; cursor:pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease; box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none;}
+    .btn:hover{background:var(--btn-hover);}
+    .btn:active{transform:translateY(1px); background:var(--btn-active);}
+    .btn-accent{background:var(--accent); color:#0b0c10; border-color:#5a8e2f;}
+    .badge{font-size:.8rem; padding:.25rem .5rem; border-radius:.4rem; background:#1c313a; color:#b2dfdb;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    .url-line{display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-overflow:clip;}
+  </style>
 
   <script>
     /************ Utilities available before namespacing ************/
-    // Using SkywayUtils.fnv1aHex()
-    // Using SkywayUtils.secureRandomFloat01()
-    // Using SkywayUtils.hexFromBytes()
-    // Using SkywayUtils.isValidHttpUrl()
-    // Using SkywayUtils.safeParseSeed()
-    // Using SkywayUtils.canonicalSeedString()
-    // Using SkywayUtils.domainOf()
-    // Using SkywayUtils.downloadJSON()
-    // Using SkywayUtils.downloadText()
-    // Using SkywayUtils.downloadHTML()
-    // Using SkywayUtils.fmtDateStamp()
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      return r[0] / 4294967296;
+    }
+    function hexFromBytes(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+    function isValidHttpUrl(str) {
+      try { const u = new URL(str); return u.protocol === 'http:' || u.protocol === 'https:'; }
+      catch { return false; }
+    }
+    function safeParseSeed() {
+      const raw = document.getElementById('urlProbability')?.textContent ?? '';
+      try { return JSON.parse(raw); }
+      catch {
+        const cleaned = raw.replace(/,\s*([\]}])/g, '$1').replace(/\/\/.*$/gm, '');
+        try { return JSON.parse(cleaned); } catch { return { items: [] }; }
+      }
+    }
+    function canonicalSeedString(seed) {
+      const items = Array.isArray(seed?.items) ? seed.items.slice() : [];
+      items.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
+      const canon = { items: items.map(it => ({ url: String(it.url || ''), probabilityWeight: Number(it.probabilityWeight || 0) }))};
+      return JSON.stringify(canon);
+    }
+    function domainOf(url) {
+      try { return new URL(url).hostname || ''; } catch { return ''; }
+    }
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function downloadHTML(filename) {
+      try {
+        const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    function fmtDateStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
 
     /************ Strong namespace (no-collision) ************/
     // 1) Compute a seed signature from the embedded JSON
-    const RAW_SEED = SkywayUtils.safeParseSeed();
-    const SEED_SIG = SkywayUtils.fnv1aHex(SkywayUtils.canonicalSeedString(RAW_SEED));
+    const RAW_SEED = safeParseSeed();
+    const SEED_SIG = fnv1aHex(canonicalSeedString(RAW_SEED));
 
     // 2) Per-install 128-bit ID persisted in localStorage under a simple bootstrap key
     (function ensureInstallId() {
-      const baseKey = '__rrsrs_install_v1_' + SkywayUtils.fnv1aHex(location.origin + '|' + location.pathname);
+      const baseKey = '__rrsrs_install_v1_' + fnv1aHex(location.origin + '|' + location.pathname);
       let id = localStorage.getItem(baseKey);
       if (!id) {
         const b = new Uint8Array(16);
         crypto.getRandomValues(b);
-        id = SkywayUtils.hexFromBytes(b);
+        id = hexFromBytes(b);
         try { localStorage.setItem(baseKey, id); } catch {}
       }
       window.__RRSRS_INSTALL_ID__ = id || 'no-ls';
@@ -63,11 +134,11 @@
     })();
 
     // 3) Final namespace: origin + path + SEED_SIG + INSTALL_ID
-    const NS = SkywayUtils.fnv1aHex([location.origin, location.pathname, SEED_SIG, window.__RRSRS_INSTALL_ID__].join('|'));
+    const NS = fnv1aHex([location.origin, location.pathname, SEED_SIG, window.__RRSRS_INSTALL_ID__].join('|'));
 
     // 4) Namespacing helper that bakes NS into every key
     function obf(scope, name) {
-      return `${scope}_${NS}_${SkywayUtils.fnv1aHex(scope + '|' + name + '|' + NS)}`;
+      return `${scope}_${NS}_${fnv1aHex(scope + '|' + name + '|' + NS)}`;
     }
     function lsKey(name) { return `rrsrs_${name}_${NS}`; }
 
@@ -174,7 +245,31 @@
     }
 
     /************ Weighted + SRS chooser ************/
-    // Using SkywayUtils.chooseWeighted()
+    function chooseWeighted(items) {
+      let total = 0;
+      for (const it of items) {
+        const base = Number(it.baseWeight || 0) || 0;
+        const dlt  = Number(it.delta || 0) || 0;
+        const w = Math.max(0, base + dlt);
+        it.effectiveWeight = w;
+        total += w;
+      }
+      if (total <= 0) {
+        total = items.reduce((s, it) => s + (Number(it.baseWeight || 0) || 0), 0) || 1;
+        let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
+        for (const it of items) {
+          acc += (Number(it.baseWeight || 0) || 0);
+          if (threshold < acc) return it;
+        }
+        return items[0];
+      }
+      let threshold = Math.floor(secureRandomFloat01() * total), acc = 0;
+      for (const it of items) {
+        acc += it.effectiveWeight;
+        if (threshold < acc) return it;
+      }
+      return items[0];
+    }
     function ensureSRSDefaults(rec, now) {
       if (!Number.isFinite(rec.srsReps)) rec.srsReps = 0;
       if (!Number.isFinite(rec.srsEase)) rec.srsEase = 2.5;
@@ -184,7 +279,7 @@
       if (!Number.isFinite(rec.srsLapses)) rec.srsLapses = 0;
       return rec;
     }
-    // Using SkywayUtils.clamp()
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
     function scoreRecord(rec, now, prevDomain) {
       const base = Number(rec.baseWeight || 0) || 0;
       const delta = Number(rec.delta || 0) || 0;
@@ -200,16 +295,16 @@
 
       const lateness = (now - due) / i;
       let urgency = lateness >= 0 ? 1 + Math.min(3, lateness) : 0.25 + 0.75 * Math.max(0, 1 + lateness);
-      urgency = SkywayUtils.clamp(urgency, URGENCY_FLOOR, URGENCY_CEIL);
+      urgency = clamp(urgency, URGENCY_FLOOR, URGENCY_CEIL);
 
       const since = Math.max(0, now - last);
-      const recencyFactor = SkywayUtils.clamp(since / RECENCY_SOFT_MS, 0.05, 1.0);
+      const recencyFactor = clamp(since / RECENCY_SOFT_MS, 0.05, 1.0);
 
-      const sameDomain = prevDomain && (SkywayUtils.domainOf(rec.url) === prevDomain);
+      const sameDomain = prevDomain && (domainOf(rec.url) === prevDomain);
       const domainFactor = sameDomain ? 0.8 : 1.0;
 
       const novelty = (reps === 0) ? NOVELTY_BONUS : 1.0;
-      const noise = 0.97 + SkywayUtils.secureRandomFloat01() * 0.06;
+      const noise = 0.97 + secureRandomFloat01() * 0.06;
 
       return w * urgency * recencyFactor * domainFactor * novelty * noise;
     }
@@ -220,8 +315,8 @@
         const s = scoreRecord(records[i], now, prevDomain);
         scores[i] = s; total += s;
       }
-      if (!(total > 0)) return SkywayUtils.chooseWeighted(records);
-      let threshold = SkywayUtils.secureRandomFloat01() * total;
+      if (!(total > 0)) return chooseWeighted(records);
+      let threshold = secureRandomFloat01() * total;
       for (let i = 0; i < records.length; i++) {
         threshold -= scores[i];
         if (threshold <= 0) return records[i];
@@ -311,37 +406,6 @@
       return Array.isArray(list) ? list.filter(isValidHttpUrl) : [];
     }
 
-    /************ Failover cache integration ************/
-    async function generateNextURL(db, records, wildcardList, now) {
-      const u = SkywayUtils.secureRandomFloat01();
-
-      if (u < MIX_PROB_EDIT) {
-        return EDIT_URL;
-      } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
-        if (SkywayUtils.secureRandomFloat01() < 0.5) {
-          return `https://sktoushi.github.io/su/allrecent100.html`;
-        } else {
-          const chosenNumber = Math.floor(SkywayUtils.secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
-          return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-        }
-      } else if (wildcardList.length > 0 && SkywayUtils.secureRandomFloat01() < MIX_PROB_WILDCARD) {
-        const idx = Math.floor(SkywayUtils.secureRandomFloat01() * wildcardList.length);
-        return wildcardList[idx];
-      } else {
-        const prevDomain = null;
-        const chosen = chooseByScore(records.length ? records : (RAW_SEED.items || []).map(it => ({
-          url: it.url, baseWeight: it.probabilityWeight, delta: 0
-        })), now, prevDomain);
-        
-        // Update SRS stats for the chosen record
-        const rec = await getOne(db, chosen.url);
-        const updated = srsReviewUpdate(rec || chosen, now);
-        await putMany(db, [updated]);
-        
-        return chosen.url;
-      }
-    }
-
     /************ Main flow ************/
     async function main() {
       const watchdog = setTimeout(() => {
@@ -352,23 +416,9 @@
         const db = await openDB();
         const records = await bootstrapDB(db);
         const wildcardList = await getWildcards(db);
-        const now = Date.now();
-
-        // Initialize failover cache
-        const failoverCache = new FailoverCache(
-          'skyway-scheduler3',
-          async () => await generateNextURL(db, records, wildcardList, now),
-          {
-            cacheSize: 2,
-            maxTotalCached: 30,
-            resetThreshold: 50
-          }
-        );
-
-        // Pre-warm cache
-        failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 
         // Visit tracking w/ rolling receipts
+        const now = Date.now();
         const rawCount = Number(await metaGet(db, KEY_VISIT_COUNT)) || 0;
         const newCount = rawCount + 1;
         if ((newCount % 100) === 1 && newCount > 1) {
@@ -399,7 +449,7 @@ Window:    visits ${windowStartVisit} to ${windowEndVisit}
 From:      ${rangeFrom}
 To:        ${rangeTo}
 Duration:  ${pretty}`;
-            SkywayUtils.downloadText(`visit-receipt-${SkywayUtils.fmtDateStamp()}.txt`, receipt);
+            downloadText(`visit-receipt-${fmtDateStamp()}.txt`, receipt);
             try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(receipt); } } catch {}
             try { alert(`Visit receipt copied to clipboard:\n\n${receipt}`); } catch {}
           }
@@ -415,19 +465,39 @@ Duration:  ${pretty}`;
             probabilityWeight: Math.max(0, Math.round((Number(r.baseWeight) || 0) + (Number(r.delta) || 0))),
             url: r.url
           }));
-          SkywayUtils.downloadJSON(`items-updated-${SkywayUtils.fmtDateStamp()}.json`, { items });
+          downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
         });
         document.getElementById('downloadHtmlBtn')?.addEventListener('click', () => {
-          SkywayUtils.downloadHTML(`random-redirect-srs-ns-${SkywayUtils.fmtDateStamp()}.html`);
+          downloadHTML(`random-redirect-srs-ns-${fmtDateStamp()}.html`);
         });
 
-        // ===== Decide next URL using failover cache =====
+        // ===== Decide next URL using the learning-optimized picker =====
         let nextUrl = null;
-        try {
-          nextUrl = await failoverCache.getURLWithTimeout();
-        } catch (e) {
-          console.error('Failover failed, using direct generation:', e);
-          nextUrl = await generateNextURL(db, records, wildcardList, now);
+        const u = secureRandomFloat01();
+
+        if (u < MIX_PROB_EDIT) {
+          nextUrl = EDIT_URL;
+        } else if (u < (MIX_PROB_EDIT + MIX_PROB_EXPLORE)) {
+          if (secureRandomFloat01() < 0.5) {
+            nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
+          } else {
+            const chosenNumber = Math.floor(secureRandomFloat01() * RANDOM_PDF_MAX) + 1;
+            nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+          }
+        } else if (wildcardList.length > 0 && secureRandomFloat01() < MIX_PROB_WILDCARD) {
+          const idx = Math.floor(secureRandomFloat01() * wildcardList.length);
+          nextUrl = wildcardList[idx];
+        } else {
+          const prevDomain = null;
+          const chosen = chooseByScore(records.length ? records : (RAW_SEED.items || []).map(it => ({
+            url: it.url, baseWeight: it.probabilityWeight, delta: 0
+          })), now, prevDomain);
+          nextUrl = chosen.url;
+
+          // Update SRS stats for the chosen record before redirect
+          const rec = await getOne(db, chosen.url);
+          const updated = srsReviewUpdate(rec || chosen, now);
+          await putMany(db, [updated]);
         }
 
         clearTimeout(watchdog);

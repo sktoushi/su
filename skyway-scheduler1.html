@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Random Redirect (IndexedDB + Ratings)</title>
-  <script src="common/failover-cache.js"></script>
-  <script src="common/skyway-scheduler-utils.js"></script>
-  <script src="common/config-loader.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Seed items: central source of truth (initial load only).
@@ -56,7 +53,78 @@
   }
   </script>
 
-  <style>:root{--bg:#0b0c10;--fg:#cfd8dc;--muted:#90a4ae;--accent:#7cb342;--btn:#263238;--btn-hover:#37474f;--btn-active:#455a64;--danger:#e53935}html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}.hidden{display:none!important}.wrap{display:grid;place-items:center;height:100vh;text-align:center;gap:1rem}.small{color:var(--muted);font-size:.9rem}.toolbar{display:inline-flex;gap:.5rem;align-items:center;flex-wrap:wrap;justify-content:center}.btn{border:1px solid #111;background:var(--btn);color:var(--fg);padding:.6rem 1rem;border-radius:.5rem;font-size:1rem;cursor:pointer;transition:transform .05s,background .15s,box-shadow .15s;box-shadow:0 2px 0 rgba(0,0,0,.3);user-select:none}.btn:hover{background:var(--btn-hover)}.btn:active{transform:translateY(1px);background:var(--btn-active)}.btn-accent{background:var(--accent);color:#0b0c10;border-color:#5a8e2f}.btn-danger{background:var(--danger);color:#fff;border-color:#b71c1c}.badge{font-size:.8rem;padding:.25rem .5rem;border-radius:.4rem;background:#1c313a;color:#b2dfdb}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}dialog{border:none;border-radius:12px;padding:0;background:#11161a;color:var(--fg);width:min(560px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05)inset}dialog::backdrop{background:rgba(0,0,0,.6)}.modal{padding:1.25rem 1.25rem 1rem}.modal h2{margin:0 0 .25rem;font-weight:700;font-size:1.2rem}.modal p{margin:0 0 1rem;color:var(--muted)}.grid-5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem}.btn-mid{padding:.8rem .4rem;font-size:1.05rem;border-radius:.6rem}.url-line{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-overflow:clip}.freqrow{display:flex;align-items:center;gap:.5rem}.freqbadge{padding:.35rem .6rem;border:1px solid rgba(255,255,255,.08);border-radius:.5rem;background:#0f1519;color:var(--fg);font-variant-numeric:tabular-nums;min-width:7ch;text-align:center}</style>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --fg: #cfd8dc;
+      --muted: #90a4ae;
+      --accent: #7cb342;
+      --btn: #263238;
+      --btn-hover: #37474f;
+      --btn-active: #455a64;
+      --danger: #e53935;
+    }
+    html, body {
+      margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .hidden { display: none !important; }
+    .wrap {
+      display: grid; place-items: center; height: 100vh; text-align: center; gap: 1rem;
+    }
+    .small {
+      color: var(--muted); font-size: .9rem;
+    }
+    .toolbar {
+      display: inline-flex; gap: .5rem; align-items: center; flex-wrap: wrap; justify-content: center;
+    }
+    .btn {
+      border: 1px solid #111;
+      background: var(--btn);
+      color: var(--fg);
+      padding: .6rem 1rem;
+      border-radius: .5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow: 0 2px 0 rgba(0,0,0,.3);
+      user-select: none;
+    }
+    .btn:hover { background: var(--btn-hover); }
+    .btn:active { transform: translateY(1px); background: var(--btn-active); }
+    .btn-accent { background: var(--accent); color: #0b0c10; border-color: #5a8e2f; }
+    .btn-danger { background: var(--danger); color: #fff; border-color: #b71c1c; }
+    .badge { font-size: .8rem; padding: .25rem .5rem; border-radius: .4rem; background: #1c313a; color: #b2dfdb;}
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    dialog {
+      border: none; border-radius: 12px; padding: 0; background: #11161a; color: var(--fg); width: min(560px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+    dialog::backdrop { background: rgba(0,0,0,.6); }
+    .modal { padding: 1.25rem 1.25rem 1rem; }
+    .modal h2 { margin: 0 0 .25rem 0; font-weight: 700; font-size: 1.2rem; }
+    .modal p { margin: 0 0 1rem 0; color: var(--muted); }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: .5rem; }
+    .btn-mid { padding: .8rem .4rem; font-size: 1.05rem; border-radius: .6rem; }
+
+    /* UPDATED: allow full URL to wrap nicely in the rating modal */
+    .url-line {
+      display: block;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-overflow: clip;
+    }
+
+    /* New: small helpers for ±5 min frequency control */
+    .freqrow { display: flex; align-items: center; gap: .5rem; }
+    .freqbadge {
+      padding: .35rem .6rem; border: 1px solid rgba(255,255,255,.08); border-radius: .5rem;
+      background: #0f1519; color: var(--fg); font-variant-numeric: tabular-nums;
+      min-width: 7ch; text-align: center;
+    }
+  </style>
 
   <script>
     /************ Constants ************/
@@ -82,8 +150,15 @@
     const STEP_MINUTES = 5;                         // +/- step
 
     /* ===== Deterministic namespace (obfuscated) ===== */
-    // Using SkywayUtils.fnv1aHex()
-    const NS = SkywayUtils.fnv1aHex(location.origin + '|' + location.pathname);
+    function fnv1aHex(str) {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return ('00000000' + h.toString(16)).slice(-8);
+    }
+    const NS = fnv1aHex(location.origin + '|' + location.pathname);
     const META_STORE = `m_${NS}`; // e.g., m_9f3a12c4
 
     /************ IndexedDB helpers (promise-wrapped) ************/
@@ -158,10 +233,56 @@
     }
 
     /************ Utilities ************/
-    // Using SkywayUtils.secureRandomFloat01()
-    // Using SkywayUtils.chooseWeighted()
-    // Using SkywayUtils.downloadJSON()
-    // Using SkywayUtils.fmtDateStamp()
+    function secureRandomFloat01() {
+      const r = new Uint32Array(1);
+      crypto.getRandomValues(r);
+      return r[0] / 4294967296; // 1 / 2^32
+    }
+
+    function chooseWeighted(items) {
+      // items: [{ url, baseWeight, delta, effectiveWeight }]
+      let total = 0;
+      for (const it of items) {
+        const w = Math.max(0, Number(it.baseWeight || 0) + Number(it.delta || 0));
+        it.effectiveWeight = w;
+        total += w;
+      }
+      if (total <= 0) {
+        total = items.reduce((s, it) => s + (Number(it.baseWeight || 0)), 0) || 1;
+        const threshold = Math.floor(secureRandomFloat01() * total);
+        let acc = 0;
+        for (const it of items) {
+          acc += Number(it.baseWeight || 0);
+          if (threshold < acc) return it;
+        }
+        return items[0];
+      }
+      const threshold = Math.floor(secureRandomFloat01() * total);
+      let acc = 0;
+      for (const it of items) {
+        acc += it.effectiveWeight;
+        if (threshold < acc) return it;
+      }
+      return items[0];
+    }
+
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function fmtDateStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
 
     /* ===== Frequency helpers (use meta store) ===== */
     function roundToStep(valueMinutes) {
@@ -309,42 +430,10 @@
       }, 30_000);
     }
 
-    /************ Failover cache integration ************/
-    async function generateNextURL(db, records) {
-      const u = SkywayUtils.secureRandomFloat01();
-      if (u < 0.02) {
-        return EDIT_URL;
-      } else if (u < 0.12) {
-        if (Math.random() < 0.5) {
-          return `https://sktoushi.github.io/su/allrecent100books.html`;
-        } else {
-          const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
-          return `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
-        }
-      } else {
-        const chosen = SkywayUtils.chooseWeighted(records);
-        return chosen.url;
-      }
-    }
-
     /************ Main flow ************/
     async function main() {
       const db = await openDB();
       const records = await bootstrapDB(db);
-
-      // Initialize failover cache
-      const failoverCache = new FailoverCache(
-        'skyway-scheduler1',
-        async () => await generateNextURL(db, records),
-        {
-          cacheSize: 2,
-          maxTotalCached: 30,
-          resetThreshold: 50
-        }
-      );
-
-      // Pre-warm cache
-      failoverCache.prewarm().catch(e => console.error('Prewarm failed:', e));
 
       // Controls toolbar (download button)
       document.getElementById('downloadBtn').addEventListener('click', async () => {
@@ -353,16 +442,25 @@
           probabilityWeight: Math.max(0, Math.round((Number(r.baseWeight) || 0) + (Number(r.delta) || 0))),
           url: r.url
         }));
-        SkywayUtils.downloadJSON(`items-updated-${SkywayUtils.fmtDateStamp()}.json`, { items });
+        downloadJSON(`items-updated-${fmtDateStamp()}.json`, { items });
       });
 
-      // ===== Decide next URL using failover cache =====
+      // ===== Decide next URL first (no redirects yet) =====
       let nextUrl = null;
-      try {
-        nextUrl = await failoverCache.getURLWithTimeout();
-      } catch (e) {
-        console.error('Failover failed, using direct generation:', e);
-        nextUrl = await generateNextURL(db, records);
+      const u = secureRandomFloat01();
+      if (u < 0.02) {
+        nextUrl = EDIT_URL;
+      } else if (u < 0.12) {
+        if (Math.random() < 0.5) {
+          // nextUrl = `https://sktoushi.github.io/su/allrecent100.html`;
+          nextUrl = `https://sktoushi.github.io/su/allrecent100books.html`;
+        } else {
+          const chosenNumber = Math.floor(Math.random() * RANDOM_PDF_MAX) + 1;
+          nextUrl = `https://ryspare25.github.io/ref2510/viewer-pdfjs-4chan2.html?fileName=${chosenNumber}.pdf`;
+        }
+      } else {
+        const chosen = chooseWeighted(records);
+        nextUrl = chosen.url;
       }
 
       // ===== Modal timing decision (from meta store) =====
@@ -373,11 +471,11 @@
 
       const mustShow = elapsed >= FORCED_MIN_INTERVAL_MS; // 15m guarantee
       const eligibleByUser = elapsed >= (currentFreqMinutes * 60 * 1000);
-      const wantsSoftShow = eligibleByUser && (SkywayUtils.secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
+      const wantsSoftShow = eligibleByUser && (secureRandomFloat01() < MODAL_SHOW_PROBABILITY);
       const wantShow = mustShow || wantsSoftShow;
 
       const toRate = records.length
-        ? records[Math.floor(SkywayUtils.secureRandomFloat01() * records.length)]
+        ? records[Math.floor(secureRandomFloat01() * records.length)]
         : null;
 
       if (wantShow && toRate) {
