@@ -630,24 +630,10 @@
 
             if (candidates.length > 0) {
               candidates.sort((a, b) => b.value - a.value);
-              const chosenRepo = candidates[0].repo;
-
-              // Generate a random coordinate
-  const lat = (Math.random() * 180 - 90).toFixed(6);
-  const lng = (Math.random() * 360 - 180).toFixed(6);
-
-  // Build ChatGPT prompt and URL
-  const prompt = `Show the images from the following coordinate: ${lat}, ${lng}`;
-  const chatgptUrl =
-    "https://chatgpt.com/?q=" +
-    encodeURIComponent(prompt) +
-    "&hints=search";
-
-  // Copy the ChatGPT URL to the clipboard (overwriting the JSON copy)
-  await copyToClipboard(chatgptUrl);
+              const chosenRepo = candidates[0].repo;       
               
               window.location.href =
-                `https://github.com/${encodeURIComponent(urlParams.username)}/${encodeURIComponent(chosenRepo)}/issues/new`;
+                `https://github.com/${encodeURIComponent(urlParams.username)}/${encodeURIComponent(chosenRepo)}/issues/new?template=aaa.md`;
               return;
             }
           }
