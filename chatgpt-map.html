@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Coordinate → ChatGPT</title>
+</head>
+<body>
+
+<button id="go">Random Location</button>
+
+<script>
+function randomCoordinate() {
+    return {
+        lat: (Math.random() * 180 - 90).toFixed(6),
+        lng: (Math.random() * 360 - 180).toFixed(6)
+    };
+}
+
+document.getElementById("go").onclick = async () => {
+    const { lat, lng } = randomCoordinate();
+
+    const prompt = `Show the images from the following coordinate: ${lat}, ${lng}`;
+
+    const url =
+        "https://chatgpt.com/?q=" +
+        encodeURIComponent(prompt) +
+        "&hints=search";
+
+    try {
+        await navigator.clipboard.writeText(url);
+    } catch (e) {}
+
+    window.open(url, "_blank");
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Google Drive File</title>
+
+<style>
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-family:Arial,sans-serif;
+    background:#111;
+    color:white;
+}
+
+#panel{
+    width:350px;
+    text-align:center;
+}
+
+progress{
+    width:100%;
+    height:28px;
+}
+
+#status{
+    margin-top:12px;
+    font-size:15px;
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+    <progress id="bar" value="0" max="100"></progress>
+    <div id="status">Starting...</div>
+</div>
+
+<script>
+const PREFIX = "https://drive.google.com/file/d/";
+const SUFFIX = "/view?usp=drivesdk";
+
+const CACHE_VERSION = 1;
+
+const FILE_IDS = [
+"1EwVG7h80iEEdByQwW6ceEKORazRbemRn",
+"110jCCSWVHU3YvpnpgfhtoTuWaHAgwthg",
+"11OhsGDTgIm2oZ0s25FYmGuqoNxG6CYFx",
+"15TkNmdI9HMLaxnILehnPpKaj_CBu8QW2",
+"15e2hcgjkDseVvzAweQr32RDA-7K4kNJN",
+"1640-BCgIk8fbiP895bI6G90-1DS9KjIS",
+"18gwOTWUBPqAI-axo5D7XAWwd1pTR2Hzp",
+"1945Q6vFmMicFWsURpKoLzQy7coOFD8Ka",
+"19rXC7g7fofpFgC6LDihsjlvIvjhn28bm",
+"1AgAqWjL6G21pKOwgVtc8G4yrvSptl_o4",
+"1HDBMReQq45S6Jrm30BMVaHvxXDMEMdE1",
+"1IE95u_4Q3n95BALN8iGCAX3zoZTR8a_s",
+"1JAtnyXKbuXT-BHW5BVq4Sd-CMCbok3Em",
+"1LGe25l8HxUGZ15ez2MKBBjt-PITXlVF9",
+"1LgcNMJcBIvbm4silrRf76LCUFb7SbH8_",
+"1RhaknbaJmrsmSM-eWlOz02qnxXbQO5GE",
+"1TyAipyQ_xfYHNQ_frGRb502FqV3Kxm78",
+"1YZ1Vv0HePYkmuaapfPOBQ5KYrgc02AVi",
+"1_xdk3O97izADqCjdD-Ioc5VDojhmMOnp",
+"1aQ1Wf3FkuPS3m5qjIAOEmXB6-CHplNac",
+"1aVgcErFYG-Dj8R508HBMkPeRu_MDzHtg",
+"1cW5DDSF_x_BTbdxssOWfqKgFz6IPJri9",
+"1chJmGCcwcm13FB91J4fTAPqSAsLx5cFT",
+"1eK5HagJf3hVne_1Wt0YqXuCzXYEf4cD4",
+"1fi3fRNZbAB9vsVhoGJd4GAkc0ItS-xxK",
+"1hvd-IFaG1wMXAHEFgQa_6Gul3TFnBJN0",
+"1iO-EQwkkX6Ki6Fn9M1rDrh2loraxMOMC",
+"1oA1Ru-vfdN_DAbRJT79VLWSnmzE_K2Df",
+"1oarj21KkW2lbujX6uo4iIl_kwcCJiK9w",
+"1u7sBArBH5W9KVnCatALdHJ31wLUMgdy4",
+"1yMXX7apfu7bBCCaagW8lPDLafpyfaVCr",
+"1-H8n4oFOkp5tx3TT-1Pp9FOi8Pvn4rW3",
+"1-fPJ9zGAd-lDc2DrcO_yqjMTrnlWExkS",
+"1Cz-Zwznc_WaIuVw5u0nmoq0mapNuGP2H",
+"1J5ClAQ0ZWg1H2xK0rgPM7LJEloYxklbk",
+"1JDQyi_sQEHq9p9Cddi83-aXqJy63LBZo",
+"1aEtP_KPlQSJTrGEn4-T2bWVTWWnzAtpo",
+"1dpXPxAUzm17Eho9BfjcoD6-ymdFU14ie",
+"1eDfnM_4OVJ2WbxSyxUzo3t-FODUVgpBu",
+"1kYWl6ahpoW8xqtsXUnSKFIlQNGDWQoqu",
+"1puWw72UJ5H4UxDBKczdurLMVA2kDSqTe",
+"10xxbQhTcaItg-JYEB24BgvGoTXR6R-h_",
+"10ziOjZZRtuqaEJFQ1O3l2CFLWNZMyLfM",
+"12WQLJ_pHS6Zzg0QL7OCxsAhGn2Py5_dd",
+"1U7TPARaw8EKGFJtAXV9dMgiAp4AilItb",
+"1Xqlu2BLtoEKjSciWVwVLgw_7Fqaw6GVR",
+"1gOL4NffdTGSoAHw5XRYPbrogmT_weF1u",
+"1k2t3lSi5sBfN1w-B43oWWtYlAIdmQ-Qj",
+"1mcrLQ2P6NFTW4rEPP6E1ngc2Lw2LJKmM",
+"1tmdVGZO-sWz8O8E_Fvb99BkHbkvfEJJb",
+"1tzKjnMXsV4O0-Mjw5KJeq1ZsjKU2qJaY",
+"10pD1qTo_Z5DeEY_qX50brYsRvlM3f_c9",
+"14D1TqUHY4CwW5oFBTgMgjZ9n5TmEP_MQ",
+"16DzVoxHEjuY75Q38qLtb6pjl8PlRHSgF",
+"16F9KfhqeHfIQeu3dpw6ZIa5RxTeqHT8k",
+"16Z_98FNLObz_FjhQP3egpwDwyzH2NNsc",
+"18JjHyzaDJFyzll5UUxe4mnhwfY08cXAj",
+"19buxYHBMSlj55bmu65TpSrAZs2O5JgrX",
+"1B0F3y4jhBLHXdqgtBiOto5IdSlk9Q28B",
+"1C98qC55npIOJecx35aVlD7gAqBgKvSqK",
+"1CRoQhgLcxEYXWH_iPvySxz7MIxZTO2-Q",
+"1IqLfOkBE0nDBxB4HuYzFV5ZwntVRC30f",
+"1Jqyj6d51Yjq6ygzFXPIq7kwKhLylpr2Y",
+"1M3DFQhQShXZvPBuE8cA09-Msdx5gMMfS",
+"1MkilqX9QFtQFEN3GGssfl94y3aDOtI1U",
+"1PXCnydUWDrYQXgvQBYnZVuzNmAGz9ItP",
+"1Qi-3UZLL51eBznEX7hAR-StZxe-nZhcx",
+"1ROIpIKJO9F4aXt6RtC3apZHErpa74_Wy",
+"1RVdEdHAsaLuJQLyBBTk-O3X_IiLFHViL",
+"1UyOGdJWnmruu1qfUHLMvNc8tvenJ6zTI",
+"1XjTxondT4mYiQmIIyjivzAXK-ydAR-E8",
+"1YEHBw32yPTmk4RWuUgVdnyEOWgM0ILtL",
+"1aU-PhXFaTbrmPwAUnNgUEeCPXQqKoMKG",
+"1bVUqnBVK14hG0e7Df_unA6rdf1fVsjuk",
+"1lVmLl1elU2TSFSml4-jeE6qtF1GzDBS8",
+"1ll5kdBkU_qx5zOkgxCmCMsGny2H38Tgi",
+"1nI_AjuCyYIfgcSI8Fb5MK9wsP-kXtj-h",
+"1pKFGfA_hrCAjKlVR7Tq72n-HJAB5fuNa",
+"1pOd98PpKXRgkBFCcfuBrT7Yto0aevvJD",
+"1w12r8moBakZEf97NkGuo44twpAZeI0nZ",
+"1xiBxZMbLCytUjmBQyPwwPLlOAItZjngf",
+"1yefw2Q0Yzx-hxjnNvllNAEBTMYyMdAjU",
+"1zs1lXp69UR345NX40OHjPGvCj_XjoQg7",
+"15CUmYIfdxp2kMHEbJQOj0Jyoa8PKjm0y",
+"15bNmKhLcTXaSFCT8Rzt91ho1RoHZuNFH",
+"16KH0Bff9usO0iotW5g0QDjQKzpuMDNMv",
+"1EnLm8NB-7GK-lDiCRpHiUJH1Ww1UgoR9",
+"1Ns93T-1J6hJDBkDW3eqpQzWCUxcU58Fg",
+"1Xog5Jilh6GsOhW6aX_KgLW3ZkZr3ahOW",
+"1btw0eWkRDjtHWbGIwVIYtEnStZFadDpi",
+"1dg05a1L0zJ5DlDcPA64TEzjRtCT0Ldqj",
+"1ewLYSD1DoIKe-rAp_Ly3282WtVa6lGlB",
+"1j3Cn2lXGFBIn-Zr8Gg8Vy74r6Jzngk51",
+"1j6MU3I_idY-SVcwDnQtU-2W6KRJETkyy",
+"1puo5nV9euNFrEufjk5XTukmfMz6pVXSp",
+"1rZ-SIrfN97lxdRiA-MwwH2HXMz_2zUvx",
+"1unjeOKJm_us8yyxJqnnhfBlIwv4jcZOd"
+];
+
+const DB_NAME = "DriveFileCachePatch20260710";
+const STORE = "cachePatch20260710";
+
+const bar = document.getElementById("bar");
+const status = document.getElementById("status");
+
+function gauge(percent, text){
+    bar.value = percent;
+    status.textContent = text;
+}
+
+function openDB(){
+    return new Promise((resolve,reject)=>{
+        gauge(10,"Opening database...");
+
+        const req = indexedDB.open(DB_NAME,1);
+
+        req.onupgradeneeded = e=>{
+            const db=e.target.result;
+            if(!db.objectStoreNames.contains(STORE)){
+                db.createObjectStore(STORE);
+            }
+        };
+
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function get(db,key){
+    return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE,"readonly");
+        const req=tx.objectStore(STORE).get(key);
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function put(db,key,val){
+    return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE,"readwrite");
+        const req=tx.objectStore(STORE).put(val,key);
+        req.onsuccess=()=>resolve();
+        req.onerror=()=>reject(req.error);
+    });
+}
+
+function redirect(ids){
+    gauge(100,"Redirecting...");
+    const id=ids[Math.floor(Math.random()*ids.length)];
+    location.replace(PREFIX + id + SUFFIX);
+}
+
+(async()=>{
+
+    const db=await openDB();
+
+    gauge(25,"Checking cache...");
+
+    const version=await get(db,"version");
+
+    if(version===CACHE_VERSION){
+
+        gauge(50,"Loading cached IDs...");
+
+        const ids=await get(db,"ids");
+
+        if(ids){
+
+            gauge(90,"Choosing random file...");
+            redirect(ids);
+            return;
+        }
+    }
+
+    gauge(60,"Building cache (first run only)...");
+
+    await put(db,"ids",FILE_IDS);
+
+    gauge(85,"Saving cache...");
+
+    await put(db,"version",CACHE_VERSION);
+
+    redirect(FILE_IDS);
+
+})();
+</script>
+
+</body>
+</html>
