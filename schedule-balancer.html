@@ -6,61 +6,64 @@
   <title>Scheduler Redirect</title>
 </head>
 <body>
+
 <script>
 (function () {
   const params = new URLSearchParams(window.location.search);
 
-  // Default allocation weights
-  let weights = {
-    all503020: 1,
-    skyway: 1,
-    spy: 1
-  };
+  // Parse scheduler names
+  const names = (params.get("skedNames") || "")
+    .split("_")
+    .filter(Boolean);
 
-  // Parse allocation=a_b_c if provided
-  const allocation = params.get("allocation");
-  if (allocation) {
-    const parts = allocation.split("_").map(x => parseInt(x, 10));
-    if (
-      parts.length === 3 &&
-      parts.every(n => Number.isInteger(n) && n > 0)
-    ) {
-      weights.all503020 = parts[0];
-      weights.skyway = parts[1];
-      weights.spy = parts[2];
+  // Parse max values
+  const maxValues = (params.get("maxWeights") || "")
+    .split("_")
+    .map(n => parseInt(n, 10));
+
+  // Parse allocation weights (optional)
+  let allocations = (params.get("allocation") || "")
+    .split("_")
+    .map(n => parseInt(n, 10));
+
+  // Default to equal weights if allocation missing/invalid
+  if (
+    allocations.length !== names.length ||
+    allocations.some(n => !Number.isInteger(n) || n <= 0)
+  ) {
+    allocations = new Array(names.length).fill(1);
+  }
+
+  // Build scheduler list
+  const schedulers = [];
+
+  for (let i = 0; i < names.length; i++) {
+    const max = maxValues[i];
+
+    if (Number.isInteger(max) && max > 0) {
+      schedulers.push({
+        name: names[i],
+        max: max,
+        weight: allocations[i]
+      });
     }
   }
 
-  // Read max values from URL params
-  const schedulers = [
-    {
-      name: "all503020",
-      max: parseInt(params.get("all503020"), 10),
-      weight: weights.all503020
-    },
-    {
-      name: "skyway",
-      max: parseInt(params.get("skyway"), 10),
-      weight: weights.skyway
-    },
-    {
-      name: "spy",
-      max: parseInt(params.get("spy"), 10),
-      weight: weights.spy
-    }
-  ].filter(s => Number.isInteger(s.max) && s.max > 0);
-
   if (schedulers.length === 0) {
     document.body.textContent =
-      "Error: At least one of all503020, skyway, or spy must be provided with a value greater than 0.";
+      "Error: No valid schedulers were supplied.";
     return;
   }
 
   // Weighted random selection
-  const totalWeight = schedulers.reduce((sum, s) => sum + s.weight, 0);
-  let r = Math.random() * totalWeight;
+  const totalWeight = schedulers.reduce(
+    (sum, s) => sum + s.weight,
+    0
+  );
 
+  let r = Math.random() * totalWeight;
   let chosenScheduler = schedulers[0];
+
   for (const s of schedulers) {
     if (r < s.weight) {
       chosenScheduler = s;
@@ -69,15 +72,16 @@
     r -= s.weight;
   }
 
-  // Pick random scheduler number from 1..max
+  // Random number from 1..max
   const chosenNumber =
     Math.floor(Math.random() * chosenScheduler.max) + 1;
 
-  const url =
-    `https://sktoushi.github.io/su/${chosenScheduler.name}-scheduler.html?max=${chosenNumber}`;
-
-  window.location.replace(url);
+  // Redirect
+  window.location.replace(
+    `https://sktoushi.github.io/su/${chosenScheduler.name}-scheduler.html?max=${chosenNumber}`
+  );
 })();
 </script>
+
 </body>
 </html>
