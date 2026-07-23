@@ -4,16 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coding Horror Randomizer</title>
-  <script src="common/failover-cache.js"></script>
-  <script src="common/skyway-scheduler-utils.js"></script>
-  <script src="common/config-loader.js"></script>
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 
 <script>
 const urls = [
-    "https://sktoushi.github.io/su/windows-202403-202606.html", 
+    "http://ryspare25.github.io/img/all.html", 
 ];
 
 function secureRandomIndex(max) {
@@ -22,15 +19,8 @@ function secureRandomIndex(max) {
     return array[0] % max;
 }
 
-function generateTargetURL() {
-    return urls[secureRandomIndex(urls.length)];
-}
-
-FailoverCache.redirect('skyway-scheduler51', generateTargetURL, {
-    cacheSize: 2,
-    maxTotalCached: 30,
-    resetThreshold: 50
-});
+const chosen = urls[secureRandomIndex(urls.length)];
+window.location.replace(chosen);
 </script>
 </head>
 
