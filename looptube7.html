@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LoopTube Splicer</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  :root {
+    --brand: #009B77;
+    --brand-accent: #33B79A;
+    --brand-ink: #ffffff;
+    --bg1: #e8f7f2;
+    --bg2: #d3efe6;
+  }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, var(--bg1), var(--bg2));
+    background-attachment: fixed;
+  }
+  .brand-bar { color: var(--brand-ink); background: linear-gradient(120deg, var(--brand), var(--brand-accent)); }
+  .btn-brand { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+  .btn-brand:hover { filter: brightness(1.08); background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+  .btn-outline-brand { color: var(--brand); border-color: var(--brand); }
+  .btn-outline-brand:hover { background: var(--brand); color: var(--brand-ink); }
+  a { color: var(--brand); }
+  .card { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+  .thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 10px; background:#0b1220; }
+  .bucket-bar { height: 22px; border-radius: 999px; overflow: hidden; background:#e9ecef; }
+  .seg-new { background: var(--brand); }
+  .seg-review { background: var(--brand-accent); opacity:.55; }
+  .chip { font-size: .72rem; padding: .2rem .55rem; border-radius:999px; }
+  .season-chip { background: rgba(255,255,255,.22); color: var(--brand-ink); border:1px solid rgba(255,255,255,.35); }
+  .video-title { font-weight:600; line-height:1.2; }
+  .muted { color:#6c757d; font-size:.85rem; }
+  .spinner-wrap { min-height: 40vh; display:flex; align-items:center; justify-content:center; }
+  code.small { font-size:.78rem; }
+  footer { color:#5b6b66; }
+</style>
+</head>
+<body>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="dashboard" style="display:none;">
+  <nav class="brand-bar py-3 shadow-sm mb-4">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-scissors fs-4"></i>
+        <span class="fs-5 fw-semibold">LoopTube Splicer</span>
+      </div>
+      <span class="chip season-chip"><i class="bi bi-palette-fill me-1"></i><span id="seasonLabel">Season</span></span>
+    </div>
+  </nav>
+
+  <div class="container pb-5" style="max-width: 860px;">
+
+    <!-- Settings: preset GitHub user/repo for share links (CRUD) -->
+    <div class="card p-3 p-md-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-uppercase muted mb-0"><i class="bi bi-gear-fill me-1"></i>Share link settings</h6>
+        <span class="chip text-bg-light border" id="hostPreview"></span>
+      </div>
+
+      <!-- VIEW MODE -->
+      <div id="cfgView">
+        <div class="row g-3 align-items-center">
+          <div class="col-6 col-md-5">
+            <div class="muted text-uppercase" style="font-size:.7rem;letter-spacing:.5px;">GitHub user</div>
+            <div id="viewUser" class="fw-semibold text-truncate">—</div>
+          </div>
+          <div class="col-6 col-md-5">
+            <div class="muted text-uppercase" style="font-size:.7rem;letter-spacing:.5px;">Repository</div>
+            <div id="viewRepo" class="fw-semibold text-truncate">—</div>
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button id="btnEditCfg" class="btn btn-outline-brand"><i class="bi bi-pencil"></i> Edit</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- EDIT MODE -->
+      <div id="cfgEdit" style="display:none;">
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-5">
+            <label class="form-label small mb-1">GitHub user <span class="text-danger">*</span></label>
+            <input id="inpUser" type="text" class="form-control" placeholder="your-username">
+          </div>
+          <div class="col-6 col-md-5">
+            <label class="form-label small mb-1">Repository <span class="text-danger">*</span></label>
+            <input id="inpRepo" type="text" class="form-control" placeholder="your-repo">
+          </div>
+          <div class="col-12 col-md-2 d-grid gap-2">
+            <button id="btnSaveCfg" class="btn btn-brand"><i class="bi bi-check2"></i> Save</button>
+            <button id="btnCancelCfg" class="btn btn-outline-secondary btn-sm">Cancel</button>
+          </div>
+        </div>
+        <div id="cfgError" class="text-danger small mt-2" style="display:none;"></div>
+      </div>
+
+      <div class="muted mt-2">Share links use <code class="small">https://&lt;user&gt;.github.io/&lt;repo&gt;/index.html?url=…&amp;sec=…</code></div>
+    </div>
+
+    <!-- Add form -->
+    <div class="card p-3 p-md-4 mb-4">
+      <h6 class="text-uppercase muted mb-3"><i class="bi bi-plus-circle me-1"></i>Add a video</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-7">
+          <label class="form-label small mb-1">YouTube URL or ID</label>
+          <input id="inpUrl" type="text" class="form-control" placeholder="https://www.youtube.com/watch?v=zcRk8SCpIZw">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Slice (seconds)</label>
+          <input id="inpSec" type="number" min="1" value="45" class="form-control">
+        </div>
+        <div class="col-6 col-md-2 d-grid">
+          <button id="btnAdd" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add</button>
+        </div>
+      </div>
+      <div id="addStatus" class="mt-2 small"></div>
+    </div>
+
+    <!-- Video list -->
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h6 class="text-uppercase muted mb-0"><i class="bi bi-collection-play me-1"></i>Loaded videos</h6>
+      <span id="videoCount" class="chip text-bg-light border"></span>
+    </div>
+    <div id="videoList"></div>
+    <div id="emptyState" class="text-center py-5 muted" style="display:none;">
+      <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+      No videos yet. Add one above to build its segment deck.
+    </div>
+
+    <footer class="text-center mt-5 small">
+      New bucket picked <b>34%</b> of the time, Review bucket <b>66%</b>. Decks auto-refresh when New runs out.
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== RUNNER (redirect) ===================== -->
+<div id="runner" class="container spinner-wrap" style="display:none;">
+  <div class="card p-4 text-center" style="max-width:520px;">
+    <div id="runSpin" class="mb-3">
+      <div class="spinner-border" style="color:var(--brand);width:3rem;height:3rem;"></div>
+    </div>
+    <h5 id="runTitle" class="mb-1">Working…</h5>
+    <p id="runMsg" class="muted mb-3">Preparing your loop.</p>
+    <div id="runResult" style="display:none;">
+      <div class="bucket-bar mb-2" id="runBar"></div>
+      <p class="mb-1 small"><span id="runBucket"></span></p>
+      <a id="runTarget" class="small d-block text-truncate mb-3" href="#"></a>
+      <div class="d-grid gap-2">
+        <a id="runGo" class="btn btn-brand" href="#"><i class="bi bi-box-arrow-up-right"></i> Open now</a>
+        <a href="?" class="btn btn-outline-brand btn-sm">Back to dashboard</a>
+      </div>
+    </div>
+    <div id="runError" class="alert alert-danger mt-2" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- copy toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast align-items-center text-bg-dark border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body"><i class="bi bi-clipboard-check me-1"></i> Share link copied to clipboard!</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ============================================================
+   LoopTube Splicer — dashboard + runner, single file (index.html)
+   ============================================================ */
+
+const DB_NAME = 'looptube_splicer';
+const STORE = 'states';
+const META  = 'meta';
+const NEW_PROB = 0.34;
+
+/* ---------- Monthly Pantone-inspired seasonal palette ---------- */
+const PALETTE = [
+  { name:'Classic Blue',  primary:'#0F4C81', accent:'#4A90D9', bg1:'#eef4fb', bg2:'#dbe8f7' }, // Jan
+  { name:'Ultra Violet',  primary:'#5F4B8B', accent:'#8E7CC3', bg1:'#f1edf7', bg2:'#e3dbf0' }, // Feb
+  { name:'Greenery',      primary:'#6E8F3B', accent:'#A8C66C', bg1:'#f2f7e9', bg2:'#e5f0d5' }, // Mar
+  { name:'Rose Quartz',   primary:'#C46A82', accent:'#F0A9BC', bg1:'#fdf1f4', bg2:'#fbe4ea' }, // Apr
+  { name:'Serenity',      primary:'#5E7FBF', accent:'#92A8D1', bg1:'#eef2fa', bg2:'#dde6f5' }, // May
+  { name:'Living Coral',  primary:'#F0655A', accent:'#FF9B8E', bg1:'#fff1ef', bg2:'#ffe0db' }, // Jun
+  { name:'Emerald',       primary:'#009B77', accent:'#33B79A', bg1:'#e8f7f2', bg2:'#d3efe6' }, // Jul
+  { name:'Saffron',       primary:'#E8940C', accent:'#FFB84D', bg1:'#fff6e6', bg2:'#ffedcc' }, // Aug
+  { name:'Marsala',       primary:'#955251', accent:'#B57A79', bg1:'#f7eeee', bg2:'#efdcdb' }, // Sep
+  { name:'Pumpkin',       primary:'#E05D0C', accent:'#F58A4B', bg1:'#fff0e6', bg2:'#ffe0cc' }, // Oct
+  { name:'Mocha Mousse',  primary:'#A47864', accent:'#C09A88', bg1:'#f6f0ec', bg2:'#ece0d8' }, // Nov
+  { name:'Fiery Red',     primary:'#C0392B', accent:'#E0605A', bg1:'#fbeceb', bg2:'#f7dad8' }, // Dec
+];
+function applySeasonTheme() {
+  const now = new Date();
+  const t = PALETTE[now.getMonth()];
+  const r = document.documentElement.style;
+  r.setProperty('--brand', t.primary);
+  r.setProperty('--brand-accent', t.accent);
+  r.setProperty('--bg1', t.bg1);
+  r.setProperty('--bg2', t.bg2);
+  const monthName = now.toLocaleString('en-US', { month: 'long' });
+  const el = document.getElementById('seasonLabel');
+  if (el) el.textContent = `${monthName} · ${t.name}`;
+}
+applySeasonTheme();
+
+/* ---------- IndexedDB helpers ---------- */
+function openDB() {
+  return new Promise((res, rej) => {
+    const q = indexedDB.open(DB_NAME, 1);
+    q.onupgradeneeded = () => {
+      const db = q.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath:'key' });
+      if (!db.objectStoreNames.contains(META))  db.createObjectStore(META,  { keyPath:'k' });
+    };
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+}
+const tx = (db, store, mode) => db.transaction(store, mode).objectStore(store);
+function idbGet(db, s, k){return new Promise((res,rej)=>{const r=tx(db,s,'readonly').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function idbGetAll(db, s){return new Promise((res,rej)=>{const r=tx(db,s,'readonly').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error);});}
+function idbPut(db, s, v){return new Promise((res,rej)=>{const r=tx(db,s,'readwrite').put(v);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function idbDel(db, s, k){return new Promise((res,rej)=>{const r=tx(db,s,'readwrite').delete(k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+
+/* ---------- helpers ---------- */
+function extractVideoId(input){
+  if(!input) return null;
+  input = input.trim();
+  if(/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
+  const m = input.match(/(?:v=|\/embed\/|youtu\.be\/|\/shorts\/|videoId=)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function buildItems(videoId, sec, duration, rate){
+  const items = []; let id = 1;
+  for(let start=0; start<duration; start+=sec, id++){
+    const end = Math.min(start+sec, duration);
+    items.push([id, `https://looptube.io/?videoId=${videoId}&start=${start}&end=${end}&rate=${rate}`, 1]);
+  }
+  return items;
+}
+
+/* ---------- share-link config (preset user/repo) ---------- */
+let CFG = { user:'', repo:'' };
+function shareUrl(videoId, sec){
+  const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const user = CFG.user || '<user>';
+  const repo = CFG.repo || '<repo>';
+  return `https://${user}.github.io/${repo}/index.html?url=${ytUrl}&sec=${sec}`;
+}
+
+/* ---------- YouTube duration via IFrame API ---------- */
+function getYouTubeDuration(videoId){
+  return new Promise((resolve, reject) => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;opacity:0;';
+    holder.id = 'yt-probe-' + Math.random().toString(36).slice(2);
+    document.body.appendChild(holder);
+    let settled=false, player;
+    const finish=(val,err)=>{ if(settled)return; settled=true; try{player&&player.destroy&&player.destroy();}catch(e){} holder.remove(); err?reject(err):resolve(val); };
+    const start=()=>{
+      player = new YT.Player(holder.id, {
+        videoId,
+        playerVars:{autoplay:0,controls:0,disablekb:1,mute:1},
+        events:{
+          onReady:(e)=>{ try{e.target.mute();e.target.playVideo();}catch(err){}
+            let tries=0;
+            const poll=setInterval(()=>{ tries++; let d=0; try{d=e.target.getDuration();}catch(err){}
+              if(d&&d>0){clearInterval(poll);finish(Math.floor(d));}
+              else if(tries>50){clearInterval(poll);finish(null,new Error('Could not read video duration.'));}
+            },200);
+          },
+          onError:()=>finish(null,new Error('Video could not be loaded (invalid / private / restricted).'))
+        }
+      });
+    };
+    if(window.YT && window.YT.Player){ start(); }
+    else{
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = ()=>{ prev&&prev(); start(); };
+      if(!document.getElementById('yt-api')){
+        const s=document.createElement('script'); s.id='yt-api'; s.src='https://www.youtube.com/iframe_api';
+        document.head.appendChild(s);
+      }
+    }
+    setTimeout(()=>finish(null,new Error('Timed out loading the YouTube player.')),15000);
+  });
+}
+
+/* ---------- bucket pick ---------- */
+function pickSegment(items){
+  let newItems=items.filter(i=>i[2]===1), reviewItems=items.filter(i=>i[2]===2), useNew, refreshed=false;
+  if(newItems.length===0 && reviewItems.length===0){ items.forEach(i=>i[2]=1); newItems=items.slice(); reviewItems=[]; useNew=true; refreshed=true; }
+  else if(reviewItems.length===0){ useNew=true; }
+  else if(newItems.length===0){
+    if(Math.random()<NEW_PROB){ items.forEach(i=>i[2]=1); newItems=items.slice(); reviewItems=[]; useNew=true; refreshed=true; }
+    else useNew=false;
+  } else { useNew = Math.random()<NEW_PROB; }
+  const bucket = useNew ? newItems : reviewItems;
+  const chosen = bucket[Math.floor(Math.random()*bucket.length)];
+  chosen[2]=2;
+  return { chosen, fromBucket: useNew?'New':'Review', refreshed };
+}
+
+/* ---------- clipboard ---------- */
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); }
+  catch(e){ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  bootstrap.Toast.getOrCreateInstance(document.getElementById('copyToast')).show();
+}
+
+/* ================= DASHBOARD ================= */
+let DB;
+function cfgComplete(){ return !!(CFG.user && CFG.repo); }
+function updateHostPreview(){
+  const el=document.getElementById('hostPreview');
+  if(cfgComplete()){ el.textContent = `${CFG.user}.github.io/${CFG.repo}`; el.className='chip text-bg-light border'; }
+  else { el.textContent = 'setup required'; el.className='chip border text-danger'; }
+}
+function showCfgView(){
+  document.getElementById('viewUser').textContent = CFG.user || '—';
+  document.getElementById('viewRepo').textContent = CFG.repo || '—';
+  document.getElementById('cfgView').style.display = 'block';
+  document.getElementById('cfgEdit').style.display = 'none';
+}
+function showCfgEdit(){
+  document.getElementById('inpUser').value = CFG.user;
+  document.getElementById('inpRepo').value = CFG.repo;
+  document.getElementById('cfgError').style.display = 'none';
+  document.getElementById('cfgView').style.display = 'none';
+  document.getElementById('cfgEdit').style.display = 'block';
+  // Hide Cancel when config is incomplete — the user MUST provide the presets.
+  document.getElementById('btnCancelCfg').style.display = cfgComplete() ? 'block' : 'none';
+  document.getElementById('inpUser').focus();
+}
+async function renderDashboard(){
+  const list = document.getElementById('videoList');
+  const all = (await idbGetAll(DB, STORE)).filter(s=>Array.isArray(s.items));
+  document.getElementById('videoCount').textContent = `${all.length} video${all.length!==1?'s':''}`;
+  document.getElementById('emptyState').style.display = all.length ? 'none' : 'block';
+  list.innerHTML = '';
+
+  for(const st of all){
+    const total = st.items.length;
+    const rev = st.items.filter(i=>i[2]===2).length;
+    const nw  = total - rev;
+    const revPct = total ? Math.round(rev/total*100) : 0;
+    const newPct = 100 - revPct;
+    const link = shareUrl(st.videoId, st.sec);
+
+    const card = document.createElement('div');
+    card.className = 'card p-3 mb-3';
+    card.innerHTML = `
+      <div class="d-flex gap-3 flex-wrap flex-md-nowrap">
+        <img class="thumb flex-shrink-0" src="https://i.ytimg.com/vi/${st.videoId}/mqdefault.jpg" alt="">
+        <div class="flex-grow-1" style="min-width:0;">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div style="min-width:0;">
+              <div class="video-title text-truncate">${st.videoId}</div>
+              <div class="muted">${total} segments · ${st.sec}s slices · ${fmtDur(st.duration)}</div>
+            </div>
+            <button class="btn btn-sm btn-outline-danger flex-shrink-0" data-del="${st.key}" title="Remove"><i class="bi bi-trash"></i></button>
+          </div>
+
+          <div class="bucket-bar mt-2">
+            <div class="d-flex h-100">
+              <div class="seg-new h-100" style="width:${newPct}%"></div>
+              <div class="seg-review h-100" style="width:${revPct}%"></div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mt-1">
+            <span class="small"><span class="chip" style="background:var(--brand);color:#fff;">New ${newPct}%</span> <span class="muted">(${nw})</span></span>
+            <span class="small"><span class="chip" style="background:var(--brand-accent);color:#fff;opacity:.85;">Review ${revPct}%</span> <span class="muted">(${rev})</span></span>
+          </div>
+
+          <div class="d-flex gap-2 mt-3 flex-wrap">
+            <a class="btn btn-sm btn-brand" href="${link}"><i class="bi bi-play-fill"></i> Play</a>
+            <button class="btn btn-sm btn-outline-brand" data-share="${link}"><i class="bi bi-share-fill"></i> Share</button>
+            <code class="small text-truncate d-none d-md-inline align-self-center flex-grow-1" style="max-width:100%;">${link}</code>
+          </div>
+        </div>
+      </div>`;
+    list.appendChild(card);
+  }
+
+  list.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>{
+    if(!cfgComplete()){ showCfgEdit(); document.getElementById('cfgError').style.display='block'; document.getElementById('cfgError').textContent='Set your GitHub user and repository first to generate share links.'; document.getElementById('cfgView').scrollIntoView({behavior:'smooth'}); return; }
+    copyText(b.getAttribute('data-share'));
+  });
+  list.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ await idbDel(DB, STORE, b.getAttribute('data-del')); renderDashboard(); });
+}
+function fmtDur(s){ if(!s) return '—'; const m=Math.floor(s/60), ss=s%60; const h=Math.floor(m/60); return h?`${h}h ${m%60}m`:`${m}m ${ss}s`; }
+
+async function saveConfig(){
+  const user = document.getElementById('inpUser').value.trim();
+  const repo = document.getElementById('inpRepo').value.trim();
+  const err = document.getElementById('cfgError');
+
+  // Validation: both presets are required.
+  const missing = [];
+  if(!user) missing.push('GitHub user');
+  if(!repo) missing.push('Repository');
+  if(missing.length){
+    err.style.display='block';
+    err.textContent = `Please fill in: ${missing.join(' and ')}.`;
+    return;
+  }
+
+  CFG.user = user; CFG.repo = repo;
+  await idbPut(DB, META, { k:'cfg', user:CFG.user, repo:CFG.repo });
+  updateHostPreview();
+  showCfgView();
+  renderDashboard();
+}
+
+async function addVideo(){
+  const status = document.getElementById('addStatus');
+  const raw = document.getElementById('inpUrl').value;
+  const sec = parseInt(document.getElementById('inpSec').value,10) || 45;
+  const vid = extractVideoId(raw);
+  if(!vid){ status.innerHTML = '<span class="text-danger">Couldn’t find a valid YouTube video ID.</span>'; return; }
+  const key = `${vid}__${sec}__1`;
+  const existing = await idbGet(DB, STORE, key);
+  if(existing){ status.innerHTML='<span class="text-warning-emphasis">Already loaded — showing existing deck.</span>'; renderDashboard(); return; }
+
+  const btn = document.getElementById('btnAdd');
+  btn.disabled = true; btn.innerHTML='<span class="spinner-border spinner-border-sm"></span>';
+  status.innerHTML = '<span class="muted">Reading video length from YouTube…</span>';
+  try{
+    const duration = await getYouTubeDuration(vid);
+    if(!duration) throw new Error('Could not determine duration.');
+    const items = buildItems(vid, sec, duration, 1);
+    await idbPut(DB, STORE, { key, videoId:vid, sec, rate:'1', duration, items });
+    status.innerHTML = `<span class="text-success">Added! ${items.length} segments built.</span>`;
+    document.getElementById('inpUrl').value='';
+    renderDashboard();
+  }catch(e){ status.innerHTML = `<span class="text-danger">${e.message}</span>`; }
+  finally{ btn.disabled=false; btn.innerHTML='<i class="bi bi-plus-lg"></i> Add'; }
+}
+
+/* ================= RUNNER ================= */
+async function runPick(videoId, sec, rate){
+  document.getElementById('runner').style.display='flex';
+  const key = `${videoId}__${sec}__${rate}`;
+  const setMsg=(t,m)=>{document.getElementById('runTitle').textContent=t; document.getElementById('runMsg').textContent=m;};
+  const fail=(m)=>{ document.getElementById('runSpin').style.display='none'; const e=document.getElementById('runError'); e.style.display='block'; e.textContent=m; };
+
+  let state = await idbGet(DB, STORE, key);
+  if(!state){
+    setMsg('First run for this video','Reading the video length from YouTube…');
+    let duration; try{ duration = await getYouTubeDuration(videoId); }catch(e){ return fail(e.message); }
+    if(!duration) return fail('Could not determine the video duration.');
+    state = { key, videoId, sec, rate, duration, items: buildItems(videoId, sec, duration, rate) };
+    await idbPut(DB, STORE, state);
+  }
+  await idbPut(DB, META, { k:'last', videoId, sec, rate, key });
+
+  const { chosen, fromBucket, refreshed } = pickSegment(state.items);
+  await idbPut(DB, STORE, state);
+
+  const url = chosen[1];
+  const total = state.items.length;
+  const rev = state.items.filter(i=>i[2]===2).length;
+  const newPct = Math.round((total-rev)/total*100), revPct = 100-newPct;
+
+  document.getElementById('runSpin').style.display='none';
+  document.getElementById('runResult').style.display='block';
+  document.getElementById('runTitle').textContent='Segment picked ✅';
+  document.getElementById('runMsg').textContent='';
+  document.getElementById('runBar').innerHTML = `<div class="d-flex h-100"><div class="seg-new h-100" style="width:${newPct}%"></div><div class="seg-review h-100" style="width:${revPct}%"></div></div>`;
+  document.getElementById('runBucket').innerHTML = `From the <b>${fromBucket}</b> bucket${refreshed?' — deck refreshed (all reset to New)':''}. New ${newPct}% · Review ${revPct}%`;
+  const a=document.getElementById('runTarget'); a.textContent=url; a.href=url;
+  document.getElementById('runGo').href=url;
+  setTimeout(()=>{ location.href=url; }, 1000);
+}
+
+/* ================= ENTRY ================= */
+(async function(){
+  DB = await openDB();
+
+  // load saved preset user/repo
+  const cfg = await idbGet(DB, META, 'cfg');
+  if(cfg){ CFG.user = cfg.user||''; CFG.repo = cfg.repo||''; }
+
+  const p = new URLSearchParams(location.search);
+  const rawUrl = p.get('url')||p.get('yt')||p.get('v')||p.get('videoId');
+
+  if(rawUrl){
+    const videoId = extractVideoId(rawUrl);
+    const sec = parseInt(p.get('sec')||p.get('seconds')||p.get('slice')||'',10);
+    const rate = p.get('rate')||'1';
+    if(!videoId){ document.getElementById('runner').style.display='flex'; document.getElementById('runSpin').style.display='none'; const e=document.getElementById('runError'); e.style.display='block'; e.textContent='Invalid YouTube URL / ID in the link.'; return; }
+    return runPick(videoId, (Number.isFinite(sec)&&sec>0)?sec:45, rate);
+  }
+
+  // dashboard
+  document.getElementById('dashboard').style.display='block';
+  updateHostPreview();
+
+  // Settings CRUD wiring
+  document.getElementById('btnEditCfg').onclick = showCfgEdit;
+  document.getElementById('btnCancelCfg').onclick = showCfgView;
+  document.getElementById('btnSaveCfg').onclick = saveConfig;
+  document.getElementById('inpRepo').addEventListener('keydown', e=>{ if(e.key==='Enter') saveConfig(); });
+
+  // If any preset is missing, require input immediately (open edit mode, no cancel).
+  if(cfgComplete()) showCfgView();
+  else showCfgEdit();
+
+  // Add-video wiring
+  document.getElementById('btnAdd').onclick = addVideo;
+  document.getElementById('inpUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') addVideo(); });
+  renderDashboard();
+})();
+</script>
+</body>
+</html>
