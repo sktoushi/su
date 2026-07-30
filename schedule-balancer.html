@@ -1,85 +1,631 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scheduler Redirect</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scheduler Redirect</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f232c;
+    --line: #2c313c;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --accent-2: #35d6a4;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body.is-loading { visibility: hidden; }
+  #app[hidden] { display: none; }
+  .wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    overflow: hidden;
+  }
+  .card__head {
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .card__head h1 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: .2px;
+  }
+  .card__head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .card__body { padding: 8px 22px 4px; }
+  .card__foot {
+    padding: 16px 22px 20px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 132px 84px 60px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row__name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row__meta {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input[type="number"] {
+    width: 100%;
+    padding: 7px 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+    text-align: right;
+  }
+  input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .pct {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  .pct.is-zero { color: var(--muted); font-weight: 400; }
+  button {
+    font: inherit;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    padding: 9px 14px;
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover { border-color: #3c434f; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #08101f;
+    font-weight: 650;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  .spacer { flex: 1 1 auto; }
+  .note {
+    padding: 10px 22px 14px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .note b { color: var(--text); font-weight: 600; }
+  .warn { color: var(--danger); }
+  .fatal {
+    max-width: 620px;
+    margin: 60px auto;
+    padding: 20px 22px;
+    background: var(--panel);
+    border: 1px solid var(--danger);
+    border-radius: 12px;
+  }
+  @media (max-width: 520px) {
+    .row { grid-template-columns: 1fr 84px 56px; }
+    .row__slider { grid-column: 1 / -1; }
+  }
+</style>
 </head>
-<body>
+<body class="is-loading">
+
+<div id="app" hidden></div>
 
 <script>
 (function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * Configuration
+   * ------------------------------------------------------------------ */
+  const CONFIG = {
+    BASE_URL: 'https://sktoushi.github.io/su/',
+    DB_NAME: 'schedulerRedirect',
+    DB_VERSION: 1,
+    STORE: 'prefs',
+    KEY_ALLOCATION: 'allocation',
+    KEY_LAST_PROMPT: 'lastPromptAt',
+    KEY_URL_SIGNATURE: 'urlAllocationSignature',
+    INTERVAL_MINUTES: 30,          // tick boundaries: :00 and :30
+    AUTO_CONTINUE_MS: 45000,       // auto-redirect if the panel is ignored (0 = disabled)
+    MAX_WEIGHT: 100
+  };
+
+  const INTERVAL_MS = CONFIG.INTERVAL_MINUTES * 60 * 1000;
   const params = new URLSearchParams(window.location.search);
 
-  // Parse scheduler names
-  const names = (params.get("skedNames") || "")
-    .split("_")
-    .filter(Boolean);
+  /* ------------------------------------------------------------------ *
+   * IndexedDB layer (with in-memory fallback for private mode / blocked)
+   * ------------------------------------------------------------------ */
+  const memoryStore = new Map();
+  let dbPromise = null;
 
-  // Parse max values
-  const maxValues = (params.get("maxWeights") || "")
-    .split("_")
-    .map(n => parseInt(n, 10));
-
-  // Parse allocation weights (optional)
-  let allocations = (params.get("allocation") || "")
-    .split("_")
-    .map(n => parseInt(n, 10));
-
-  // Default to equal weights if allocation missing/invalid
-  if (
-    allocations.length !== names.length ||
-    allocations.some(n => !Number.isInteger(n) || n <= 0)
-  ) {
-    allocations = new Array(names.length).fill(1);
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (resolve, reject) {
+      if (!('indexedDB' in window)) return reject(new Error('IndexedDB unavailable'));
+      let req;
+      try {
+        req = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
+      } catch (err) {
+        return reject(err);
+      }
+      req.onupgradeneeded = function (e) {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(CONFIG.STORE)) {
+          db.createObjectStore(CONFIG.STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB open failed')); };
+      req.onblocked = function () { reject(new Error('IndexedDB blocked')); };
+    }).catch(function (err) {
+      console.warn('[scheduler] Falling back to in-memory storage:', err && err.message);
+      return null; // null => use memoryStore
+    });
+    return dbPromise;
   }
 
-  // Build scheduler list
-  const schedulers = [];
+  function idbGet(id) {
+    return openDB().then(function (db) {
+      if (!db) return memoryStore.get(id) || null;
+      return new Promise(function (resolve) {
+        try {
+          const tx = db.transaction(CONFIG.STORE, 'readonly');
+          const req = tx.objectStore(CONFIG.STORE).get(id);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { resolve(null); };
+        } catch (e) { resolve(null); }
+      });
+    });
+  }
 
-  for (let i = 0; i < names.length; i++) {
-    const max = maxValues[i];
+  function idbSet(record) {
+    return openDB().then(function (db) {
+      if (!db) { memoryStore.set(record.id, record); return true; }
+      return new Promise(function (resolve) {
+        try {
+          const tx = db.transaction(CONFIG.STORE, 'readwrite');
+          tx.objectStore(CONFIG.STORE).put(record);
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { memoryStore.set(record.id, record); resolve(false); };
+          tx.onabort = function () { memoryStore.set(record.id, record); resolve(false); };
+        } catch (e) { memoryStore.set(record.id, record); resolve(false); }
+      });
+    });
+  }
 
+  /* ------------------------------------------------------------------ *
+   * URL parsing
+   * ------------------------------------------------------------------ */
+  const rawAllocationParam = (params.get('allocation') || '').trim();
+
+  const urlNames = (params.get('skedNames') || '').split('_').filter(Boolean);
+  const urlMaxValues = (params.get('maxWeights') || '').split('_').map(function (n) {
+    return parseInt(n, 10);
+  });
+  const urlWeights = rawAllocationParam
+    ? rawAllocationParam.split('_').map(function (n) { return parseInt(n, 10); })
+    : [];
+
+  // Only trust the URL allocation when its shape matches the scheduler list.
+  const urlAllocationUsable =
+    urlWeights.length === urlNames.length &&
+    urlWeights.every(function (n) { return Number.isInteger(n) && n >= 0; }) &&
+    urlWeights.some(function (n) { return n > 0; });
+
+  // Signature lets us detect "a *new* allocation arrived via URL".
+  const urlSignature = urlAllocationUsable
+    ? urlNames.join('_') + '|' + urlWeights.join('_')
+    : '';
+
+  // Base scheduler list (name + max), filtered to valid entries only.
+  const baseSchedulers = [];
+  for (let i = 0; i < urlNames.length; i++) {
+    const max = urlMaxValues[i];
     if (Number.isInteger(max) && max > 0) {
-      schedulers.push({
-        name: names[i],
+      baseSchedulers.push({
+        name: urlNames[i],
         max: max,
-        weight: allocations[i]
+        urlWeight: urlAllocationUsable ? urlWeights[i] : null
       });
     }
   }
 
-  if (schedulers.length === 0) {
-    document.body.textContent =
-      "Error: No valid schedulers were supplied.";
+  if (baseSchedulers.length === 0) {
+    document.body.classList.remove('is-loading');
+    document.body.innerHTML =
+      '<div class="fatal">Error: No valid schedulers were supplied.</div>';
     return;
   }
 
-  // Weighted random selection
-  const totalWeight = schedulers.reduce(
-    (sum, s) => sum + s.weight,
-    0
-  );
+  /* ------------------------------------------------------------------ *
+   * Allocation reconciliation
+   *
+   * Precedence per scheduler name:
+   *   1. A brand-new `allocation` URL param  -> URL wins (fresh explicit intent)
+   *   2. A previously saved weight           -> stored wins (user's UI choice)
+   *   3. Name is new / never seen            -> URL weight, else default 1
+   * Names that disappear from the URL are pruned from storage.
+   * ------------------------------------------------------------------ */
+  function reconcile(storedAllocation, storedSignature) {
+    const stored = (storedAllocation && storedAllocation.weights) || {};
+    const urlIsNew = urlSignature !== '' && urlSignature !== storedSignature;
 
-  let r = Math.random() * totalWeight;
-  let chosenScheduler = schedulers[0];
+    const weights = {};
+    const changes = { added: [], removed: [], overriddenByUrl: false };
 
-  for (const s of schedulers) {
-    if (r < s.weight) {
-      chosenScheduler = s;
-      break;
-    }
-    r -= s.weight;
+    baseSchedulers.forEach(function (s) {
+      const savedWeight = stored[s.name];
+      const hasSaved = Number.isFinite(savedWeight);
+
+      if (urlIsNew && Number.isFinite(s.urlWeight)) {
+        weights[s.name] = s.urlWeight;               // 1. fresh URL intent
+        changes.overriddenByUrl = true;
+      } else if (hasSaved) {
+        weights[s.name] = savedWeight;               // 2. persisted user choice
+      } else {
+        weights[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1; // 3. new name
+        changes.added.push(s.name);
+      }
+    });
+
+    Object.keys(stored).forEach(function (name) {
+      if (!(name in weights)) changes.removed.push(name);
+    });
+
+    return { weights: weights, changes: changes, urlIsNew: urlIsNew };
   }
 
-  // Random number from 1..max
-  const chosenNumber =
-    Math.floor(Math.random() * chosenScheduler.max) + 1;
+  /* ------------------------------------------------------------------ *
+   * Interval gating
+   *   - show exactly on a :00 / :30 boundary (once per boundary), OR
+   *   - show if more than 30 min have elapsed since the last prompt.
+   * ------------------------------------------------------------------ */
+  function boundaryOf(date) {
+    const d = new Date(date.getTime());
+    d.setSeconds(0, 0);
+    d.setMinutes(d.getMinutes() < CONFIG.INTERVAL_MINUTES ? 0 : CONFIG.INTERVAL_MINUTES);
+    return d.getTime();
+  }
 
-  // Redirect
-  window.location.replace(
-    `https://sktoushi.github.io/su/${chosenScheduler.name}-scheduler.html?max=${chosenNumber}`
-  );
+  function shouldPrompt(lastPromptAt, now) {
+    if (params.get('configure') === '1' || params.has('ui')) {
+      return { show: true, reason: 'Opened manually via URL flag.' };
+    }
+    if (!Number.isFinite(lastPromptAt)) {
+      return { show: true, reason: 'First run on this device — no saved allocation yet.' };
+    }
+
+    const nowMs = now.getTime();
+    const minute = now.getMinutes();
+    const boundary = boundaryOf(now);
+
+    const onTick = (minute === 0 || minute === CONFIG.INTERVAL_MINUTES) && lastPromptAt < boundary;
+    if (onTick) {
+      return { show: true, reason: 'Scheduled check-in at the :' + String(minute).padStart(2, '0') + ' mark.' };
+    }
+
+    const elapsed = nowMs - lastPromptAt;
+    if (elapsed > INTERVAL_MS) {
+      return {
+        show: true,
+        reason: 'It has been ' + Math.floor(elapsed / 60000) + ' minutes since the last check-in.'
+      };
+    }
+
+    return { show: false, reason: '' };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Weighted pick + redirect
+   * ------------------------------------------------------------------ */
+  function pickAndRedirect(weights) {
+    const pool = baseSchedulers
+      .map(function (s) {
+        return { name: s.name, max: s.max, weight: Math.max(0, Number(weights[s.name]) || 0) };
+      })
+      .filter(function (s) { return s.weight > 0; });
+
+    // Every weight zeroed out -> fall back to an even split so we never dead-end.
+    const candidates = pool.length
+      ? pool
+      : baseSchedulers.map(function (s) { return { name: s.name, max: s.max, weight: 1 }; });
+
+    const totalWeight = candidates.reduce(function (sum, s) { return sum + s.weight; }, 0);
+
+    let r = Math.random() * totalWeight;
+    let chosen = candidates[candidates.length - 1]; // float-safe fallback
+
+    for (let i = 0; i < candidates.length; i++) {
+      if (r < candidates[i].weight) { chosen = candidates[i]; break; }
+      r -= candidates[i].weight;
+    }
+
+    const chosenNumber = Math.floor(Math.random() * chosen.max) + 1;
+
+    window.location.replace(
+      CONFIG.BASE_URL + chosen.name + '-scheduler.html?max=' + chosenNumber
+    );
+  }
+
+  function persistAllocation(weights) {
+    return Promise.all([
+      idbSet({
+        id: CONFIG.KEY_ALLOCATION,
+        weights: weights,
+        updatedAt: Date.now()
+      }),
+      idbSet({
+        id: CONFIG.KEY_URL_SIGNATURE,
+        value: urlSignature,
+        updatedAt: Date.now()
+      })
+    ]);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * UI
+   * ------------------------------------------------------------------ */
+  function renderEditor(weights, reason, changes) {
+    return new Promise(function (resolve) {
+      const app = document.getElementById('app');
+      const working = Object.assign({}, weights);
+      let autoTimer = null;
+
+      const changeNotes = [];
+      if (changes.overriddenByUrl) changeNotes.push('A new <b>allocation</b> value from the link was applied.');
+      if (changes.added.length) changeNotes.push('New scheduler(s) added: <b>' + changes.added.join(', ') + '</b>.');
+      if (changes.removed.length) changeNotes.push('Removed from the link: <b>' + changes.removed.join(', ') + '</b>.');
+
+      app.innerHTML =
+        '<div class="wrap"><div class="card">' +
+          '<div class="card__head">' +
+            '<h1>Adjust scheduler probability</h1>' +
+            '<p>' + escapeHtml(reason) + '</p>' +
+          '</div>' +
+          '<div class="card__body" id="rows"></div>' +
+          (changeNotes.length ? '<div class="note">' + changeNotes.join(' ') + '</div>' : '') +
+          '<div class="note" id="totalNote"></div>' +
+          '<div class="card__foot">' +
+            '<button type="button" id="btnEqual">Equalize</button>' +
+            '<button type="button" id="btnReset">Reset to link</button>' +
+            '<span class="spacer"></span>' +
+            '<button type="button" id="btnSkip">Continue as-is</button>' +
+            '<button type="button" class="primary" id="btnSave">Save &amp; continue<span id="countdown"></span></button>' +
+          '</div>' +
+        '</div></div>';
+
+      const rows = document.getElementById('rows');
+
+      baseSchedulers.forEach(function (s) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML =
+          '<div class="row__name">' + escapeHtml(s.name) +
+            '<span class="row__meta">max ' + s.max + '</span></div>' +
+          '<div class="row__slider"><input type="range" min="0" max="' + CONFIG.MAX_WEIGHT +
+            '" step="1" value="' + clamp(working[s.name]) + '" aria-label="' + escapeHtml(s.name) + ' weight"></div>' +
+          '<div><input type="number" min="0" max="' + CONFIG.MAX_WEIGHT +
+            '" step="1" value="' + clamp(working[s.name]) + '" aria-label="' + escapeHtml(s.name) + ' weight value"></div>' +
+          '<div class="pct" data-pct="' + escapeHtml(s.name) + '">0%</div>';
+        rows.appendChild(row);
+
+        const range = row.querySelector('input[type="range"]');
+        const num = row.querySelector('input[type="number"]');
+
+        function sync(value, mirrorRange, mirrorNum) {
+          const v = clamp(value);
+          working[s.name] = v;
+          if (mirrorRange) range.value = v;
+          if (mirrorNum) num.value = v;
+          refreshPercentages();
+          cancelAuto();
+        }
+
+        range.addEventListener('input', function () { sync(range.value, false, true); });
+        num.addEventListener('input', function () { sync(num.value, true, false); });
+        num.addEventListener('blur', function () { sync(num.value, true, true); });
+      });
+
+      function refreshPercentages() {
+        const total = baseSchedulers.reduce(function (sum, s) { return sum + clamp(working[s.name]); }, 0);
+        baseSchedulers.forEach(function (s) {
+          const el = rows.querySelector('[data-pct="' + cssEscape(s.name) + '"]');
+          const w = clamp(working[s.name]);
+          const pct = total > 0 ? (w / total) * 100 : 0;
+          el.textContent = total > 0 ? pct.toFixed(1) + '%' : '—';
+          el.classList.toggle('is-zero', w === 0);
+        });
+        const note = document.getElementById('totalNote');
+        note.innerHTML = total > 0
+          ? 'Total weight: <b>' + total + '</b>. Percentages are relative — only the ratio matters.'
+          : '<span class="warn">All weights are zero. Continuing will fall back to an even split.</span>';
+      }
+
+      function cancelAuto() {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        const c = document.getElementById('countdown');
+        if (c) c.textContent = '';
+      }
+
+      document.getElementById('btnEqual').addEventListener('click', function () {
+        baseSchedulers.forEach(function (s) { working[s.name] = 1; });
+        syncInputsFromWorking();
+        cancelAuto();
+      });
+
+      document.getElementById('btnReset').addEventListener('click', function () {
+        baseSchedulers.forEach(function (s) {
+          working[s.name] = Number.isFinite(s.urlWeight) ? clamp(s.urlWeight) : 1;
+        });
+        syncInputsFromWorking();
+        cancelAuto();
+      });
+
+      document.getElementById('btnSkip').addEventListener('click', function () {
+        cancelAuto();
+        resolve({ weights: weights, save: false });
+      });
+
+      document.getElementById('btnSave').addEventListener('click', function () {
+        cancelAuto();
+        resolve({ weights: working, save: true });
+      });
+
+      document.addEventListener('keydown', function onKey(e) {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', onKey);
+          cancelAuto();
+          resolve({ weights: weights, save: false });
+        } else if (e.key === 'Enter' && !e.shiftKey) {
+          document.removeEventListener('keydown', onKey);
+          cancelAuto();
+          resolve({ weights: working, save: true });
+        }
+      });
+
+      function syncInputsFromWorking() {
+        const rowEls = rows.querySelectorAll('.row');
+        baseSchedulers.forEach(function (s, i) {
+          const v = clamp(working[s.name]);
+          rowEls[i].querySelector('input[type="range"]').value = v;
+          rowEls[i].querySelector('input[type="number"]').value = v;
+        });
+        refreshPercentages();
+      }
+
+      refreshPercentages();
+      app.hidden = false;
+      document.body.classList.remove('is-loading');
+
+      // Auto-continue so an abandoned tab still redirects. Any edit cancels it.
+      if (CONFIG.AUTO_CONTINUE_MS > 0) {
+        let left = Math.ceil(CONFIG.AUTO_CONTINUE_MS / 1000);
+        const cd = document.getElementById('countdown');
+        cd.textContent = ' (' + left + ')';
+        autoTimer = setInterval(function () {
+          left -= 1;
+          if (left <= 0) {
+            cancelAuto();
+            resolve({ weights: working, save: true });
+          } else {
+            cd.textContent = ' (' + left + ')';
+          }
+        }, 1000);
+      }
+    });
+  }
+
+  function clamp(n) {
+    const v = Math.round(Number(n));
+    if (!Number.isFinite(v) || v < 0) return 0;
+    return Math.min(v, CONFIG.MAX_WEIGHT);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function cssEscape(s) {
+    return String(s).replace(/["\\]/g, '\\$&');
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Boot
+   * ------------------------------------------------------------------ */
+  Promise.all([
+    idbGet(CONFIG.KEY_ALLOCATION),
+    idbGet(CONFIG.KEY_URL_SIGNATURE),
+    idbGet(CONFIG.KEY_LAST_PROMPT)
+  ])
+  .then(function (res) {
+    const storedAllocation = res[0];
+    const storedSignature = (res[1] && res[1].value) || '';
+    const lastPromptAt = res[2] && Number.isFinite(res[2].at) ? res[2].at : null;
+
+    const merged = reconcile(storedAllocation, storedSignature);
+    const now = new Date();
+    const gate = shouldPrompt(lastPromptAt, now);
+
+    // Storage is reconciled on every load, whether or not the UI appears,
+    // so gaps between URL params and saved state never linger.
+    const storageDirty =
+      !storedAllocation ||
+      merged.urlIsNew ||
+      merged.changes.added.length > 0 ||
+      merged.changes.removed.length > 0 ||
+      storedSignature !== urlSignature;
+
+    const prep = storageDirty ? persistAllocation(merged.weights) : Promise.resolve();
+
+    return prep.then(function () {
+      if (!gate.show) {
+        pickAndRedirect(merged.weights);
+        return;
+      }
+      // Stamp the prompt time up front so a rapid reload doesn't re-nag.
+      return idbSet({ id: CONFIG.KEY_LAST_PROMPT, at: now.getTime() })
+        .then(function () {
+          return renderEditor(merged.weights, gate.reason, merged.changes);
+        })
+        .then(function (result) {
+          if (!result.save) { pickAndRedirect(merged.weights); return; }
+          return persistAllocation(result.weights).then(function () {
+            pickAndRedirect(result.weights);
+          });
+        });
+    });
+  })
+  .catch(function (err) {
+    // Never strand the user: fall back to URL-derived weights.
+    console.error('[scheduler] Falling back to URL weights:', err);
+    const fallback = {};
+    baseSchedulers.forEach(function (s) {
+      fallback[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1;
+    });
+    pickAndRedirect(fallback);
+  });
 })();
 </script>
 
