@@ -1,631 +1,1886 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-scheme="dark" data-phase="day" data-month="0">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scheduler Redirect</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0f1115" id="metaThemeColor">
+<title>Schedule Balancer</title>
 <style>
-  :root {
-    --bg: #0f1115;
-    --panel: #181b22;
-    --panel-2: #1f232c;
-    --line: #2c313c;
-    --text: #e6e8ee;
-    --muted: #9aa3b2;
-    --accent: #4f8cff;
-    --accent-2: #35d6a4;
-    --danger: #ff6b6b;
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  body.is-loading { visibility: hidden; }
-  #app[hidden] { display: none; }
-  .wrap {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 16px;
-  }
-  .card {
-    width: 100%;
-    max-width: 620px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    box-shadow: 0 18px 50px rgba(0,0,0,.45);
-    overflow: hidden;
-  }
-  .card__head {
-    padding: 20px 22px 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .card__head h1 {
-    margin: 0 0 4px;
-    font-size: 18px;
-    font-weight: 650;
-    letter-spacing: .2px;
-  }
-  .card__head p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .card__body { padding: 8px 22px 4px; }
-  .card__foot {
-    padding: 16px 22px 20px;
-    border-top: 1px solid var(--line);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 1fr 132px 84px 60px;
-    gap: 12px;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px dashed var(--line);
-  }
-  .row:last-child { border-bottom: 0; }
-  .row__name {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .row__meta {
-    display: block;
-    font-weight: 400;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  input[type="range"] { width: 100%; accent-color: var(--accent); }
-  input[type="number"] {
-    width: 100%;
-    padding: 7px 8px;
-    background: var(--panel-2);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font: inherit;
-    text-align: right;
-  }
-  input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .pct {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    color: var(--accent-2);
-    font-weight: 600;
-  }
-  .pct.is-zero { color: var(--muted); font-weight: 400; }
-  button {
-    font: inherit;
-    border-radius: 9px;
-    border: 1px solid var(--line);
-    padding: 9px 14px;
-    background: var(--panel-2);
-    color: var(--text);
-    cursor: pointer;
-  }
-  button:hover { border-color: #3c434f; }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #08101f;
-    font-weight: 650;
-  }
-  button.primary:hover { filter: brightness(1.08); }
-  .spacer { flex: 1 1 auto; }
-  .note {
-    padding: 10px 22px 14px;
-    color: var(--muted);
-    font-size: 12.5px;
-  }
-  .note b { color: var(--text); font-weight: 600; }
-  .warn { color: var(--danger); }
-  .fatal {
-    max-width: 620px;
-    margin: 60px auto;
-    padding: 20px 22px;
-    background: var(--panel);
-    border: 1px solid var(--danger);
-    border-radius: 12px;
-  }
-  @media (max-width: 520px) {
-    .row { grid-template-columns: 1fr 84px 56px; }
-    .row__slider { grid-column: 1 / -1; }
-  }
+/* ==================================================================== *
+ * 1. Design tokens — seasonal values are injected at runtime by JS.
+ *    Everything below consumes the tokens, never a hard-coded hue.
+ * ==================================================================== */
+:root {
+  /* Injected: --h1 --h2 --h3 --sat (see Theme.apply) */
+  --h1: 205; --h2: 190; --h3: 225; --sat: 68%;
+
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --tap: 44px;                     /* minimum touch target */
+  --gap: 12px;
+  --pad: clamp(14px, 4.5vw, 24px);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+
+  --dur: .28s;
+}
+
+/* Dark surfaces (night / dusk / dawn / deep winter) */
+html[data-scheme="dark"] {
+  --bg:        hsl(var(--h3) 32% 6%);
+  --bg-2:      hsl(var(--h1) 38% 9%);
+  --panel:     hsl(var(--h3) 24% 11% / .82);
+  --panel-2:   hsl(var(--h3) 22% 16% / .78);
+  --panel-3:   hsl(var(--h3) 20% 21% / .7);
+  --line:      hsl(var(--h3) 20% 30% / .55);
+  --line-soft: hsl(var(--h3) 20% 40% / .28);
+  --text:      hsl(var(--h3) 25% 95%);
+  --muted:     hsl(var(--h3) 14% 68%);
+  --faint:     hsl(var(--h3) 12% 52%);
+  --accent:    hsl(var(--h1) var(--sat) 64%);
+  --accent-ink: hsl(var(--h1) 60% 8%);
+  --accent-2:  hsl(var(--h2) var(--sat) 62%);
+  --accent-3:  hsl(var(--h3) var(--sat) 66%);
+  --danger:    hsl(2 78% 68%);
+  --ok:        hsl(150 62% 55%);
+  --shadow:    0 22px 60px hsl(var(--h3) 60% 2% / .6);
+  --glow:      0 0 0 1px hsl(var(--h1) var(--sat) 60% / .28), 0 10px 34px hsl(var(--h1) 70% 40% / .22);
+  --track:     hsl(var(--h3) 20% 26%);
+  --scrim:     hsl(var(--h3) 40% 4% / .72);
+}
+
+/* Light surfaces (morning / midday) */
+html[data-scheme="light"] {
+  --bg:        hsl(var(--h1) 46% 96%);
+  --bg-2:      hsl(var(--h2) 52% 92%);
+  --panel:     hsl(0 0% 100% / .82);
+  --panel-2:   hsl(var(--h1) 40% 97% / .9);
+  --panel-3:   hsl(var(--h1) 36% 94% / .9);
+  --line:      hsl(var(--h1) 24% 74% / .7);
+  --line-soft: hsl(var(--h1) 24% 66% / .32);
+  --text:      hsl(var(--h3) 34% 14%);
+  --muted:     hsl(var(--h3) 16% 40%);
+  --faint:     hsl(var(--h3) 12% 52%);
+  --accent:    hsl(var(--h1) calc(var(--sat) - 6%) 42%);
+  --accent-ink: hsl(0 0% 100%);
+  --accent-2:  hsl(var(--h2) calc(var(--sat) - 8%) 38%);
+  --accent-3:  hsl(var(--h3) calc(var(--sat) - 8%) 44%);
+  --danger:    hsl(2 68% 46%);
+  --ok:        hsl(152 58% 32%);
+  --shadow:    0 18px 46px hsl(var(--h3) 40% 40% / .18);
+  --glow:      0 0 0 1px hsl(var(--h1) 50% 60% / .3), 0 10px 28px hsl(var(--h1) 60% 50% / .18);
+  --track:     hsl(var(--h1) 30% 84%);
+  --scrim:     hsl(var(--h3) 30% 30% / .45);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  transition: background-color .6s var(--ease-out), color .4s var(--ease-out);
+}
+body.is-loading { visibility: hidden; }
+#app[hidden] { display: none; }
+
+/* ==================================================================== *
+ * 2. Seasonal atmosphere — layered gradients + slow drift
+ * ==================================================================== */
+.sky {
+  position: fixed;
+  inset: -20vmax;
+  z-index: -2;
+  background:
+    radial-gradient(52vmax 52vmax at 12% 8%,  hsl(var(--h1) var(--sat) 52% / .40), transparent 62%),
+    radial-gradient(46vmax 46vmax at 88% 14%, hsl(var(--h2) var(--sat) 54% / .34), transparent 60%),
+    radial-gradient(60vmax 60vmax at 50% 108%, hsl(var(--h3) var(--sat) 46% / .38), transparent 66%),
+    linear-gradient(170deg, var(--bg) 0%, var(--bg-2) 58%, var(--bg) 100%);
+  filter: saturate(1.05);
+  animation: drift 34s var(--ease-in-out) infinite alternate;
+  transition: background .8s var(--ease-out);
+}
+.sky::after {                        /* seasonal grain / haze */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(hsl(0 0% 100% / .05) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: .5;
+  mix-blend-mode: overlay;
+}
+@keyframes drift {
+  from { transform: translate3d(-1.2%, -1%, 0) scale(1.02); }
+  to   { transform: translate3d(1.6%, 1.4%, 0) scale(1.06); }
+}
+
+/* Optional per-season particle veil (snow / petals / embers / leaves) */
+.motes { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.mote {
+  position: absolute;
+  top: -8vh;
+  border-radius: var(--radius-pill);
+  background: var(--mote-color, hsl(0 0% 100% / .6));
+  opacity: var(--mote-opacity, .5);
+  animation: fall var(--mote-dur, 16s) linear infinite;
+  animation-delay: var(--mote-delay, 0s);
+  will-change: transform;
+}
+@keyframes fall {
+  0%   { transform: translate3d(0, -10vh, 0) rotate(0deg); }
+  100% { transform: translate3d(var(--mote-drift, 4vw), 112vh, 0) rotate(320deg); }
+}
+
+/* ==================================================================== *
+ * 3. Layout shell — mobile first
+ * ==================================================================== */
+.wrap {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding:
+    max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+.card {
+  width: 100%;
+  max-width: 720px;
+  margin: auto;
+  background: var(--panel);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: clip;
+  animation: rise .5s var(--ease-out) both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Header ---- */
+.head { padding: var(--pad) var(--pad) 14px; position: relative; }
+.head__season {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(120deg, hsl(var(--h1) var(--sat) 55% / .22), hsl(var(--h2) var(--sat) 55% / .18));
+  border: 1px solid var(--line-soft);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.head__season .glyph { font-size: 14px; line-height: 1; }
+.head h1 {
+  margin: 12px 0 6px;
+  font-size: clamp(21px, 6vw, 27px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+}
+.head p { margin: 0; color: var(--muted); font-size: 14px; }
+.head__rule {
+  margin-top: 14px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2) 55%, transparent);
+  opacity: .85;
+}
+
+/* ---- Scheduler cards ---- */
+.list { padding: 4px var(--pad) 2px; display: grid; gap: var(--gap); }
+
+.sked {
+  padding: 13px 13px 11px;
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
+              transform var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+}
+.sked:focus-within { border-color: var(--accent); box-shadow: var(--glow); }
+.sked[data-conviction="1"] {
+  border-color: hsl(var(--h2) var(--sat) 58% / .8);
+  background:
+    linear-gradient(120deg, hsl(var(--h2) var(--sat) 55% / .16), transparent 60%),
+    var(--panel-2);
+}
+.sked[data-zero="1"] { opacity: .62; }
+
+.sked__top { display: flex; align-items: center; gap: 10px; }
+.sked__dot {
+  width: 10px; height: 10px; flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px hsl(var(--h1) var(--sat) 60% / .18);
+}
+.sked__name {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sked__max {
+  font-size: 11.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  background: var(--panel-3);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.conv {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--faint);
+  font-size: 15px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease-out);
+}
+.conv:hover { color: var(--text); border-color: var(--line); }
+.conv[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  transform: scale(1.04);
+}
+
+/* share bar (manual = fill, adaptive = ghost marker) */
+.bar {
+  position: relative;
+  height: 7px;
+  margin: 11px 0 9px;
+  border-radius: var(--radius-pill);
+  background: var(--track);
+  overflow: hidden;
+}
+.bar__fill {
+  position: absolute; inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .35s var(--ease-out);
+}
+.bar__ghost {
+  position: absolute; top: -3px; bottom: -3px;
+  width: 2px;
+  left: 0%;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  opacity: .55;
+  transition: left .45s var(--ease-out);
+}
+
+.ctrl { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%;
+  height: var(--tap);
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: var(--radius-pill); background: var(--track);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px; border-radius: var(--radius-pill); background: var(--track);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px; height: 26px; margin-top: -10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  border: 3px solid var(--panel);
+  box-shadow: 0 2px 10px hsl(var(--h1) 60% 30% / .5);
+  transition: transform .18s var(--ease-out);
+}
+input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.16); }
+input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  border: 3px solid var(--panel);
+}
+input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--radius-sm); }
+
+.stepper {
+  display: grid;
+  grid-template-columns: var(--tap) 58px var(--tap);
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-pill);
+  background: var(--panel-3);
+  overflow: hidden;
+}
+.stepper button {
+  height: var(--tap);
+  border: 0; background: transparent; color: var(--text);
+  font-size: 19px; line-height: 1; cursor: pointer;
+  transition: background-color .18s var(--ease-out);
+}
+.stepper button:active { background: hsl(var(--h1) var(--sat) 55% / .28); }
+.stepper input {
+  height: var(--tap);
+  width: 100%;
+  border: 0;
+  border-left: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text);
+  font: 600 15px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper input:focus { outline: none; background: hsl(var(--h1) var(--sat) 55% / .12); }
+
+.meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.meta .pct { font-weight: 700; color: var(--accent-2); font-variant-numeric: tabular-nums; font-size: 13px; }
+.meta .pct.is-zero { color: var(--faint); font-weight: 500; }
+.meta .tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-3);
+  border: 1px solid var(--line-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.meta .tag[data-dir="up"]   { color: var(--ok); }
+.meta .tag[data-dir="down"] { color: var(--danger); }
+
+/* ---- Notes / insight panel ---- */
+.note {
+  margin: 10px var(--pad) 0;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+.note b, .note strong { color: var(--text); font-weight: 650; }
+.note.warn { border-color: hsl(2 70% 60% / .5); color: var(--danger); }
+
+details.insight {
+  margin: 10px var(--pad) 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+details.insight > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 13px;
+  font-size: 13px;
+  font-weight: 650;
+  display: flex; align-items: center; gap: 8px;
+  min-height: var(--tap);
+}
+details.insight > summary::-webkit-details-marker { display: none; }
+details.insight > summary::after {
+  content: "▾"; margin-left: auto; color: var(--muted); transition: transform var(--dur) var(--ease-out);
+}
+details.insight[open] > summary::after { transform: rotate(180deg); }
+.insight__body { padding: 0 13px 13px; font-size: 12.5px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 8px 0 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip {
+  font: 500 11.5px/1 var(--mono);
+  padding: 6px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-3);
+  border: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+.chip b { color: var(--accent-2); }
+
+/* ---- Footer / actions ---- */
+.foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: 14px;
+  padding: 12px var(--pad) calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(to top, var(--panel) 70%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: grid;
+  gap: 8px;
+}
+.foot__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.foot__row > button { flex: 1 1 auto; }
+
+button {
+  font: 600 14.5px/1 var(--font);
+  min-height: var(--tap);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--panel-3);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform .14s var(--ease-out), filter .18s var(--ease-out), border-color .18s var(--ease-out);
+}
+button:hover { border-color: var(--line); }
+button:active { transform: scale(.975); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: var(--accent-ink);
+  font-weight: 750;
+  box-shadow: var(--glow);
+}
+button.primary:hover { filter: brightness(1.06); }
+button.ghost { background: transparent; }
+button.wide { width: 100%; }
+.btn__timer {
+  position: absolute; left: 0; bottom: 0; height: 3px;
+  background: hsl(0 0% 100% / .55);
+  width: 100%;
+  transform-origin: left center;
+}
+
+/* ---- Setup / gate screen ---- */
+.code {
+  margin: 0;
+  padding: 12px;
+  max-height: 34svh;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--panel-3);
+  border: 1px solid var(--line-soft);
+  font: 500 12px/1.5 var(--mono);
+  white-space: pre;
+  color: var(--text);
+  -webkit-overflow-scrolling: touch;
+}
+.steps { margin: 0; padding: 0 0 0 18px; color: var(--muted); font-size: 13.5px; }
+.steps li { margin-bottom: 6px; }
+.steps code {
+  font: 500 12px/1 var(--mono);
+  background: var(--panel-3);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--text);
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 20px);
+  z-index: 50;
+  padding: 11px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13.5px;
+  font-weight: 650;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s var(--ease-out), transform .3s var(--ease-out);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.fatal {
+  max-width: 620px;
+  margin: 18svh auto;
+  padding: 20px 22px;
+  background: var(--panel);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: 15px/1.5 var(--font);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ==================================================================== *
+ * 4. Larger screens — progressive enhancement only
+ * ==================================================================== */
+@media (min-width: 620px) {
+  .list { grid-template-columns: 1fr 1fr; }
+  .list > .note, .list > .full { grid-column: 1 / -1; }
+  .foot { position: static; }
+  .foot__row > button { flex: 0 1 auto; }
+  .foot__row > button.grow { flex: 1 1 auto; }
+}
+@media (min-width: 900px) {
+  .card { max-width: 860px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .motes { display: none; }
+}
 </style>
 </head>
 <body class="is-loading">
 
+<div class="sky" aria-hidden="true"></div>
+<div class="motes" id="motes" aria-hidden="true"></div>
 <div id="app" hidden></div>
-
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 (function () {
   'use strict';
 
-  /* ------------------------------------------------------------------ *
-   * Configuration
-   * ------------------------------------------------------------------ */
-  const CONFIG = {
-    BASE_URL: 'https://sktoushi.github.io/su/',
-    DB_NAME: 'schedulerRedirect',
-    DB_VERSION: 1,
-    STORE: 'prefs',
+  /* ================================================================== *
+   * 0. Boot constants
+   * ================================================================== */
+  const APP = {
+    NAME: 'Schedule Balancer',
+    VERSION: 3,
+    CONFIG_PATH: 'config/schedule-balancer-config.json',
+    DB_NAME: 'scheduleBalancer',
+    DB_VERSION: 3,
+    STORE_PREFS: 'prefs',
+    STORE_COMBOS: 'combos',
+    STORE_EVENTS: 'events',
     KEY_ALLOCATION: 'allocation',
+    KEY_CONVICTION: 'convictions',
     KEY_LAST_PROMPT: 'lastPromptAt',
     KEY_URL_SIGNATURE: 'urlAllocationSignature',
-    INTERVAL_MINUTES: 30,          // tick boundaries: :00 and :30
-    AUTO_CONTINUE_MS: 45000,       // auto-redirect if the panel is ignored (0 = disabled)
-    MAX_WEIGHT: 100
+    KEY_CONFIG_CACHE: 'configCache',
+    KEY_SETUP_DONE: 'setupAcknowledged'
   };
 
-  const INTERVAL_MS = CONFIG.INTERVAL_MINUTES * 60 * 1000;
+  const DAY_MS = 86400000;
   const params = new URLSearchParams(window.location.search);
 
-  /* ------------------------------------------------------------------ *
-   * IndexedDB layer (with in-memory fallback for private mode / blocked)
-   * ------------------------------------------------------------------ */
-  const memoryStore = new Map();
+  const DEFAULT_CONFIG = {
+    version: APP.VERSION,
+    baseUrl: 'https://openai.github.io/su/',
+    redirectTemplate: '{base}{name}-scheduler.html?max={pick}',
+    schedulers: [],
+    gate: {
+      intervalMinutes: 30,
+      autoContinueMs: 45000,
+      maxWeight: 100
+    },
+    srs: {
+      enabled: true,
+      blend: 0.45,                    // max influence of the adaptive profile
+      halfLifeDays: 10,               // memory decay of a stored combination
+      initialEase: 2.5,
+      minEase: 1.3,
+      maxEase: 3.2,
+      graduatingIntervalDays: 1,
+      easyIntervalDays: 4,
+      maxIntervalDays: 180,
+      convictionBoost: 1.8,           // multiplier applied to conviction-marked lanes
+      convictionHalfLifeMultiplier: 2.5,
+      weeklyWindow: 8,                // ISO weeks analysed for trend
+      momentum: 0.25,                 // how much the weekly slope is projected forward
+      confidenceSaturation: 12,       // reviews needed before blend reaches full strength
+      memoryVsTrend: 0.7              // 0 = pure weekly trend, 1 = pure memory strength
+    },
+    theme: {
+      hemisphere: 'north',            // north | south
+      mode: 'auto',                   // auto | dark | light
+      animate: true
+    },
+    setup: {
+      portalUrl: 'https://github.com/openai/su/new/main/config',
+      configPath: 'config/schedule-balancer-config.json',
+      instructions: 'Commit this file as config/schedule-balancer-config.json, then reload this page.'
+    }
+  };
+
+  /* ================================================================== *
+   * 1. Seasonal theme — month palette x time-of-day phase
+   * ================================================================== */
+  const MONTHS = [
+    { key: 'jan', label: 'Deep Winter',  glyph: '❄', h1: 204, h2: 188, h3: 222, sat: 64, mote: 'snow'  },
+    { key: 'feb', label: 'Late Frost',   glyph: '✧', h1: 222, h2: 252, h3: 234, sat: 58, mote: 'snow'  },
+    { key: 'mar', label: 'First Thaw',   glyph: '❃', h1: 158, h2: 100, h3: 198, sat: 54, mote: 'rain'  },
+    { key: 'apr', label: 'Bloom',        glyph: '✿', h1: 330, h2: 128, h3: 302, sat: 60, mote: 'petal' },
+    { key: 'may', label: 'Verdant',      glyph: '☘', h1: 136, h2: 168, h3: 104, sat: 60, mote: 'petal' },
+    { key: 'jun', label: 'Early Summer', glyph: '☀', h1: 46,  h2: 196, h3: 58,  sat: 76, mote: 'sun'   },
+    { key: 'jul', label: 'High Summer',  glyph: '✹', h1: 24,  h2: 182, h3: 38,  sat: 82, mote: 'sun'   },
+    { key: 'aug', label: 'Late Summer',  glyph: '✸', h1: 38,  h2: 80,  h3: 28,  sat: 72, mote: 'sun'   },
+    { key: 'sep', label: 'Harvest',      glyph: '✾', h1: 32,  h2: 46,  h3: 20,  sat: 66, mote: 'leaf'  },
+    { key: 'oct', label: 'Autumn',       glyph: '✦', h1: 18,  h2: 356, h3: 26,  sat: 70, mote: 'leaf'  },
+    { key: 'nov', label: 'Bare Season',  glyph: '❂', h1: 266, h2: 212, h3: 250, sat: 42, mote: 'rain'  },
+    { key: 'dec', label: 'Midwinter',    glyph: '✵', h1: 158, h2: 356, h3: 206, sat: 56, mote: 'snow'  }
+  ];
+
+  const PHASES = [
+    { key: 'night',   label: 'Night',       from: 22, to: 5,  scheme: 'dark',  hue: -6, sat: -12, glyph: '☾' },
+    { key: 'dawn',    label: 'Dawn',        from: 5,  to: 8,  scheme: 'dark',  hue: 14, sat: 6,   glyph: '☼' },
+    { key: 'morning', label: 'Morning',     from: 8,  to: 11, scheme: 'light', hue: 6,  sat: 4,   glyph: '☀' },
+    { key: 'midday',  label: 'Midday',      from: 11, to: 16, scheme: 'light', hue: 0,  sat: 8,   glyph: '☀' },
+    { key: 'dusk',    label: 'Golden hour', from: 16, to: 19, scheme: 'dark',  hue: 18, sat: 10,  glyph: '☯' },
+    { key: 'evening', label: 'Evening',     from: 19, to: 22, scheme: 'dark',  hue: 4,  sat: -4,  glyph: '☾' }
+  ];
+
+  const Theme = {
+    current: null,
+    resolve: function (cfg, now) {
+      const south = (cfg.theme && cfg.theme.hemisphere) === 'south';
+      const mIndex = now.getMonth();
+      const palette = MONTHS[south ? (mIndex + 6) % 12 : mIndex];
+      const hour = now.getHours();
+      const phase = PHASES.find(function (p) {
+        return p.from < p.to ? (hour >= p.from && hour < p.to) : (hour >= p.from || hour < p.to);
+      }) || PHASES[3];
+      const forced = cfg.theme && cfg.theme.mode;
+      const scheme = (forced === 'dark' || forced === 'light') ? forced : phase.scheme;
+      return { palette: palette, phase: phase, scheme: scheme, monthIndex: mIndex, southern: south };
+    },
+    apply: function (cfg, now) {
+      const t = Theme.resolve(cfg, now || new Date());
+      Theme.current = t;
+      const root = document.documentElement;
+      const wrap = function (n) { return ((n % 360) + 360) % 360; };
+      root.style.setProperty('--h1', wrap(t.palette.h1 + t.phase.hue));
+      root.style.setProperty('--h2', wrap(t.palette.h2 + t.phase.hue));
+      root.style.setProperty('--h3', wrap(t.palette.h3 + t.phase.hue));
+      root.style.setProperty('--sat', Math.max(18, Math.min(92, t.palette.sat + t.phase.sat)) + '%');
+      root.setAttribute('data-scheme', t.scheme);
+      root.setAttribute('data-phase', t.phase.key);
+      root.setAttribute('data-month', t.palette.key);
+      const meta = document.getElementById('metaThemeColor');
+      if (meta) {
+        const l = t.scheme === 'dark' ? 6 : 96;
+        meta.setAttribute('content', hslToHex(wrap(t.palette.h3 + t.phase.hue), t.scheme === 'dark' ? 32 : 46, l));
+      }
+      if (cfg.theme && cfg.theme.animate !== false) Theme.motes(t);
+      return t;
+    },
+    motes: function (t) {
+      const host = document.getElementById('motes');
+      if (!host) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const spec = {
+        snow:  { n: 16, size: [3, 7],  color: 'hsl(0 0% 100% / .75)',                     op: [.35, .8],  dur: [14, 26], radius: '50%' },
+        rain:  { n: 20, size: [1, 2],  color: 'hsl(var(--h1) 60% 78% / .6)',              op: [.2, .55],  dur: [5, 10],  radius: '2px' },
+        petal: { n: 14, size: [5, 10], color: 'hsl(var(--h1) 70% 76% / .7)',              op: [.3, .7],   dur: [16, 30], radius: '50% 12% 50% 12%' },
+        sun:   { n: 12, size: [2, 5],  color: 'hsl(var(--h1) 90% 70% / .7)',              op: [.2, .5],   dur: [18, 34], radius: '50%' },
+        leaf:  { n: 14, size: [5, 11], color: 'hsl(var(--h1) 72% 58% / .65)',             op: [.25, .6],  dur: [15, 28], radius: '50% 8% 50% 8%' }
+      }[t.palette.mote] || null;
+      if (!spec) return;
+      host.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < spec.n; i++) {
+        const d = document.createElement('span');
+        const size = rand(spec.size[0], spec.size[1]);
+        d.className = 'mote';
+        d.style.left = rand(0, 100).toFixed(2) + 'vw';
+        d.style.width = size.toFixed(1) + 'px';
+        d.style.height = (spec.radius === '2px' ? size * 6 : size).toFixed(1) + 'px';
+        d.style.borderRadius = spec.radius;
+        d.style.setProperty('--mote-color', spec.color);
+        d.style.setProperty('--mote-opacity', rand(spec.op[0], spec.op[1]).toFixed(2));
+        d.style.setProperty('--mote-dur', rand(spec.dur[0], spec.dur[1]).toFixed(1) + 's');
+        d.style.setProperty('--mote-delay', (-rand(0, spec.dur[1])).toFixed(1) + 's');
+        d.style.setProperty('--mote-drift', rand(-8, 8).toFixed(1) + 'vw');
+        frag.appendChild(d);
+      }
+      host.appendChild(frag);
+    }
+  };
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = function (n) { return (n + h / 30) % 12; };
+    const a = s * Math.min(l, 1 - l);
+    const f = function (n) {
+      const v = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return Math.round(255 * v).toString(16).padStart(2, '0');
+    };
+    return '#' + f(0) + f(8) + f(4);
+  }
+
+  /* ================================================================== *
+   * 2. Storage — IndexedDB with a transparent in-memory fallback
+   * ================================================================== */
+  const memory = { prefs: new Map(), combos: new Map(), events: [] };
   let dbPromise = null;
+  let usingMemory = false;
 
   function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise(function (resolve, reject) {
       if (!('indexedDB' in window)) return reject(new Error('IndexedDB unavailable'));
       let req;
-      try {
-        req = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
-      } catch (err) {
-        return reject(err);
-      }
+      try { req = indexedDB.open(APP.DB_NAME, APP.DB_VERSION); }
+      catch (err) { return reject(err); }
       req.onupgradeneeded = function (e) {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains(CONFIG.STORE)) {
-          db.createObjectStore(CONFIG.STORE, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(APP.STORE_PREFS)) {
+          db.createObjectStore(APP.STORE_PREFS, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(APP.STORE_COMBOS)) {
+          const s = db.createObjectStore(APP.STORE_COMBOS, { keyPath: 'sig' });
+          s.createIndex('lastSeen', 'lastSeen');
+          s.createIndex('count', 'count');
+          s.createIndex('dueAt', 'srs.dueAt');
+        }
+        if (!db.objectStoreNames.contains(APP.STORE_EVENTS)) {
+          const e2 = db.createObjectStore(APP.STORE_EVENTS, { keyPath: 'id', autoIncrement: true });
+          e2.createIndex('week', 'week');
+          e2.createIndex('at', 'at');
+          e2.createIndex('sig', 'sig');
         }
       };
       req.onsuccess = function () { resolve(req.result); };
       req.onerror = function () { reject(req.error || new Error('IndexedDB open failed')); };
       req.onblocked = function () { reject(new Error('IndexedDB blocked')); };
     }).catch(function (err) {
-      console.warn('[scheduler] Falling back to in-memory storage:', err && err.message);
-      return null; // null => use memoryStore
+      usingMemory = true;
+      console.warn('[balancer] in-memory storage fallback:', err && err.message);
+      return null;
     });
     return dbPromise;
   }
 
-  function idbGet(id) {
+  function tx(store, mode, fn, fallback) {
     return openDB().then(function (db) {
-      if (!db) return memoryStore.get(id) || null;
+      if (!db) return fallback();
       return new Promise(function (resolve) {
+        let out;
         try {
-          const tx = db.transaction(CONFIG.STORE, 'readonly');
-          const req = tx.objectStore(CONFIG.STORE).get(id);
-          req.onsuccess = function () { resolve(req.result || null); };
-          req.onerror = function () { resolve(null); };
-        } catch (e) { resolve(null); }
+          const t = db.transaction(store, mode);
+          out = fn(t.objectStore(store), resolve);
+          t.oncomplete = function () { resolve(out === undefined ? true : out); };
+          t.onerror = function () { resolve(fallback()); };
+          t.onabort = function () { resolve(fallback()); };
+        } catch (e) { resolve(fallback()); }
       });
     });
   }
 
-  function idbSet(record) {
-    return openDB().then(function (db) {
-      if (!db) { memoryStore.set(record.id, record); return true; }
-      return new Promise(function (resolve) {
-        try {
-          const tx = db.transaction(CONFIG.STORE, 'readwrite');
-          tx.objectStore(CONFIG.STORE).put(record);
-          tx.oncomplete = function () { resolve(true); };
-          tx.onerror = function () { memoryStore.set(record.id, record); resolve(false); };
-          tx.onabort = function () { memoryStore.set(record.id, record); resolve(false); };
-        } catch (e) { memoryStore.set(record.id, record); resolve(false); }
-      });
+  const DB = {
+    get: function (id) {
+      return tx(APP.STORE_PREFS, 'readonly', function (store, resolve) {
+        const r = store.get(id);
+        r.onsuccess = function () { resolve(r.result || null); };
+        r.onerror = function () { resolve(null); };
+      }, function () { return memory.prefs.get(id) || null; });
+    },
+    set: function (record) {
+      memory.prefs.set(record.id, record);
+      return tx(APP.STORE_PREFS, 'readwrite', function (store) { store.put(record); },
+        function () { return false; });
+    },
+    combo: function (sig) {
+      return tx(APP.STORE_COMBOS, 'readonly', function (store, resolve) {
+        const r = store.get(sig);
+        r.onsuccess = function () { resolve(r.result || null); };
+        r.onerror = function () { resolve(null); };
+      }, function () { return memory.combos.get(sig) || null; });
+    },
+    allCombos: function () {
+      return tx(APP.STORE_COMBOS, 'readonly', function (store, resolve) {
+        const r = store.getAll();
+        r.onsuccess = function () { resolve(r.result || []); };
+        r.onerror = function () { resolve([]); };
+      }, function () { return Array.from(memory.combos.values()); });
+    },
+    putCombo: function (rec) {
+      memory.combos.set(rec.sig, rec);
+      return tx(APP.STORE_COMBOS, 'readwrite', function (store) { store.put(rec); },
+        function () { return false; });
+    },
+    addEvent: function (rec) {
+      memory.events.push(rec);
+      return tx(APP.STORE_EVENTS, 'readwrite', function (store) { store.add(rec); },
+        function () { return false; });
+    },
+    allEvents: function () {
+      return tx(APP.STORE_EVENTS, 'readonly', function (store, resolve) {
+        const r = store.getAll();
+        r.onsuccess = function () { resolve(r.result || []); };
+        r.onerror = function () { resolve([]); };
+      }, function () { return memory.events.slice(); });
+    }
+  };
+
+  /* ================================================================== *
+   * 3. Config loading — required on first visit
+   * ================================================================== */
+  function deepMerge(base, patch) {
+    const out = Array.isArray(base) ? base.slice() : Object.assign({}, base);
+    if (!patch || typeof patch !== 'object') return out;
+    Object.keys(patch).forEach(function (k) {
+      const v = patch[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && base && typeof base[k] === 'object' && !Array.isArray(base[k])) {
+        out[k] = deepMerge(base[k], v);
+      } else if (v !== undefined) {
+        out[k] = v;
+      }
     });
+    return out;
   }
 
-  /* ------------------------------------------------------------------ *
-   * URL parsing
-   * ------------------------------------------------------------------ */
+  function configUrl() {
+    const override = params.get('config');
+    const path = override || APP.CONFIG_PATH;
+    try { return new URL(path, window.location.href).href; }
+    catch (e) { return path; }
+  }
+
+  function fetchConfig() {
+    const url = configUrl();
+    if (!('fetch' in window) || window.location.protocol === 'file:') {
+      return Promise.resolve({ ok: false, reason: 'Local file mode — fetch is blocked by the browser.' });
+    }
+    return fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 'v=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) return { ok: false, reason: 'Config responded with HTTP ' + res.status + '.' };
+        return res.text().then(function (text) {
+          try { return { ok: true, data: JSON.parse(text), url: url }; }
+          catch (e) { return { ok: false, reason: 'Config file is not valid JSON (' + e.message + ').' }; }
+        });
+      })
+      .catch(function (e) { return { ok: false, reason: 'Config could not be fetched (' + e.message + ').' }; });
+  }
+
+  /* ================================================================== *
+   * 4. Scheduler list — config first, URL params may override
+   * ================================================================== */
   const rawAllocationParam = (params.get('allocation') || '').trim();
-
   const urlNames = (params.get('skedNames') || '').split('_').filter(Boolean);
-  const urlMaxValues = (params.get('maxWeights') || '').split('_').map(function (n) {
-    return parseInt(n, 10);
-  });
+  const urlMaxValues = (params.get('maxWeights') || '').split('_').map(function (n) { return parseInt(n, 10); });
   const urlWeights = rawAllocationParam
     ? rawAllocationParam.split('_').map(function (n) { return parseInt(n, 10); })
     : [];
+  const urlConvictions = (params.get('conviction') || '').split('_').filter(Boolean);
 
-  // Only trust the URL allocation when its shape matches the scheduler list.
   const urlAllocationUsable =
     urlWeights.length === urlNames.length &&
     urlWeights.every(function (n) { return Number.isInteger(n) && n >= 0; }) &&
     urlWeights.some(function (n) { return n > 0; });
 
-  // Signature lets us detect "a *new* allocation arrived via URL".
-  const urlSignature = urlAllocationUsable
-    ? urlNames.join('_') + '|' + urlWeights.join('_')
-    : '';
+  const urlSignature = urlAllocationUsable ? urlNames.join('_') + '|' + urlWeights.join('_') : '';
 
-  // Base scheduler list (name + max), filtered to valid entries only.
-  const baseSchedulers = [];
-  for (let i = 0; i < urlNames.length; i++) {
-    const max = urlMaxValues[i];
-    if (Number.isInteger(max) && max > 0) {
-      baseSchedulers.push({
-        name: urlNames[i],
-        max: max,
-        urlWeight: urlAllocationUsable ? urlWeights[i] : null
-      });
-    }
-  }
-
-  if (baseSchedulers.length === 0) {
-    document.body.classList.remove('is-loading');
-    document.body.innerHTML =
-      '<div class="fatal">Error: No valid schedulers were supplied.</div>';
-    return;
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Allocation reconciliation
-   *
-   * Precedence per scheduler name:
-   *   1. A brand-new `allocation` URL param  -> URL wins (fresh explicit intent)
-   *   2. A previously saved weight           -> stored wins (user's UI choice)
-   *   3. Name is new / never seen            -> URL weight, else default 1
-   * Names that disappear from the URL are pruned from storage.
-   * ------------------------------------------------------------------ */
-  function reconcile(storedAllocation, storedSignature) {
-    const stored = (storedAllocation && storedAllocation.weights) || {};
-    const urlIsNew = urlSignature !== '' && urlSignature !== storedSignature;
-
-    const weights = {};
-    const changes = { added: [], removed: [], overriddenByUrl: false };
-
-    baseSchedulers.forEach(function (s) {
-      const savedWeight = stored[s.name];
-      const hasSaved = Number.isFinite(savedWeight);
-
-      if (urlIsNew && Number.isFinite(s.urlWeight)) {
-        weights[s.name] = s.urlWeight;               // 1. fresh URL intent
-        changes.overriddenByUrl = true;
-      } else if (hasSaved) {
-        weights[s.name] = savedWeight;               // 2. persisted user choice
-      } else {
-        weights[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1; // 3. new name
-        changes.added.push(s.name);
+  function schedulersFromUrl() {
+    const out = [];
+    for (let i = 0; i < urlNames.length; i++) {
+      const max = urlMaxValues[i];
+      if (Number.isInteger(max) && max > 0) {
+        out.push({
+          name: urlNames[i],
+          label: urlNames[i],
+          max: max,
+          urlWeight: urlAllocationUsable ? urlWeights[i] : null,
+          conviction: urlConvictions.indexOf(urlNames[i]) > -1
+        });
       }
-    });
-
-    Object.keys(stored).forEach(function (name) {
-      if (!(name in weights)) changes.removed.push(name);
-    });
-
-    return { weights: weights, changes: changes, urlIsNew: urlIsNew };
+    }
+    return out;
   }
 
-  /* ------------------------------------------------------------------ *
-   * Interval gating
-   *   - show exactly on a :00 / :30 boundary (once per boundary), OR
-   *   - show if more than 30 min have elapsed since the last prompt.
-   * ------------------------------------------------------------------ */
-  function boundaryOf(date) {
-    const d = new Date(date.getTime());
-    d.setSeconds(0, 0);
-    d.setMinutes(d.getMinutes() < CONFIG.INTERVAL_MINUTES ? 0 : CONFIG.INTERVAL_MINUTES);
-    return d.getTime();
-  }
-
-  function shouldPrompt(lastPromptAt, now) {
-    if (params.get('configure') === '1' || params.has('ui')) {
-      return { show: true, reason: 'Opened manually via URL flag.' };
-    }
-    if (!Number.isFinite(lastPromptAt)) {
-      return { show: true, reason: 'First run on this device — no saved allocation yet.' };
-    }
-
-    const nowMs = now.getTime();
-    const minute = now.getMinutes();
-    const boundary = boundaryOf(now);
-
-    const onTick = (minute === 0 || minute === CONFIG.INTERVAL_MINUTES) && lastPromptAt < boundary;
-    if (onTick) {
-      return { show: true, reason: 'Scheduled check-in at the :' + String(minute).padStart(2, '0') + ' mark.' };
-    }
-
-    const elapsed = nowMs - lastPromptAt;
-    if (elapsed > INTERVAL_MS) {
-      return {
-        show: true,
-        reason: 'It has been ' + Math.floor(elapsed / 60000) + ' minutes since the last check-in.'
-      };
-    }
-
-    return { show: false, reason: '' };
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Weighted pick + redirect
-   * ------------------------------------------------------------------ */
-  function pickAndRedirect(weights) {
-    const pool = baseSchedulers
+  function schedulersFromConfig(cfg) {
+    const list = Array.isArray(cfg.schedulers) ? cfg.schedulers : [];
+    return list
+      .filter(function (s) { return s && typeof s.name === 'string' && s.name && Number(s.max) > 0; })
       .map(function (s) {
-        return { name: s.name, max: s.max, weight: Math.max(0, Number(weights[s.name]) || 0) };
-      })
+        return {
+          name: s.name,
+          label: s.label || s.name,
+          max: Math.floor(Number(s.max)),
+          urlWeight: Number.isFinite(Number(s.weight)) ? Math.max(0, Math.floor(Number(s.weight))) : null,
+          conviction: s.conviction === true
+        };
+      });
+  }
+
+  function mergeSchedulers(cfgList, urlList) {
+    if (!urlList.length) return cfgList;
+    if (!cfgList.length) return urlList;
+    const byName = {};
+    cfgList.forEach(function (s) { byName[s.name] = s; });
+    return urlList.map(function (u) {
+      const c = byName[u.name];
+      if (!c) return u;
+      return {
+        name: u.name,
+        label: c.label || u.name,
+        max: u.max || c.max,
+        urlWeight: Number.isFinite(u.urlWeight) ? u.urlWeight : c.urlWeight,
+        conviction: u.conviction || c.conviction
+      };
+    });
+  }
+
+  /* ================================================================== *
+   * 5. Combination signature + SRS engine
+   * ================================================================== */
+  function isoWeekKey(d) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((t - yearStart) / DAY_MS) + 1) / 7);
+    return t.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+  }
+
+  /** Normalised, order-independent fingerprint of a preference set. */
+  function comboSignature(names, weights, convictions) {
+    return names.slice().sort().map(function (n) {
+      const w = Math.max(0, Math.round(Number(weights[n]) || 0));
+      return n + ':' + w + (convictions[n] ? '!' : '');
+    }).join('|');
+  }
+
+  function shareMap(names, weights) {
+    const total = names.reduce(function (s, n) { return s + Math.max(0, Number(weights[n]) || 0); }, 0);
+    const out = {};
+    names.forEach(function (n) {
+      out[n] = total > 0 ? Math.max(0, Number(weights[n]) || 0) / total : 1 / Math.max(1, names.length);
+    });
+    return out;
+  }
+
+  const SRS = {
+    /** Grade the gap between two sightings of the same combination. */
+    quality: function (daysSince, intervalDays) {
+      const ratio = daysSince / Math.max(0.35, intervalDays);
+      if (ratio <= 0.5) return 5;      // repeated far sooner than expected — strong preference
+      if (ratio <= 1.5) return 4;      // on schedule
+      if (ratio <= 3) return 3;        // late but recalled
+      return 2;                        // lapse — the preference had drifted away
+    },
+
+    /** SM-2 update, tuned for preference recall rather than flashcards. */
+    review: function (card, cfg, now) {
+      const s = cfg.srs;
+      const prev = card.srs || {
+        ease: s.initialEase, interval: s.graduatingIntervalDays, reps: 0, lapses: 0,
+        dueAt: now + s.graduatingIntervalDays * DAY_MS, lastQuality: null
+      };
+      const daysSince = card.lastSeen ? (now - card.lastSeen) / DAY_MS : 0;
+      const q = card.lastSeen ? SRS.quality(daysSince, prev.interval) : 4;
+
+      let ease = prev.ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+      ease = Math.max(s.minEase, Math.min(s.maxEase, ease));
+
+      let reps = prev.reps;
+      let interval = prev.interval;
+      let lapses = prev.lapses;
+
+      if (q >= 3) {
+        reps += 1;
+        if (reps === 1) interval = s.graduatingIntervalDays;
+        else if (reps === 2) interval = s.easyIntervalDays;
+        else interval = Math.min(s.maxIntervalDays, interval * ease);
+      } else {
+        reps = 0;
+        lapses += 1;
+        interval = s.graduatingIntervalDays;
+      }
+
+      return {
+        ease: Number(ease.toFixed(3)),
+        interval: Number(interval.toFixed(2)),
+        reps: reps,
+        lapses: lapses,
+        dueAt: now + interval * DAY_MS,
+        lastQuality: q
+      };
+    },
+
+    /** Retention weight of a stored combination right now. */
+    strength: function (card, cfg, now) {
+      const s = cfg.srs;
+      const srs = card.srs || { ease: s.initialEase, interval: s.graduatingIntervalDays };
+      const hasConviction = card.convictions && Object.keys(card.convictions).some(function (k) { return card.convictions[k]; });
+      const halfLife = s.halfLifeDays *
+        (hasConviction ? s.convictionHalfLifeMultiplier : 1) *
+        (1 + Math.min(2, srs.interval / Math.max(1, s.maxIntervalDays)) );
+      const days = Math.max(0, (now - (card.lastSeen || now)) / DAY_MS);
+      const recency = Math.pow(2, -days / Math.max(0.5, halfLife));
+      const volume = 1 + Math.log2(1 + (card.count || 1));
+      const confidence = srs.ease / s.initialEase;
+      return volume * confidence * recency;
+    },
+
+    /**
+     * Blend the user's manual weights with the profile the engine has learned
+     * from stored combinations + week-over-week movement.
+     * Returns { weights, share, srsShare, alpha, diagnostics }.
+     */
+    profile: function (names, manualWeights, convictions, combos, events, cfg, now) {
+      const s = cfg.srs;
+      const manualShare = shareMap(names, manualWeights);
+      const totalManual = names.reduce(function (t, n) { return t + Math.max(0, Number(manualWeights[n]) || 0); }, 0);
+      const diag = { combos: combos.length, reviews: 0, topCombos: [], weeks: [], trend: {}, alpha: 0 };
+
+      if (!s.enabled || !combos.length) {
+        return { weights: Object.assign({}, manualWeights), share: manualShare, srsShare: manualShare, alpha: 0, diag: diag };
+      }
+
+      /* ---- (a) memory component: strength-weighted mean of past shares ---- */
+      const memShare = {};
+      names.forEach(function (n) { memShare[n] = 0; });
+      let strengthTotal = 0;
+      const scored = combos.map(function (c) {
+        const st = SRS.strength(c, cfg, now);
+        return { card: c, strength: st };
+      }).sort(function (a, b) { return b.strength - a.strength; });
+
+      scored.forEach(function (row) {
+        const sh = row.card.share || {};
+        strengthTotal += row.strength;
+        diag.reviews += (row.card.count || 1);
+        names.forEach(function (n) {
+          memShare[n] += row.strength * (Number(sh[n]) || 0);
+        });
+      });
+      if (strengthTotal > 0) names.forEach(function (n) { memShare[n] /= strengthTotal; });
+      diag.topCombos = scored.slice(0, 4).map(function (r) {
+        return { sig: r.card.sig, count: r.card.count, strength: Number(r.strength.toFixed(2)),
+                 due: r.card.srs && r.card.srs.dueAt, ease: r.card.srs && r.card.srs.ease };
+      });
+
+      /* ---- (b) trend component: slope of weekly share across recent weeks ---- */
+      const weeks = {};
+      (events || []).forEach(function (ev) {
+        if (!ev || !ev.week || !ev.share) return;
+        if (!weeks[ev.week]) weeks[ev.week] = { n: 0, sum: {} };
+        const bucket = weeks[ev.week];
+        bucket.n += 1;
+        names.forEach(function (n) { bucket.sum[n] = (bucket.sum[n] || 0) + (Number(ev.share[n]) || 0); });
+      });
+      const weekKeys = Object.keys(weeks).sort().slice(-Math.max(2, s.weeklyWindow));
+      diag.weeks = weekKeys;
+
+      const trendShare = {};
+      names.forEach(function (n) {
+        const series = weekKeys.map(function (k) { return weeks[k].sum[n] / Math.max(1, weeks[k].n); });
+        const last = series.length ? series[series.length - 1] : memShare[n];
+        const slope = linearSlope(series);
+        diag.trend[n] = Number((slope || 0).toFixed(4));
+        trendShare[n] = Math.max(0, last + s.momentum * slope * Math.max(1, series.length));
+      });
+      normalise(trendShare, names);
+
+      /* ---- (c) fuse memory + trend ---- */
+      const learned = {};
+      const mvt = clamp01(s.memoryVsTrend);
+      names.forEach(function (n) {
+        learned[n] = mvt * (memShare[n] || 0) + (1 - mvt) * (trendShare[n] || 0);
+      });
+      normalise(learned, names);
+
+      /* ---- (d) conviction lanes resist adaptation and get boosted ---- */
+      let convictionActive = false;
+      names.forEach(function (n) {
+        if (convictions[n]) {
+          convictionActive = true;
+          learned[n] = Math.max(learned[n], manualShare[n]) * s.convictionBoost;
+        }
+      });
+      if (convictionActive) normalise(learned, names);
+
+      /* ---- (e) blend, scaled by how much evidence exists ---- */
+      const confidence = Math.min(1, diag.reviews / Math.max(1, s.confidenceSaturation));
+      const alpha = clamp01(s.blend) * confidence;
+      diag.alpha = Number(alpha.toFixed(3));
+      diag.confidence = Number(confidence.toFixed(3));
+
+      const finalShare = {};
+      names.forEach(function (n) { finalShare[n] = (1 - alpha) * manualShare[n] + alpha * learned[n]; });
+      normalise(finalShare, names);
+
+      /* ---- (f) hard floor: a conviction lane never lands below the user's
+                 own intent. Applied *after* normalisation, with the remainder
+                 redistributed across the adaptive lanes so the set still
+                 sums to exactly 1. ---- */
+      const locked = names.filter(function (n) { return convictions[n]; });
+      if (locked.length) {
+        const free = names.filter(function (n) { return !convictions[n]; });
+        const floors = {};
+        let floorSum = 0;
+        locked.forEach(function (n) {
+          floors[n] = Math.max(finalShare[n], manualShare[n]);
+          floorSum += floors[n];
+        });
+        if (!free.length || floorSum >= 1) {
+          locked.forEach(function (n) { finalShare[n] = floors[n] / (floorSum || 1); });
+          free.forEach(function (n) { finalShare[n] = 0; });
+        } else {
+          const room = 1 - floorSum;
+          const freeSum = free.reduce(function (t, n) { return t + finalShare[n]; }, 0);
+          locked.forEach(function (n) { finalShare[n] = floors[n]; });
+          free.forEach(function (n) {
+            finalShare[n] = freeSum > 0 ? (finalShare[n] / freeSum) * room : room / free.length;
+          });
+        }
+      }
+
+      const scale = totalManual > 0 ? totalManual : names.length;
+      const weights = {};
+      names.forEach(function (n) { weights[n] = finalShare[n] * scale; });
+
+      return { weights: weights, share: finalShare, srsShare: learned, alpha: alpha, diag: diag };
+    }
+  };
+
+  function normalise(obj, names) {
+    const total = names.reduce(function (t, n) { return t + (Number(obj[n]) || 0); }, 0);
+    names.forEach(function (n) { obj[n] = total > 0 ? (Number(obj[n]) || 0) / total : 1 / names.length; });
+    return obj;
+  }
+  function clamp01(n) { const v = Number(n); return !Number.isFinite(v) ? 0 : Math.max(0, Math.min(1, v)); }
+  function linearSlope(series) {
+    const n = series.length;
+    if (n < 2) return 0;
+    let sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += series[i]; sxy += i * series[i]; sxx += i * i; }
+    const denom = n * sxx - sx * sx;
+    return denom === 0 ? 0 : (n * sxy - sx * sy) / denom;
+  }
+
+  /* ================================================================== *
+   * 6. Recording a combination (the "review" step)
+   * ================================================================== */
+  function recordCombination(names, weights, convictions, cfg) {
+    const now = Date.now();
+    const sig = comboSignature(names, weights, convictions);
+    const share = shareMap(names, weights);
+    const week = isoWeekKey(new Date(now));
+
+    return DB.combo(sig).then(function (existing) {
+      const card = existing || {
+        sig: sig, count: 0, firstSeen: now, lastSeen: null,
+        weights: {}, share: {}, convictions: {}, history: []
+      };
+      const srs = SRS.review(card, cfg, now);
+      card.count = (card.count || 0) + 1;
+      card.weights = Object.assign({}, weights);
+      card.share = share;
+      card.convictions = Object.assign({}, convictions);
+      card.srs = srs;
+      card.history = (card.history || []).concat([{ at: now, q: srs.lastQuality }]).slice(-40);
+      card.lastSeen = now;
+      card.lastWeek = week;
+
+      return Promise.all([
+        DB.putCombo(card),
+        DB.addEvent({
+          at: now, week: week, sig: sig, share: share,
+          weights: Object.assign({}, weights),
+          convictions: Object.keys(convictions).filter(function (k) { return convictions[k]; }),
+          quality: srs.lastQuality, month: new Date(now).getMonth()
+        })
+      ]).then(function () { return card; });
+    });
+  }
+
+  /* ================================================================== *
+   * 7. Redirect
+   * ================================================================== */
+  function buildRedirect(cfg, chosen, pick) {
+    const tpl = cfg.redirectTemplate || DEFAULT_CONFIG.redirectTemplate;
+    return tpl
+      .replace('{base}', cfg.baseUrl || DEFAULT_CONFIG.baseUrl)
+      .replace('{name}', encodeURIComponent(chosen.name))
+      .replace('{pick}', String(pick))
+      .replace('{max}', String(chosen.max));
+  }
+
+  function pickAndRedirect(schedulers, weights, cfg) {
+    const pool = schedulers
+      .map(function (s) { return { name: s.name, max: s.max, weight: Math.max(0, Number(weights[s.name]) || 0) }; })
       .filter(function (s) { return s.weight > 0; });
 
-    // Every weight zeroed out -> fall back to an even split so we never dead-end.
     const candidates = pool.length
       ? pool
-      : baseSchedulers.map(function (s) { return { name: s.name, max: s.max, weight: 1 }; });
+      : schedulers.map(function (s) { return { name: s.name, max: s.max, weight: 1 }; });
 
     const totalWeight = candidates.reduce(function (sum, s) { return sum + s.weight; }, 0);
-
     let r = Math.random() * totalWeight;
-    let chosen = candidates[candidates.length - 1]; // float-safe fallback
-
+    let chosen = candidates[candidates.length - 1];
     for (let i = 0; i < candidates.length; i++) {
       if (r < candidates[i].weight) { chosen = candidates[i]; break; }
       r -= candidates[i].weight;
     }
-
-    const chosenNumber = Math.floor(Math.random() * chosen.max) + 1;
-
-    window.location.replace(
-      CONFIG.BASE_URL + chosen.name + '-scheduler.html?max=' + chosenNumber
-    );
+    const pick = Math.floor(Math.random() * chosen.max) + 1;
+    window.location.replace(buildRedirect(cfg, chosen, pick));
   }
 
-  function persistAllocation(weights) {
-    return Promise.all([
-      idbSet({
-        id: CONFIG.KEY_ALLOCATION,
-        weights: weights,
-        updatedAt: Date.now()
-      }),
-      idbSet({
-        id: CONFIG.KEY_URL_SIGNATURE,
-        value: urlSignature,
-        updatedAt: Date.now()
-      })
-    ]);
+  /* ================================================================== *
+   * 8. Gate — when should the panel appear?
+   * ================================================================== */
+  function shouldPrompt(lastPromptAt, now, cfg) {
+    const minutes = cfg.gate.intervalMinutes;
+    const intervalMs = minutes * 60000;
+    if (params.get('configure') === '1' || params.has('ui')) {
+      return { show: true, reason: 'Opened manually from the link.' };
+    }
+    if (!Number.isFinite(lastPromptAt)) {
+      return { show: true, reason: 'First run on this device — nothing saved yet.' };
+    }
+    const minute = now.getMinutes();
+    const b = new Date(now.getTime());
+    b.setSeconds(0, 0);
+    b.setMinutes(b.getMinutes() < minutes ? 0 : minutes);
+    const boundary = b.getTime();
+
+    if ((minute === 0 || minute === minutes) && lastPromptAt < boundary) {
+      return { show: true, reason: 'Scheduled check-in at the :' + String(minute).padStart(2, '0') + ' mark.' };
+    }
+    const elapsed = now.getTime() - lastPromptAt;
+    if (elapsed > intervalMs) {
+      return { show: true, reason: 'It has been ' + Math.floor(elapsed / 60000) + ' minutes since the last check-in.' };
+    }
+    return { show: false, reason: '' };
   }
 
-  /* ------------------------------------------------------------------ *
-   * UI
-   * ------------------------------------------------------------------ */
-  function renderEditor(weights, reason, changes) {
+  /* ================================================================== *
+   * 9. Small DOM helpers
+   * ================================================================== */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function attrEscape(s) { return String(s).replace(/["\\]/g, '\\$&'); }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2100);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }).catch(fallbackCopy);
+    }
+    return Promise.resolve(fallbackCopy());
+    function fallbackCopy() {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    }
+  }
+
+  function clampWeight(n, cfg) {
+    const v = Math.round(Number(n));
+    if (!Number.isFinite(v) || v < 0) return 0;
+    return Math.min(v, cfg.gate.maxWeight);
+  }
+
+  /* ================================================================== *
+   * 10. Config JSON draft (for the copy button)
+   * ================================================================== */
+  function buildConfigDraft(cfg, schedulers, weights, convictions) {
+    const draft = deepMerge(DEFAULT_CONFIG, cfg || {});
+    draft.version = APP.VERSION;
+    draft.generatedAt = new Date().toISOString();
+    draft.schedulers = schedulers.map(function (s) {
+      return {
+        name: s.name,
+        label: s.label || s.name,
+        max: s.max,
+        weight: weights ? clampWeight(weights[s.name], draft) : (Number.isFinite(s.urlWeight) ? s.urlWeight : 1),
+        conviction: !!(convictions && convictions[s.name])
+      };
+    });
+    delete draft.generatedAtNote;
+    return JSON.stringify(draft, null, 2);
+  }
+
+  /* ================================================================== *
+   * 11. Setup screen — required configuration on first visit
+   * ================================================================== */
+  function renderSetup(opts) {
+    // opts: { cfg, schedulers, reason, allowFallback }
     return new Promise(function (resolve) {
+      const cfg = opts.cfg;
       const app = document.getElementById('app');
-      const working = Object.assign({}, weights);
-      let autoTimer = null;
-
-      const changeNotes = [];
-      if (changes.overriddenByUrl) changeNotes.push('A new <b>allocation</b> value from the link was applied.');
-      if (changes.added.length) changeNotes.push('New scheduler(s) added: <b>' + changes.added.join(', ') + '</b>.');
-      if (changes.removed.length) changeNotes.push('Removed from the link: <b>' + changes.removed.join(', ') + '</b>.');
+      const json = buildConfigDraft(cfg, opts.schedulers, null, null);
+      const portal = (cfg.setup && cfg.setup.portalUrl) || DEFAULT_CONFIG.setup.portalUrl;
+      const path = (cfg.setup && cfg.setup.configPath) || APP.CONFIG_PATH;
+      const season = Theme.current;
 
       app.innerHTML =
         '<div class="wrap"><div class="card">' +
-          '<div class="card__head">' +
-            '<h1>Adjust scheduler probability</h1>' +
-            '<p>' + escapeHtml(reason) + '</p>' +
+          '<div class="head">' +
+            '<span class="head__season"><span class="glyph">' + season.palette.glyph + '</span>' +
+              escapeHtml(season.palette.label) + ' · ' + escapeHtml(season.phase.label) + '</span>' +
+            '<h1>Configuration required</h1>' +
+            '<p>' + escapeHtml(opts.reason) + '</p>' +
+            '<div class="head__rule"></div>' +
           '</div>' +
-          '<div class="card__body" id="rows"></div>' +
-          (changeNotes.length ? '<div class="note">' + changeNotes.join(' ') + '</div>' : '') +
+          '<div class="note"><b>' + escapeHtml(path) + '</b> is missing. Copy the starter config below, ' +
+            'commit it to the <b>config</b> folder, then reload this page.</div>' +
+          '<div style="padding:12px var(--pad) 0">' +
+            '<ol class="steps">' +
+              '<li>Tap <b>Copy config &amp; open portal</b> — the JSON goes to your clipboard first.</li>' +
+              '<li>Paste it into <code>' + escapeHtml(path) + '</code> and commit.</li>' +
+              '<li>Return here and reload; the balancer boots straight into the panel.</li>' +
+            '</ol>' +
+            '<pre class="code" id="cfgJson" tabindex="0">' + escapeHtml(json) + '</pre>' +
+          '</div>' +
+          '<div class="foot">' +
+            '<button type="button" class="primary wide" id="btnCopyGo">Copy config &amp; open portal ↗</button>' +
+            '<div class="foot__row">' +
+              '<button type="button" class="ghost grow" id="btnCopyOnly">Copy JSON only</button>' +
+              '<button type="button" class="ghost grow" id="btnDownload">Download file</button>' +
+            '</div>' +
+            (opts.allowFallback
+              ? '<div class="foot__row"><button type="button" class="ghost grow" id="btnFallback">Continue with link parameters this once</button></div>'
+              : '') +
+          '</div>' +
+        '</div></div>';
+
+      function markDone() { return DB.set({ id: APP.KEY_SETUP_DONE, at: Date.now(), portal: portal }); }
+
+      document.getElementById('btnCopyOnly').addEventListener('click', function () {
+        copyText(json).then(function (ok) { toast(ok ? 'Config JSON copied' : 'Copy failed — select the text manually'); });
+      });
+
+      document.getElementById('btnCopyGo').addEventListener('click', function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Copying…';
+        copyText(json).then(function (ok) {
+          toast(ok ? 'Copied — opening the config portal' : 'Copy failed — opening portal anyway');
+          markDone();
+          setTimeout(function () { window.location.href = portal; }, ok ? 650 : 1200);
+        });
+      });
+
+      document.getElementById('btnDownload').addEventListener('click', function () {
+        try {
+          const blob = new Blob([json], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'schedule-balancer-config.json';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+          toast('Download started');
+        } catch (e) { toast('Download not supported here'); }
+      });
+
+      const fb = document.getElementById('btnFallback');
+      if (fb) fb.addEventListener('click', function () { markDone().then(function () { resolve('fallback'); }); });
+
+      app.hidden = false;
+      document.body.classList.remove('is-loading');
+    });
+  }
+
+  /* ================================================================== *
+   * 12. Main editor
+   * ================================================================== */
+  function renderEditor(state) {
+    /* state: { cfg, schedulers, weights, convictions, reason, changes, combos, events } */
+    return new Promise(function (resolve) {
+      const cfg = state.cfg;
+      const schedulers = state.schedulers;
+      const names = schedulers.map(function (s) { return s.name; });
+      const app = document.getElementById('app');
+      const working = Object.assign({}, state.weights);
+      const conv = Object.assign({}, state.convictions);
+      const season = Theme.current;
+      let autoTimer = null;
+      let profile = null;
+
+      const notes = [];
+      if (state.changes.overriddenByUrl) notes.push('A fresh <b>allocation</b> from the link was applied.');
+      if (state.changes.added.length) notes.push('New lane(s): <b>' + escapeHtml(state.changes.added.join(', ')) + '</b>.');
+      if (state.changes.removed.length) notes.push('Dropped: <b>' + escapeHtml(state.changes.removed.join(', ')) + '</b>.');
+
+      app.innerHTML =
+        '<div class="wrap"><div class="card">' +
+          '<div class="head">' +
+            '<span class="head__season"><span class="glyph">' + season.palette.glyph + '</span>' +
+              escapeHtml(season.palette.label) + ' · ' + escapeHtml(season.phase.label) + '</span>' +
+            '<h1>Weight your next block</h1>' +
+            '<p>' + escapeHtml(state.reason) + '</p>' +
+            '<div class="head__rule"></div>' +
+          '</div>' +
+          '<div class="list" id="rows"></div>' +
+          (notes.length ? '<div class="note">' + notes.join(' ') + '</div>' : '') +
           '<div class="note" id="totalNote"></div>' +
-          '<div class="card__foot">' +
-            '<button type="button" id="btnEqual">Equalize</button>' +
-            '<button type="button" id="btnReset">Reset to link</button>' +
-            '<span class="spacer"></span>' +
-            '<button type="button" id="btnSkip">Continue as-is</button>' +
-            '<button type="button" class="primary" id="btnSave">Save &amp; continue<span id="countdown"></span></button>' +
+          '<details class="insight" id="insight">' +
+            '<summary>Adaptive profile <span class="chip" id="alphaChip">idle</span></summary>' +
+            '<div class="insight__body" id="insightBody"></div>' +
+          '</details>' +
+          '<div class="foot">' +
+            '<button type="button" class="primary wide" id="btnSave">Save &amp; continue' +
+              '<span id="countLabel"></span><span class="btn__timer" id="timer" hidden></span></button>' +
+            '<div class="foot__row">' +
+              '<button type="button" class="ghost" id="btnEqual">Equalize</button>' +
+              '<button type="button" class="ghost" id="btnReset">Reset</button>' +
+              '<button type="button" class="ghost" id="btnCopy">Copy config</button>' +
+              '<button type="button" class="ghost grow" id="btnSkip">Continue as-is</button>' +
+            '</div>' +
           '</div>' +
         '</div></div>';
 
       const rows = document.getElementById('rows');
 
-      baseSchedulers.forEach(function (s) {
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML =
-          '<div class="row__name">' + escapeHtml(s.name) +
-            '<span class="row__meta">max ' + s.max + '</span></div>' +
-          '<div class="row__slider"><input type="range" min="0" max="' + CONFIG.MAX_WEIGHT +
-            '" step="1" value="' + clamp(working[s.name]) + '" aria-label="' + escapeHtml(s.name) + ' weight"></div>' +
-          '<div><input type="number" min="0" max="' + CONFIG.MAX_WEIGHT +
-            '" step="1" value="' + clamp(working[s.name]) + '" aria-label="' + escapeHtml(s.name) + ' weight value"></div>' +
-          '<div class="pct" data-pct="' + escapeHtml(s.name) + '">0%</div>';
-        rows.appendChild(row);
+      schedulers.forEach(function (s) {
+        const card = document.createElement('article');
+        card.className = 'sked';
+        card.dataset.name = s.name;
+        card.dataset.conviction = conv[s.name] ? '1' : '0';
+        card.innerHTML =
+          '<div class="sked__top">' +
+            '<span class="sked__dot"></span>' +
+            '<h2 class="sked__name" title="' + escapeHtml(s.label || s.name) + '">' + escapeHtml(s.label || s.name) + '</h2>' +
+            '<span class="sked__max">1–' + s.max + '</span>' +
+            '<button type="button" class="conv" aria-pressed="' + (conv[s.name] ? 'true' : 'false') + '" ' +
+              'title="Conviction choice — protected from adaptive drift" ' +
+              'aria-label="Mark ' + escapeHtml(s.label || s.name) + ' as a conviction choice">◆</button>' +
+          '</div>' +
+          '<div class="bar"><span class="bar__fill"></span><span class="bar__ghost" title="adaptive target"></span></div>' +
+          '<div class="ctrl">' +
+            '<input type="range" min="0" max="' + cfg.gate.maxWeight + '" step="1" value="' + clampWeight(working[s.name], cfg) + '" ' +
+              'aria-label="' + escapeHtml(s.label || s.name) + ' weight">' +
+            '<div class="stepper">' +
+              '<button type="button" data-step="-1" aria-label="decrease">−</button>' +
+              '<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="' + cfg.gate.maxWeight + '" step="1" ' +
+                'value="' + clampWeight(working[s.name], cfg) + '" aria-label="' + escapeHtml(s.label || s.name) + ' weight value">' +
+              '<button type="button" data-step="1" aria-label="increase">+</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="meta"><span class="pct">—</span><span class="tag adapt">adaptive —</span>' +
+            '<span class="tag memo" hidden></span></div>';
+        rows.appendChild(card);
 
-        const range = row.querySelector('input[type="range"]');
-        const num = row.querySelector('input[type="number"]');
+        const range = card.querySelector('input[type="range"]');
+        const num = card.querySelector('input[type="number"]');
+        const convBtn = card.querySelector('.conv');
 
         function sync(value, mirrorRange, mirrorNum) {
-          const v = clamp(value);
+          const v = clampWeight(value, cfg);
           working[s.name] = v;
           if (mirrorRange) range.value = v;
           if (mirrorNum) num.value = v;
-          refreshPercentages();
+          refresh();
           cancelAuto();
         }
 
         range.addEventListener('input', function () { sync(range.value, false, true); });
         num.addEventListener('input', function () { sync(num.value, true, false); });
         num.addEventListener('blur', function () { sync(num.value, true, true); });
+        card.querySelectorAll('.stepper button').forEach(function (b) {
+          b.addEventListener('click', function () {
+            sync(clampWeight(working[s.name], cfg) + Number(b.dataset.step), true, true);
+          });
+        });
+        convBtn.addEventListener('click', function () {
+          conv[s.name] = !conv[s.name];
+          convBtn.setAttribute('aria-pressed', conv[s.name] ? 'true' : 'false');
+          card.dataset.conviction = conv[s.name] ? '1' : '0';
+          if (conv[s.name] && clampWeight(working[s.name], cfg) === 0) sync(1, true, true);
+          else { refresh(); cancelAuto(); }
+          toast(conv[s.name]
+            ? '“' + (s.label || s.name) + '” locked as a conviction choice'
+            : 'Conviction released on “' + (s.label || s.name) + '”');
+        });
       });
 
-      function refreshPercentages() {
-        const total = baseSchedulers.reduce(function (sum, s) { return sum + clamp(working[s.name]); }, 0);
-        baseSchedulers.forEach(function (s) {
-          const el = rows.querySelector('[data-pct="' + cssEscape(s.name) + '"]');
-          const w = clamp(working[s.name]);
-          const pct = total > 0 ? (w / total) * 100 : 0;
-          el.textContent = total > 0 ? pct.toFixed(1) + '%' : '—';
-          el.classList.toggle('is-zero', w === 0);
+      function refresh() {
+        const total = names.reduce(function (t, n) { return t + clampWeight(working[n], cfg); }, 0);
+        profile = SRS.profile(names, working, conv, state.combos, state.events, cfg, Date.now());
+
+        schedulers.forEach(function (s) {
+          const card = rows.querySelector('[data-name="' + attrEscape(s.name) + '"]');
+          if (!card) return;
+          const w = clampWeight(working[s.name], cfg);
+          const manualPct = total > 0 ? (w / total) * 100 : 0;
+          const adaptPct = (profile.share[s.name] || 0) * 100;
+
+          card.dataset.zero = w === 0 && !conv[s.name] ? '1' : '0';
+          card.querySelector('.bar__fill').style.width = manualPct.toFixed(2) + '%';
+          card.querySelector('.bar__ghost').style.left = Math.min(99.5, adaptPct).toFixed(2) + '%';
+
+          const pctEl = card.querySelector('.pct');
+          pctEl.textContent = total > 0 ? manualPct.toFixed(1) + '%' : '—';
+          pctEl.classList.toggle('is-zero', w === 0);
+
+          const tag = card.querySelector('.adapt');
+          const delta = adaptPct - manualPct;
+          tag.textContent = 'adaptive ' + adaptPct.toFixed(1) + '%' +
+            (Math.abs(delta) >= 0.25 ? ' (' + (delta > 0 ? '+' : '') + delta.toFixed(1) + ')' : '');
+          tag.setAttribute('data-dir', Math.abs(delta) < 0.25 ? 'flat' : (delta > 0 ? 'up' : 'down'));
+
+          const memo = card.querySelector('.memo');
+          const trend = profile.diag.trend ? profile.diag.trend[s.name] : 0;
+          if (trend && Math.abs(trend) > 0.002) {
+            memo.hidden = false;
+            memo.textContent = (trend > 0 ? '↗' : '↘') + ' weekly ' + (trend > 0 ? '+' : '') + (trend * 100).toFixed(1) + 'pp';
+            memo.setAttribute('data-dir', trend > 0 ? 'up' : 'down');
+          } else { memo.hidden = true; }
         });
+
         const note = document.getElementById('totalNote');
+        const convCount = names.filter(function (n) { return conv[n]; }).length;
+        note.className = 'note' + (total > 0 ? '' : ' warn');
         note.innerHTML = total > 0
-          ? 'Total weight: <b>' + total + '</b>. Percentages are relative — only the ratio matters.'
-          : '<span class="warn">All weights are zero. Continuing will fall back to an even split.</span>';
+          ? 'Total weight <b>' + total + '</b> — only the ratio matters. ' +
+            (convCount ? '<b>' + convCount + '</b> conviction lane' + (convCount > 1 ? 's' : '') + ' protected from adaptive drift.' :
+             'Tap ◆ on a lane to mark it a conviction choice.')
+          : 'Every lane is zero — continuing falls back to an even split.';
+
+        renderInsight();
+      }
+
+      function renderInsight() {
+        const d = profile.diag;
+        const chip = document.getElementById('alphaChip');
+        const pct = Math.round((profile.alpha || 0) * 100);
+        chip.innerHTML = d.combos ? 'influence <b>' + pct + '%</b>' : 'learning';
+        const body = document.getElementById('insightBody');
+        const top = (d.topCombos || []).map(function (c) {
+          const due = c.due ? new Date(c.due) : null;
+          return '<span class="chip" title="' + escapeHtml(c.sig) + '">×<b>' + c.count + '</b> · s' + c.strength +
+                 (due ? ' · due ' + due.toISOString().slice(5, 10) : '') + '</span>';
+        }).join('');
+        body.innerHTML =
+          '<p style="margin:0">Unique combinations are stored in IndexedDB and reviewed like flashcards. ' +
+          'Repeats raise a combination’s ease and interval; silence lets it decay. The surviving memory, ' +
+          'plus the week-over-week slope, quietly reshapes the dice before the redirect.</p>' +
+          '<dl class="kv">' +
+            '<dt>Stored combinations</dt><dd>' + (d.combos || 0) + '</dd>' +
+            '<dt>Total entries (repeat counter)</dt><dd>' + (d.reviews || 0) + '</dd>' +
+            '<dt>Weeks analysed</dt><dd>' + ((d.weeks || []).length || 0) + '</dd>' +
+            '<dt>Adaptive influence</dt><dd>' + pct + '%</dd>' +
+            '<dt>Evidence confidence</dt><dd>' + Math.round((d.confidence || 0) * 100) + '%</dd>' +
+          '</dl>' +
+          (top ? '<div class="chips">' + top + '</div>' : '');
+      }
+
+      function syncInputs() {
+        schedulers.forEach(function (s) {
+          const card = rows.querySelector('[data-name="' + attrEscape(s.name) + '"]');
+          const v = clampWeight(working[s.name], cfg);
+          card.querySelector('input[type="range"]').value = v;
+          card.querySelector('input[type="number"]').value = v;
+        });
+        refresh();
       }
 
       function cancelAuto() {
         if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
-        const c = document.getElementById('countdown');
-        if (c) c.textContent = '';
+        const t = document.getElementById('timer');
+        const l = document.getElementById('countLabel');
+        if (t) t.hidden = true;
+        if (l) l.textContent = '';
       }
 
       document.getElementById('btnEqual').addEventListener('click', function () {
-        baseSchedulers.forEach(function (s) { working[s.name] = 1; });
-        syncInputsFromWorking();
-        cancelAuto();
+        names.forEach(function (n) { working[n] = 1; });
+        syncInputs(); cancelAuto(); toast('Weights equalized');
       });
 
       document.getElementById('btnReset').addEventListener('click', function () {
-        baseSchedulers.forEach(function (s) {
-          working[s.name] = Number.isFinite(s.urlWeight) ? clamp(s.urlWeight) : 1;
+        schedulers.forEach(function (s) {
+          working[s.name] = Number.isFinite(s.urlWeight) ? clampWeight(s.urlWeight, cfg) : 1;
+          conv[s.name] = !!s.conviction;
+          const card = rows.querySelector('[data-name="' + attrEscape(s.name) + '"]');
+          card.dataset.conviction = conv[s.name] ? '1' : '0';
+          card.querySelector('.conv').setAttribute('aria-pressed', conv[s.name] ? 'true' : 'false');
         });
-        syncInputsFromWorking();
+        syncInputs(); cancelAuto(); toast('Reset to config defaults');
+      });
+
+      document.getElementById('btnCopy').addEventListener('click', function () {
+        const json = buildConfigDraft(cfg, schedulers, working, conv);
+        copyText(json).then(function (ok) {
+          toast(ok ? 'Config JSON copied to clipboard' : 'Copy failed');
+        });
         cancelAuto();
       });
 
       document.getElementById('btnSkip').addEventListener('click', function () {
         cancelAuto();
-        resolve({ weights: weights, save: false });
+        resolve({ weights: state.weights, convictions: state.convictions, save: false });
       });
 
       document.getElementById('btnSave').addEventListener('click', function () {
         cancelAuto();
-        resolve({ weights: working, save: true });
+        resolve({ weights: working, convictions: conv, save: true });
       });
 
       document.addEventListener('keydown', function onKey(e) {
         if (e.key === 'Escape') {
-          document.removeEventListener('keydown', onKey);
-          cancelAuto();
-          resolve({ weights: weights, save: false });
-        } else if (e.key === 'Enter' && !e.shiftKey) {
-          document.removeEventListener('keydown', onKey);
-          cancelAuto();
-          resolve({ weights: working, save: true });
+          document.removeEventListener('keydown', onKey); cancelAuto();
+          resolve({ weights: state.weights, convictions: state.convictions, save: false });
+        } else if (e.key === 'Enter' && !e.shiftKey && e.target.tagName !== 'BUTTON') {
+          document.removeEventListener('keydown', onKey); cancelAuto();
+          resolve({ weights: working, convictions: conv, save: true });
         }
       });
 
-      function syncInputsFromWorking() {
-        const rowEls = rows.querySelectorAll('.row');
-        baseSchedulers.forEach(function (s, i) {
-          const v = clamp(working[s.name]);
-          rowEls[i].querySelector('input[type="range"]').value = v;
-          rowEls[i].querySelector('input[type="number"]').value = v;
-        });
-        refreshPercentages();
-      }
+      ['pointerdown', 'wheel', 'touchstart'].forEach(function (evt) {
+        rows.addEventListener(evt, cancelAuto, { passive: true, once: true });
+      });
 
-      refreshPercentages();
+      refresh();
       app.hidden = false;
       document.body.classList.remove('is-loading');
 
-      // Auto-continue so an abandoned tab still redirects. Any edit cancels it.
-      if (CONFIG.AUTO_CONTINUE_MS > 0) {
-        let left = Math.ceil(CONFIG.AUTO_CONTINUE_MS / 1000);
-        const cd = document.getElementById('countdown');
-        cd.textContent = ' (' + left + ')';
+      const auto = cfg.gate.autoContinueMs;
+      if (auto > 0) {
+        let left = Math.ceil(auto / 1000);
+        const label = document.getElementById('countLabel');
+        const bar = document.getElementById('timer');
+        bar.hidden = false;
+        bar.style.transition = 'transform ' + auto + 'ms linear';
+        requestAnimationFrame(function () { bar.style.transform = 'scaleX(0)'; });
+        label.textContent = ' · ' + left + 's';
         autoTimer = setInterval(function () {
           left -= 1;
-          if (left <= 0) {
-            cancelAuto();
-            resolve({ weights: working, save: true });
-          } else {
-            cd.textContent = ' (' + left + ')';
-          }
+          if (left <= 0) { cancelAuto(); resolve({ weights: working, convictions: conv, save: true }); }
+          else label.textContent = ' · ' + left + 's';
         }, 1000);
       }
     });
   }
 
-  function clamp(n) {
-    const v = Math.round(Number(n));
-    if (!Number.isFinite(v) || v < 0) return 0;
-    return Math.min(v, CONFIG.MAX_WEIGHT);
-  }
+  /* ================================================================== *
+   * 13. Allocation reconciliation
+   *   1. brand-new `allocation` URL param  -> link wins
+   *   2. previously saved weight           -> stored wins
+   *   3. never-seen lane                   -> config/link weight, else 1
+   * ================================================================== */
+  function reconcile(schedulers, storedAllocation, storedSignature, storedConvictions) {
+    const stored = (storedAllocation && storedAllocation.weights) || {};
+    const stConv = (storedConvictions && storedConvictions.map) || {};
+    const urlIsNew = urlSignature !== '' && urlSignature !== storedSignature;
+    const weights = {};
+    const convictions = {};
+    const changes = { added: [], removed: [], overriddenByUrl: false };
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-
-  function cssEscape(s) {
-    return String(s).replace(/["\\]/g, '\\$&');
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Boot
-   * ------------------------------------------------------------------ */
-  Promise.all([
-    idbGet(CONFIG.KEY_ALLOCATION),
-    idbGet(CONFIG.KEY_URL_SIGNATURE),
-    idbGet(CONFIG.KEY_LAST_PROMPT)
-  ])
-  .then(function (res) {
-    const storedAllocation = res[0];
-    const storedSignature = (res[1] && res[1].value) || '';
-    const lastPromptAt = res[2] && Number.isFinite(res[2].at) ? res[2].at : null;
-
-    const merged = reconcile(storedAllocation, storedSignature);
-    const now = new Date();
-    const gate = shouldPrompt(lastPromptAt, now);
-
-    // Storage is reconciled on every load, whether or not the UI appears,
-    // so gaps between URL params and saved state never linger.
-    const storageDirty =
-      !storedAllocation ||
-      merged.urlIsNew ||
-      merged.changes.added.length > 0 ||
-      merged.changes.removed.length > 0 ||
-      storedSignature !== urlSignature;
-
-    const prep = storageDirty ? persistAllocation(merged.weights) : Promise.resolve();
-
-    return prep.then(function () {
-      if (!gate.show) {
-        pickAndRedirect(merged.weights);
-        return;
+    schedulers.forEach(function (s) {
+      const saved = stored[s.name];
+      if (urlIsNew && Number.isFinite(s.urlWeight)) {
+        weights[s.name] = s.urlWeight;
+        changes.overriddenByUrl = true;
+      } else if (Number.isFinite(saved)) {
+        weights[s.name] = saved;
+      } else {
+        weights[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1;
+        changes.added.push(s.name);
       }
-      // Stamp the prompt time up front so a rapid reload doesn't re-nag.
-      return idbSet({ id: CONFIG.KEY_LAST_PROMPT, at: now.getTime() })
-        .then(function () {
-          return renderEditor(merged.weights, gate.reason, merged.changes);
-        })
-        .then(function (result) {
-          if (!result.save) { pickAndRedirect(merged.weights); return; }
-          return persistAllocation(result.weights).then(function () {
-            pickAndRedirect(result.weights);
-          });
+      convictions[s.name] = (s.name in stConv) ? !!stConv[s.name] : !!s.conviction;
+    });
+
+    Object.keys(stored).forEach(function (n) { if (!(n in weights)) changes.removed.push(n); });
+    return { weights: weights, convictions: convictions, changes: changes, urlIsNew: urlIsNew };
+  }
+
+  function persist(weights, convictions) {
+    const now = Date.now();
+    return Promise.all([
+      DB.set({ id: APP.KEY_ALLOCATION, weights: weights, updatedAt: now }),
+      DB.set({ id: APP.KEY_CONVICTION, map: convictions, updatedAt: now }),
+      DB.set({ id: APP.KEY_URL_SIGNATURE, value: urlSignature, updatedAt: now })
+    ]);
+  }
+
+  function fatal(msg) {
+    document.body.classList.remove('is-loading');
+    const app = document.getElementById('app');
+    app.hidden = false;
+    app.innerHTML = '<div class="fatal"><b>' + escapeHtml(APP.NAME) + '</b><br>' + escapeHtml(msg) + '</div>';
+  }
+
+  /* ================================================================== *
+   * 14. Boot
+   * ================================================================== */
+  Theme.apply(DEFAULT_CONFIG, new Date());
+
+  Promise.all([fetchConfig(), DB.get(APP.KEY_CONFIG_CACHE), DB.get(APP.KEY_SETUP_DONE)])
+    .then(function (res) {
+      const fetched = res[0];
+      const cached = res[1];
+      let cfg, source, configProblem = '';
+
+      if (fetched.ok) {
+        cfg = deepMerge(DEFAULT_CONFIG, fetched.data);
+        source = 'file';
+        DB.set({ id: APP.KEY_CONFIG_CACHE, data: fetched.data, at: Date.now() });
+      } else if (cached && cached.data) {
+        cfg = deepMerge(DEFAULT_CONFIG, cached.data);
+        source = 'cache';
+        configProblem = fetched.reason;
+      } else {
+        cfg = deepMerge(DEFAULT_CONFIG, {});
+        source = 'none';
+        configProblem = fetched.reason;
+      }
+
+      Theme.apply(cfg, new Date());
+
+      const fromUrl = schedulersFromUrl();
+      const fromCfg = schedulersFromConfig(cfg);
+      const schedulers = mergeSchedulers(fromCfg, fromUrl);
+
+      if (source === 'none' || !schedulers.length) {
+        const draftSchedulers = schedulers.length ? schedulers : (fromUrl.length ? fromUrl : [
+          { name: 'alpha', label: 'Alpha', max: 40, urlWeight: 3, conviction: false },
+          { name: 'beta',  label: 'Beta',  max: 25, urlWeight: 2, conviction: false },
+          { name: 'gamma', label: 'Gamma', max: 60, urlWeight: 1, conviction: true }
+        ]);
+        return renderSetup({
+          cfg: cfg,
+          schedulers: draftSchedulers,
+          reason: configProblem || 'No schedulers are defined yet.',
+          allowFallback: schedulers.length > 0
+        }).then(function (choice) {
+          if (choice === 'fallback') return run(cfg, schedulers, 'Running from link parameters — config still missing.');
         });
+      }
+
+      return run(cfg, schedulers, configProblem ? 'Using the cached config — ' + configProblem : '');
+    })
+    .catch(function (err) {
+      console.error('[balancer] boot failure:', err);
+      const fromUrl = schedulersFromUrl();
+      if (!fromUrl.length) return fatal('Startup failed and no fallback schedulers were supplied.');
+      const fallbackWeights = {};
+      fromUrl.forEach(function (s) { fallbackWeights[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1; });
+      pickAndRedirect(fromUrl, fallbackWeights, DEFAULT_CONFIG);
     });
-  })
-  .catch(function (err) {
-    // Never strand the user: fall back to URL-derived weights.
-    console.error('[scheduler] Falling back to URL weights:', err);
-    const fallback = {};
-    baseSchedulers.forEach(function (s) {
-      fallback[s.name] = Number.isFinite(s.urlWeight) ? s.urlWeight : 1;
+
+  function run(cfg, schedulers, banner) {
+    const names = schedulers.map(function (s) { return s.name; });
+
+    return Promise.all([
+      DB.get(APP.KEY_ALLOCATION),
+      DB.get(APP.KEY_URL_SIGNATURE),
+      DB.get(APP.KEY_LAST_PROMPT),
+      DB.get(APP.KEY_CONVICTION),
+      DB.allCombos(),
+      DB.allEvents()
+    ]).then(function (r) {
+      const storedAllocation = r[0];
+      const storedSignature = (r[1] && r[1].value) || '';
+      const lastPromptAt = r[2] && Number.isFinite(r[2].at) ? r[2].at : null;
+      const storedConv = r[3];
+      const combos = r[4] || [];
+      const events = r[5] || [];
+
+      const merged = reconcile(schedulers, storedAllocation, storedSignature, storedConv);
+      const now = new Date();
+      const gate = shouldPrompt(lastPromptAt, now, cfg);
+
+      const dirty = !storedAllocation || merged.urlIsNew ||
+        merged.changes.added.length > 0 || merged.changes.removed.length > 0 ||
+        storedSignature !== urlSignature;
+
+      const prep = dirty ? persist(merged.weights, merged.convictions) : Promise.resolve();
+
+      return prep.then(function () {
+        if (!gate.show) {
+          const silent = SRS.profile(names, merged.weights, merged.convictions, combos, events, cfg, Date.now());
+          pickAndRedirect(schedulers, silent.weights, cfg);
+          return;
+        }
+        return DB.set({ id: APP.KEY_LAST_PROMPT, at: now.getTime() }).then(function () {
+          return renderEditor({
+            cfg: cfg,
+            schedulers: schedulers,
+            weights: merged.weights,
+            convictions: merged.convictions,
+            reason: banner || gate.reason,
+            changes: merged.changes,
+            combos: combos,
+            events: events
+          });
+        }).then(function (result) {
+          if (!result.save) {
+            const silent = SRS.profile(names, merged.weights, merged.convictions, combos, events, cfg, Date.now());
+            pickAndRedirect(schedulers, silent.weights, cfg);
+            return;
+          }
+          document.body.style.opacity = '.55';
+          return recordCombination(names, result.weights, result.convictions, cfg)
+            .then(function (card) {
+              const nextCombos = combos.filter(function (c) { return c.sig !== card.sig; }).concat([card]);
+              const nextEvents = events.concat([{
+                at: Date.now(), week: isoWeekKey(new Date()), sig: card.sig, share: card.share
+              }]);
+              return persist(result.weights, result.convictions).then(function () {
+                const eff = SRS.profile(names, result.weights, result.convictions, nextCombos, nextEvents, cfg, Date.now());
+                pickAndRedirect(schedulers, eff.weights, cfg);
+              });
+            })
+            .catch(function (e) {
+              console.warn('[balancer] record failed, redirecting on manual weights:', e);
+              pickAndRedirect(schedulers, result.weights, cfg);
+            });
+        });
+      });
     });
-    pickAndRedirect(fallback);
-  });
+  }
 })();
 </script>
 
