@@ -1,0 +1,84 @@
+{
+  "version": 3,
+  "baseUrl": "https://openai.github.io/su/",
+  "redirectTemplate": "{base}{name}-scheduler.html?max={pick}",
+
+  "schedulers": [
+    { "name": "al", "label": "al", "max": 4,  "weight": 24, "conviction": false },
+    { "name": "sk", "label": "sk", "max": 87, "weight": 23, "conviction": false },
+    { "name": "sp", "label": "sp", "max": 4,  "weight": 16, "conviction": false },
+    { "name": "im", "label": "im", "max": 1,  "weight": 33, "conviction": false },
+    { "name": "lo", "label": "lo", "max": 1,  "weight": 14, "conviction": false }
+  ],
+
+  "gate": {
+    "intervalMinutes": 30,
+    "autoContinueMs": 45000,
+    "maxWeight": 100
+  },
+
+  "srs": {
+    "enabled": true,
+    "blend": 0.45,
+    "halfLifeDays": 10,
+    "initialEase": 2.5,
+    "minEase": 1.3,
+    "maxEase": 3.2,
+    "graduatingIntervalDays": 1,
+    "easyIntervalDays": 4,
+    "maxIntervalDays": 180,
+    "convictionBoost": 1.8,
+    "convictionHalfLifeMultiplier": 2.5,
+    "weeklyWindow": 8,
+    "momentum": 0.25,
+    "confidenceSaturation": 12,
+    "memoryVsTrend": 0.7
+  },
+
+  "theme": {
+    "hemisphere": "north",
+    "mode": "auto",
+    "animate": true
+  },
+
+  "setup": {
+    "portalUrl": "https://github.com/openai/su/new/main/config",
+    "configPath": "config/schedule-balancer-config.json",
+    "instructions": "Commit this file as config/schedule-balancer-config.json, then reload the page."
+  },
+
+  "_seed": {
+    "derivedFrom": "index.html?skedNames=al_sk_sp_im_lo&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14",
+    "allocationTotal": 110,
+    "startingShares": {
+      "al": "21.82%",
+      "sk": "20.91%",
+      "sp": "14.55%",
+      "im": "30.00%",
+      "lo": "12.73%"
+    },
+    "notes": [
+      "Labels are placeholders equal to the lane codes — rename them to readable names, the UI shows label and keeps name for the redirect URL.",
+      "im and lo have max=1, so their random draw is always 1 and they always resolve to ?max=1.",
+      "sk spans 87 outcomes, so it carries most of the destination variety despite holding only 20.91% of the draw.",
+      "conviction is false on every lane; flip one to true here, or tap the diamond in the panel, to give it a hard floor against adaptive drift."
+    ]
+  },
+
+  "_docs": {
+    "redirectTemplate": "Tokens: {base} {name} {pick} {max}. {pick} is the random 1..max draw.",
+    "gate.intervalMinutes": "Panel appears on :00/:30 boundaries, or after this many minutes of silence.",
+    "gate.autoContinueMs": "Auto-saves and redirects if the panel is abandoned. 0 disables it.",
+    "srs.blend": "Ceiling on how far the learned profile may pull the dice away from your sliders (0-1).",
+    "srs.halfLifeDays": "Days for a stored combination's influence to halve when it stops recurring.",
+    "srs.convictionBoost": "Multiplier applied to lanes flagged with the diamond. They also get a hard floor at your manual share.",
+    "srs.convictionHalfLifeMultiplier": "Conviction lanes decay this many times slower.",
+    "srs.weeklyWindow": "How many ISO weeks the trend regression looks back over.",
+    "srs.momentum": "How far the weekly slope is projected forward.",
+    "srs.confidenceSaturation": "Total recorded entries needed before blend reaches full strength.",
+    "srs.memoryVsTrend": "1.0 = pure SRS memory, 0.0 = pure week-over-week trend.",
+    "theme.hemisphere": "'south' shifts the seasonal palette by six months.",
+    "theme.mode": "'auto' follows time of day; force with 'dark' or 'light'.",
+    "urlOverrides": "Link params still win over this file when the allocation string is new: ?skedNames=al_sk_sp_im_lo&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14&conviction=im  ·  ?configure=1 forces the panel  ·  ?config=<url> loads an alternate config."
+  }
+}
