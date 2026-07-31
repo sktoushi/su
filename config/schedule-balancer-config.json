@@ -1,14 +1,14 @@
 {
   "version": 3,
-  "baseUrl": "https://openai.github.io/su/",
+  "baseUrl": "https://sktoushi.github.io/su/",
   "redirectTemplate": "{base}{name}-scheduler.html?max={pick}",
 
   "schedulers": [
-    { "name": "al", "label": "al", "max": 4,  "weight": 24, "conviction": false },
-    { "name": "sk", "label": "sk", "max": 87, "weight": 23, "conviction": false },
-    { "name": "sp", "label": "sp", "max": 4,  "weight": 16, "conviction": false },
-    { "name": "im", "label": "im", "max": 1,  "weight": 33, "conviction": false },
-    { "name": "lo", "label": "lo", "max": 1,  "weight": 14, "conviction": false }
+    { "name": "all503020", "label": "all503020", "max": 4,  "weight": 24, "conviction": false },
+    { "name": "skyway", "label": "skyway", "max": 87, "weight": 23, "conviction": false },
+    { "name": "spy", "label": "spy", "max": 4,  "weight": 16, "conviction": false },
+    { "name": "img", "label": "img", "max": 1,  "weight": 33, "conviction": false },
+    { "name": "loop", "label": "loop", "max": 1,  "weight": 14, "conviction": false }
   ],
 
   "gate": {
@@ -42,20 +42,20 @@
   },
 
   "setup": {
-    "portalUrl": "https://github.com/openai/su/new/main/config",
+    "portalUrl": "https://github.com/sktoushi/su/edit/in/",
     "configPath": "config/schedule-balancer-config.json",
     "instructions": "Commit this file as config/schedule-balancer-config.json, then reload the page."
   },
 
   "_seed": {
-    "derivedFrom": "index.html?skedNames=al_sk_sp_im_lo&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14",
+    "derivedFrom": "index.html?skedNames=all503020_skyway_spy_img_loop&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14",
     "allocationTotal": 110,
     "startingShares": {
-      "al": "21.82%",
-      "sk": "20.91%",
-      "sp": "14.55%",
-      "im": "30.00%",
-      "lo": "12.73%"
+      "all503020": "21.82%",
+      "skyway": "20.91%",
+      "spy": "14.55%",
+      "img": "30.00%",
+      "loop": "12.73%"
     },
     "notes": [
       "Labels are placeholders equal to the lane codes — rename them to readable names, the UI shows label and keeps name for the redirect URL.",
