@@ -125,20 +125,20 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 1770,
+      "issueEndNumber": 1870,
       "images": true
     },
     "stash8x2": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 263
+      "issueEndNumber": 283
     },
     "stash8x3": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 152
+      "issueEndNumber": 154
     }
   },
   "repositories2x": {
@@ -259,14 +259,14 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 1770,
+      "issueEndNumber": 1870,
       "images": true
     },
     "stash8x2": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 263
+      "issueEndNumber": 283
     }
   },
   "repositories": {
@@ -383,7 +383,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 1770,
+      "issueEndNumber": 1870,
       "images": true
     }
   },
@@ -396,4 +396,4 @@
     "recent5Percent"
   ],
   "_comment": "probabilityBooster is optional per repository (default=1). If set to 2, the repository's weight is doubled in selection calculations, but the actual issue range remains unchanged."
-}
+  }
