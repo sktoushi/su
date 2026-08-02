@@ -2,21 +2,48 @@
   "version": 3,
   "baseUrl": "https://sktoushi.github.io/su/",
   "redirectTemplate": "{base}{name}-scheduler.html?max={pick}",
-
   "schedulers": [
-    { "name": "all503020", "label": "all503020", "max": 4,  "weight": 24, "conviction": false },
-    { "name": "skyway", "label": "skyway", "max": 87, "weight": 23, "conviction": false },
-    { "name": "spy", "label": "spy", "max": 4,  "weight": 16, "conviction": false },
-    { "name": "img", "label": "img", "max": 1,  "weight": 33, "conviction": false },
-    { "name": "loop", "label": "loop", "max": 1,  "weight": 14, "conviction": false }
+    {
+      "name": "all503020",
+      "label": "all503020",
+      "max": 4,
+      "weight": 64,
+      "conviction": false
+    },
+    {
+      "name": "skyway",
+      "label": "skyway",
+      "max": 87,
+      "weight": 25,
+      "conviction": false
+    },
+    {
+      "name": "spy",
+      "label": "spy",
+      "max": 4,
+      "weight": 39,
+      "conviction": false
+    },
+    {
+      "name": "img",
+      "label": "img",
+      "max": 1,
+      "weight": 28,
+      "conviction": false
+    },
+    {
+      "name": "loop",
+      "label": "loop",
+      "max": 1,
+      "weight": 9,
+      "conviction": false
+    }
   ],
-
   "gate": {
     "intervalMinutes": 30,
     "autoContinueMs": 45000,
     "maxWeight": 100
   },
-
   "srs": {
     "enabled": true,
     "blend": 0.45,
@@ -34,19 +61,16 @@
     "confidenceSaturation": 12,
     "memoryVsTrend": 0.7
   },
-
   "theme": {
     "hemisphere": "north",
     "mode": "auto",
     "animate": true
   },
-
   "setup": {
     "portalUrl": "https://github.com/sktoushi/su/edit/in/",
     "configPath": "config/schedule-balancer-config.json",
     "instructions": "Commit this file as config/schedule-balancer-config.json, then reload the page."
   },
-
   "_seed": {
     "derivedFrom": "index.html?skedNames=all503020_skyway_spy_img_loop&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14",
     "allocationTotal": 110,
@@ -64,7 +88,6 @@
       "conviction is false on every lane; flip one to true here, or tap the diamond in the panel, to give it a hard floor against adaptive drift."
     ]
   },
-
   "_docs": {
     "redirectTemplate": "Tokens: {base} {name} {pick} {max}. {pick} is the random 1..max draw.",
     "gate.intervalMinutes": "Panel appears on :00/:30 boundaries, or after this many minutes of silence.",
@@ -80,5 +103,6 @@
     "theme.hemisphere": "'south' shifts the seasonal palette by six months.",
     "theme.mode": "'auto' follows time of day; force with 'dark' or 'light'.",
     "urlOverrides": "Link params still win over this file when the allocation string is new: ?skedNames=al_sk_sp_im_lo&maxWeights=4_87_4_1_1&allocation=24_23_16_33_14&conviction=im  ·  ?configure=1 forces the panel  ·  ?config=<url> loads an alternate config."
-  }
+  },
+  "generatedAt": "2026-08-02T10:29:50.751Z"
 }
