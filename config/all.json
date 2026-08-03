@@ -125,7 +125,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 2029,
+      "issueEndNumber": 2062,
       "images": true
     },
     "stash8x2": {
@@ -138,7 +138,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 181
+      "issueEndNumber": 187
     }
   },
   "repositories2x": {
@@ -259,7 +259,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 2029,
+      "issueEndNumber": 2062,
       "images": true
     },
     "stash8x2": {
@@ -383,7 +383,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 2029,
+      "issueEndNumber": 2062,
       "images": true
     }
   },
