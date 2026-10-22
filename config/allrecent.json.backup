@@ -1,4 +1,4 @@
-{
+﻿{
   "repositories": {
     "the-snackbar": {
       "username": "mdr19ganseki95cf",
@@ -54,13 +54,18 @@
       "username": "mdr19ganseki95cf",
       "issueStartNumber": 1,
       "issueEndNumber": 4539
-    }, 
+    },
     "stash7": {
       "username": "sktoushi",
       "issueStartNumber": 1,
       "issueEndNumber": 3409
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "issueEndNumber": 890
     }
-   },
+  },
   "formulas": [
     "recent20Percent",
     "recent5Percent"

@@ -1,6 +1,6 @@
 {
   "skyway": {
-    "scheduler-max": 33
+    "scheduler-max": 87
   },
   "repositories3x": {
     "the-snackbar": {
@@ -25,7 +25,7 @@
       "username": "mdr19ganseki95cf",
       "images": true,
       "issueStartNumber": 9,
-      "issueEndNumber": 254,
+      "issueEndNumber": 467,
       "probabilityBooster": 9
     },
     "redirect0915": {
@@ -109,20 +109,36 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 3406,
-      "probabilityBooster": 3
+      "issueEndNumber": 3406
     },
     "stash7x2": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 137,
-      "probabilityBooster": 3
+      "issueEndNumber": 137
     },
     "stash7x3": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 135,
-      "probabilityBooster": 3
+      "issueEndNumber": 135
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
+    },
+    "stash8x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 501
+    },
+    "stash8x3": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 298
     }
   },
   "repositories2x": {
@@ -148,7 +164,7 @@
       "username": "mdr19ganseki95cf",
       "images": true,
       "issueStartNumber": 9,
-      "issueEndNumber": 254,
+      "issueEndNumber": 467,
       "probabilityBooster": 9
     },
     "redirect0915": {
@@ -232,14 +248,25 @@
       "username": "sktoushi",
       "images": true,
       "issueStartNumber": 1,
-      "issueEndNumber": 3406,
-      "probabilityBooster": 3
+      "issueEndNumber": 3406
     },
     "stash7x2": {
       "username": "sktoushi",
       "issueStartNumber": 1,
-      "issueEndNumber": 137,
-      "probabilityBooster": 3
+      "issueEndNumber": 137
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
+    },
+    "stash8x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 501
     }
   },
   "repositories": {
@@ -265,7 +292,7 @@
       "username": "mdr19ganseki95cf",
       "images": true,
       "issueStartNumber": 9,
-      "issueEndNumber": 254,
+      "issueEndNumber": 467,
       "probabilityBooster": 9
     },
     "redirect0915": {
@@ -351,6 +378,13 @@
       "issueStartNumber": 1,
       "issueEndNumber": 3408,
       "probabilityBooster": 3
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
     }
   },
   "formulas": [

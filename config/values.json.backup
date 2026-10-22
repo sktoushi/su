@@ -1,8 +1,11 @@
 {
   "base": {
-    "stash7EightyPercent": "2580",
-    "stash7NinetyPercent": "2867",
-    "stash7Ending": "3186",
+    "stash8EightyPercent": "2008",
+    "stash8NinetyPercent": "2231",
+    "stash8Ending": "2479",
+    "stash7EightyPercent": "2969",
+    "stash7NinetyPercent": "3339",
+    "stash7Ending": "3709",
     "stash6EightyPercent": "3639",
     "stash6NinetyPercent": "4089",
     "stash6Ending": "4539",
@@ -38,11 +41,12 @@
     "stash5Starting": "1",
     "stash6Starting": "1",
     "stash7Starting": "1",
+    "stash8Starting": "1",
     "theSnackbarStarting": "1",
     "theSnackbarEnding": "33",
     "imgStarting": "1",
     "imgEnding": "195",
-    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending + stash7Ending",
+    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending + stash7Ending + stash8Ending",
     "progressTargetValueFormula": "18393",
     "progressBasis": "687",
     "dbviewerLinks": {
@@ -73,6 +77,9 @@
     "recent5Settings": [
       {
         "csvUrl": "skyway-stash7.csv"
+      },
+      {
+        "csvUrl": "skyway-stash8.csv"
       }
     ]
   },

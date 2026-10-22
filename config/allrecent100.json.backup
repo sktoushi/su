@@ -1,9 +1,9 @@
-{
+﻿{
   "repositories": {
     "stash7": {
-      "username": "sktoushi", 
-      "issueStartNumber": 1, 
-      "issueEndNumber": 890
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 3709
     }
   },
   "formulas": [
