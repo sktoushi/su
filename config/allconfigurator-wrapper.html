@@ -294,6 +294,10 @@
       const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3'];
       const STASH_THRESHOLD = 50;
 
+      // Random recent-issue redirect settings
+      const RANDOM_ISSUE_PROBABILITY = 0.10;          // 10% of visits
+      const RECENT_WINDOW_SIZES = [50, 25, 16];       // stash, stashx2, stashx3
+
       let configData = null;
       let reposToEdit = [];
       let counters = { stash: 0, stashx2: 0, stashx3: 0 };
@@ -589,6 +593,50 @@
         }
       }
 
+      // ---------- Random recent-issue redirect ----------
+      // Builds the pool of most recently added issue indices:
+      //   stash   -> latest 50 indices of repo 1
+      //   stashx2 -> latest 25 indices of repo 2
+      //   stashx3 -> latest 16 indices of repo 3
+      // The latest index for a repo is its issueEndNumber (from all.json)
+      // plus the accumulated, not-yet-folded counter for that repo.
+      function buildRecentIssuePool(urlParams) {
+        const urlRepos = [urlParams.repo1, urlParams.repo2, urlParams.repo3];
+        const pool = [];
+
+        // Below 91 total added indices: use exactly the indices added (uniform over all of them).
+        // At/above 91: use the preset windows (50 / 25 / 16).
+        const windowsTotal = RECENT_WINDOW_SIZES.reduce((a, b) => a + b, 0);
+        const addedTotal = COUNTER_KEYS.reduce((sum, k) => sum + (counters[k] || 0), 0);
+        const useAddedCounts = addedTotal < windowsTotal;
+
+        reposToEdit.forEach((cfgRepo, idx) => {
+          const repoName = urlRepos[idx] || cfgRepo;
+          const base = configData.repositories3x[cfgRepo].issueEndNumber || 0;
+          const latest = base + (counters[COUNTER_KEYS[idx]] || 0);
+          const windowSize = useAddedCounts ? (counters[COUNTER_KEYS[idx]] || 0) : RECENT_WINDOW_SIZES[idx];
+
+          for (let n = latest; n > latest - windowSize && n >= 1; n--) {
+            pool.push({ repo: repoName, issue: n });
+          }
+        });
+
+        return pool;
+      }
+
+      function tryRandomRecentIssueRedirect(urlParams) {
+        if (!urlParams.username) return false;
+        if (Math.random() >= RANDOM_ISSUE_PROBABILITY) return false;
+
+        const pool = buildRecentIssuePool(urlParams);
+        if (pool.length === 0) return false;
+
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        window.location.href =
+          `https://github.com/${encodeURIComponent(urlParams.username)}/${encodeURIComponent(pick.repo)}/issues/${pick.issue}`;
+        return true;
+      }
+
       // ---------- Init / main flow ----------
       async function init() {
         const urlParams = getUrlParams();
@@ -618,6 +666,11 @@
         // to creating a new GitHub issue in whichever repo has the highest
         // stash value for this visit.
         if ((counters.stash + (counters.stashx2 * 2) + (counters.stashx3 * 3)) < STASH_THRESHOLD) {
+          // 10% of the time: jump to a random recently added issue instead.
+          if (tryRandomRecentIssueRedirect(urlParams)) {
+            return;
+          }
+
           const hasRedirectTarget = !!urlParams.username &&
             (urlParams.repo1 || urlParams.repo2 || urlParams.repo3);
 
