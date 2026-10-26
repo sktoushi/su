@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenshot Randomizer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 680px; margin: 12vh auto; padding: 24px; line-height: 1.5; }
+    button { padding: 12px 18px; font-size: 1rem; cursor: pointer; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>Screenshot Randomizer</h1>
+  <p>Choose a random screenshot from the list and open its GitHub URL.</p>
+  <button id="go">Open random screenshot</button>
+  <p id="result" aria-live="polite"></p>
+  <script>
+    const prefix = 'https://github.com/needacounto/stash9/blob/09f4da10ee29570b7d284e1480b1d54780a68cba/20261026/';
+    const images = [
+  "Screenshot_20261026_182903_Slack.jpg",
+  "Screenshot_20261026_182900_Slack.jpg",
+  "Screenshot_20261026_182857_Slack.jpg",
+  "Screenshot_20261026_182853_Slack.jpg",
+  "Screenshot_20261026_182847_Slack.jpg",
+  "Screenshot_20261026_182844_Slack.jpg",
+  "Screenshot_20261026_182840_Slack.jpg",
+  "Screenshot_20261026_182836_Slack.jpg",
+  "Screenshot_20261026_182816_Slack.jpg",
+  "Screenshot_20261026_182806_Slack.jpg",
+  "Screenshot_20261026_182800_Slack.jpg",
+  "Screenshot_20261026_182751_Slack.jpg",
+  "Screenshot_20261026_182746_Slack.jpg",
+  "Screenshot_20261026_182742_Slack.jpg",
+  "Screenshot_20261026_182736_Slack.jpg",
+  "Screenshot_20261026_182728_Slack.jpg",
+  "Screenshot_20261026_182551_Slack.jpg",
+  "Screenshot_20261026_182547_Slack.jpg",
+  "Screenshot_20261026_182542_Slack.jpg",
+  "Screenshot_20261026_182517_Slack.jpg",
+  "Screenshot_20261026_182504_Slack.jpg",
+  "Screenshot_20261026_183258_Slack.jpg",
+  "Screenshot_20261026_183251_Slack.jpg",
+  "Screenshot_20261026_183245_Slack.jpg",
+  "Screenshot_20261026_183240_Slack.jpg",
+  "Screenshot_20261026_183236_Slack.jpg",
+  "Screenshot_20261026_183224_Slack.jpg",
+  "Screenshot_20261026_183219_Slack.jpg",
+  "Screenshot_20261026_183213_Slack.jpg",
+  "Screenshot_20261026_183208_Slack.jpg",
+  "Screenshot_20261026_183204_Slack.jpg",
+  "Screenshot_20261026_183148_Slack.jpg",
+  "Screenshot_20261026_183144_Slack.jpg",
+  "Screenshot_20261026_183139_Slack.jpg",
+  "Screenshot_20261026_183121_Slack.jpg",
+  "Screenshot_20261026_183114_Slack.jpg",
+  "Screenshot_20261026_183111_Slack.jpg",
+  "Screenshot_20261026_183104_Slack.jpg",
+  "Screenshot_20261026_183102_Slack.jpg",
+  "Screenshot_20261026_183056_Slack.jpg",
+  "Screenshot_20261026_183051_Slack.jpg",
+  "Screenshot_20261026_183047_Slack.jpg",
+  "Screenshot_20261026_183043_Slack.jpg",
+  "Screenshot_20261026_183038_Slack.jpg",
+  "Screenshot_20261026_183033_Slack.jpg",
+  "Screenshot_20261026_183029_Slack.jpg",
+  "Screenshot_20261026_183024_Slack.jpg",
+  "Screenshot_20261026_183020_Slack.jpg",
+  "Screenshot_20261026_183016_Slack.jpg",
+  "Screenshot_20261026_183005_Slack.jpg",
+  "Screenshot_20261026_182959_Slack.jpg",
+  "Screenshot_20261026_182954_Slack.jpg",
+  "Screenshot_20261026_182951_Slack.jpg",
+  "Screenshot_20261026_182945_Slack.jpg",
+  "Screenshot_20261026_182940_Slack.jpg",
+  "Screenshot_20261026_182936_Slack.jpg",
+  "Screenshot_20261026_182932_Slack.jpg",
+  "Screenshot_20261026_182928_Slack.jpg",
+  "Screenshot_20261026_182924_Slack.jpg",
+  "Screenshot_20261026_182920_Slack.jpg",
+  "Screenshot_20261026_182916_Slack.jpg",
+  "Screenshot_20261026_182910_Slack.jpg",
+  "Screenshot_20261026_182907_Slack.jpg"
+];
+
+    document.getElementById("go").addEventListener("click", () => {
+      const imageName = images[Math.floor(Math.random() * images.length)];
+      const url = prefix + encodeURIComponent(imageName);
+      document.getElementById("result").innerHTML =
+        'Opening: <code></code><br><a target="_blank" rel="noopener noreferrer">Open link again</a>';
+      document.querySelector("#result code").textContent = imageName;
+      document.querySelector("#result a").href = url;
+      window.location.href = url;
+    });
+  </script>
+</body>
+</html>
