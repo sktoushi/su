@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Nine Situations — Random Paragraph</title>
+<style>
+  :root { color-scheme: dark; --bg:#111318; --panel:#1b1e26; --text:#e9eaf0; --muted:#aeb4c2; --accent:#9db7ff; --border:#343947; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--text); font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  main { max-width:900px; margin:0 auto; }
+  h1 { font-size:clamp(1.45rem,4vw,2rem); line-height:1.25; margin:0 0 8px; }
+  .subtitle { color:var(--muted); margin:0 0 22px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 18px; }
+  button { appearance:none; border:1px solid var(--border); border-radius:10px; padding:11px 16px; font:inherit; font-weight:650; cursor:pointer; color:var(--text); background:#292e3a; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#101522; }
+  button:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+  button:disabled { opacity:.55; cursor:wait; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:clamp(18px,4vw,30px); min-height:220px; }
+  .meta { color:var(--muted); font-size:.9rem; margin-bottom:12px; }
+  #paragraph { white-space:pre-wrap; overflow-wrap:anywhere; margin:0; }
+  .status { min-height:1.5em; margin-top:12px; color:var(--muted); font-size:.9rem; }
+  footer { color:var(--muted); font-size:.85rem; margin-top:20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chapter 12. The Nine Situations</h1>
+  <p class="subtitle">Random paragraph picker · Sun Tzu, sections 7–11</p>
+  <div class="toolbar">
+    <button class="primary" id="randomBtn" type="button">Pick random paragraph</button>
+    <button id="copyBtn" type="button">Copy text</button>
+  </div>
+  <section class="card" aria-live="polite" aria-atomic="true">
+    <div class="meta" id="meta">Ready · 14 paragraphs</div>
+    <p id="paragraph">Press “Pick random paragraph” to display a passage.</p>
+  </section>
+  <div class="status" id="status" role="status"></div>
+  <footer>Copy text copies only the currently displayed passage.</footer>
+</main>
+<script>
+const paragraphs = [
+`7. When an army has penetrated into the heart of a hostile country, leaving a number of fortified cities in its rear, it is serious ground.`,
+`[Wang Hsi explains the name by saying that "when an army has reached such a point, its situation is serious." The elegance of the definition eating its own tail is not accidental — seriousness here is not a quality of the terrain but of the commitment; you have passed the point where turning back is cheaper than going forward, and the fortified cities at your rear are not a threat yet, but they are a clock.]`,
+`8. Mountain forests, [Or simply "forests."] rugged steeps, marshes and fens–all country that is hard to traverse: this is difficult ground.`,
+`The compression here is almost contemptuous — Sun Tzu lists four distinct obstacle types and collapses them into a single category, which is the point: the specific obstacle doesn't matter, only what it does to your rate of movement and your capacity to concentrate force; difficult ground is any ground that costs you more than it costs the enemy.`,
+`9. Ground which is reached through narrow gorges, and from which we can only retire by tortuous paths, so that a small number of the enemy would suffice to crush a large body of our men: this is hemmed in ground.`,
+`The defining feature is the inversion of the force ratio — terrain that lets a handful of men neutralize thousands is terrain that has already decided the battle before it begins; numbers become irrelevant, which means everything you paid to assemble your numbers has been voided by geography.`,
+`10. Ground on which we can only be saved from destruction by fighting without delay, is desperate ground.`,
+`The situation, as pictured by Ts'ao Kung, is very similar to the "hemmed-in ground" except that here escape is no longer possible: "A lofty mountain in front, a large river behind, advance impossible, retreat blocked." Ch'en Hao says: "to be on 'desperate ground' is like sitting in a leaking boat or crouching in a burning house."`,
+`Tu Mu quotes from Li Ching a vivid description of the plight of an army thus entrapped: "Suppose an army invading hostile territory without the aid of local guides: – it falls into a fatal snare and is at the enemy's mercy. A ravine on the left, a mountain on the right, a pathway so perilous that the horses have to be roped together and the chariots carried in slings, no passage open in front, retreat cut off behind, no choice but to proceed in single file. Then, before there is time to range our soldiers in order of battle, the enemy is overwhelming strength suddenly appears on the scene. Advancing, we can nowhere take a breathing-space; retreating, we have no haven of refuge. We seek a pitched battle, but in vain; yet standing on the defensive, none of us has a moment's respite. If we simply maintain our ground, whole days and months will crawl by; the moment we make a move, we have to sustain the enemy's attacks on front and rear. The country is wild, destitute of water and plants; the army is lacking in the necessaries of life, the horses are jaded and the men worn-out, all the resources of strength and skill unavailing, the pass so narrow that a single man defending it can check the onset of ten thousand; all means of offense in the hands of the enemy, all points of vantage already forfeited by ourselves:–in this terrible plight, even though we had the most valiant soldiers and the keenest of weapons, how could they be employed with the slightest effect?"`,
+`Li Ching's description accumulates detail the way a trap accumulates tension — each clause closes off one more exit until the final rhetorical question lands in a space with no air left in it; this is desperate ground rendered as prose experience, so the reader feels the walls before they understand the concept.`,
+`Students of Greek history may be reminded of the awful close to the Sicilian expedition, and the agony of the Athenians under Nicias and Demonsthenes. [See Thucydides, VII. 78 sqq.]`,
+`The Sicilian expedition is the perfect historical rhyme: an army that left home at the height of its confidence, penetrated deep into hostile territory, lost its fleet, and was ground to nothing trying to retreat through a landscape that had become a killing corridor — Athens never recovered the men, the ships, or the belief in its own invincibility.`,
+`11. On dispersive ground, therefore, fight not. On facile ground, halt not. On contentious ground, attack not. The closing triplet works by negation — Sun Tzu does not tell you what to do on each ground, only what not to do, which is the more durable instruction; prescriptions age, prohibitions persist; the ground that scatters your men, the ground that tempts you to pause, the ground both sides want — on each of these, the obvious move is the wrong one.`
+];
+
+let currentIndex = -1;
+const paragraphEl = document.getElementById('paragraph');
+const metaEl = document.getElementById('meta');
+const statusEl = document.getElementById('status');
+const copyBtn = document.getElementById('copyBtn');
+
+function pickRandom() {
+  let next = Math.floor(Math.random() * paragraphs.length);
+  if (paragraphs.length > 1 && next === currentIndex) next = (next + 1 + Math.floor(Math.random() * (paragraphs.length - 1))) % paragraphs.length;
+  currentIndex = next;
+  paragraphEl.textContent = paragraphs[currentIndex];
+  metaEl.textContent = `Paragraph ${currentIndex + 1} of ${paragraphs.length}`;
+  statusEl.textContent = '';
+}
+
+async function copyCurrent() {
+  if (currentIndex < 0) {
+    statusEl.textContent = 'Pick a paragraph first.';
+    return;
+  }
+  const text = paragraphs[currentIndex];
+  try {
+    await navigator.clipboard.writeText(text);
+    statusEl.textContent = 'Copied to clipboard.';
+  } catch (e) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    statusEl.textContent = ok ? 'Copied to clipboard.' : 'Copy failed. Select the passage and copy it manually.';
+  }
+}
+document.getElementById('randomBtn').addEventListener('click', pickRandom);
+copyBtn.addEventListener('click', copyCurrent);
+</script>
+</body>
+</html>
