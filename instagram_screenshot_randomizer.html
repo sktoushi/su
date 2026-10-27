@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Instagram Screenshot Randomizer</title>
+  <meta name="robots" content="noindex">
+  <script>
+    (() => {
+      const baseUrl = "https://github.com/needacounto/stash9/blob/main/20261027/";
+      const filenames = [
+        "Screenshot_20261027_181051_Instagram.jpg",
+        "Screenshot_20261027_181047_Instagram.jpg",
+        "Screenshot_20261027_181043_Instagram.jpg",
+        "Screenshot_20261027_181037_Instagram.jpg",
+        "Screenshot_20261027_181034_Instagram.jpg",
+        "Screenshot_20261027_181027_Instagram.jpg",
+        "Screenshot_20261027_181024_Instagram.jpg",
+        "Screenshot_20261027_181019_Instagram.jpg",
+        "Screenshot_20261027_181013_Instagram.jpg",
+        "Screenshot_20261027_181008_Instagram.jpg",
+        "Screenshot_20261027_181002_Instagram.jpg",
+        "Screenshot_20261027_181000_Instagram.jpg",
+        "Screenshot_20261027_180955_Instagram.jpg"
+      ];
+
+      const index = Math.floor(Math.random() * filenames.length);
+      const destination = baseUrl + filenames[index];
+      window.location.replace(destination);
+    })();
+  </script>
+</head>
+<body>
+  <p>Choosing a random screenshot and redirecting…</p>
+  <noscript>
+    JavaScript must be enabled for the random redirect to work.
+  </noscript>
+</body>
+</html>
