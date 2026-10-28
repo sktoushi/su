@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,9 +288,9 @@
 
         configData = await response.json();
 
-        if (!configData.repositories3x ||
-            typeof configData.repositories3x !== 'object') {
-          throw new Error('all.json must contain repositories3x');
+        if (!configData.repositories10x ||
+            typeof configData.repositories10x !== 'object') {
+          throw new Error('all.json must contain repositories10x');
         }
 
         const keys = Object.keys(configData.repositories3x);
@@ -302,7 +301,7 @@
         const fieldCount = keys.length >= 4 ? 4 : 3;
 
         if (keys.length < 3) {
-          throw new Error('repositories3x must have at least 3 repositories');
+          throw new Error('repositories10x must have at least 3 repositories');
         }
 
         reposToEdit = keys.slice(-fieldCount);
