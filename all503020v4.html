@@ -332,10 +332,12 @@ async function simulateCascade(versionNumber){
     let repos;
     if(urlPrefix === "allv"){
       repos = cfg.repositories || {};
-    }else if(urlPrefix === "allv-2x-"){
+    } else if(urlPrefix === "allv-2x-"){
       repos = cfg.repositories2x || {};
-    }else{
+    } else if (urlPrefix === "allv-3x-"){
       repos = cfg.repositories3x || {};
+    } else{
+      repos = cfg.repositories10x || {};
     }
     
     // Gather all issues
@@ -560,12 +562,14 @@ async function main(){
       const prefixRand = randomFloat();
       let urlPrefix;
       
-      if(prefixRand < 0.1667){
+      if(prefixRand < 0.0625){
         urlPrefix = "allv";
-      }else if(prefixRand < 0.5){
+      } else if(prefixRand < .1250){
         urlPrefix = "allv-2x-";
-      }else{
+      } else if(prefixRand < 0.1875){
         urlPrefix = "allv-3x-";
+      } else {
+        urlPrefix = "allv-10x-";
       }
       
       window.location.replace("https://sktoushi.github.io/su/" + urlPrefix + versionNumber + ".html");

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="common/random-utils.js"></script>
+  <script src="common/config-loader.js"></script>
+  <script src="common/stash-excess-detector.js"></script>
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Skyway Scheduler Redirect</title>
+</head>
+<body>
+
+<script>
+(async () => {
+  // Check for stash excess on page load
+  StashExcessDetector.checkAndAlert().catch(e => console.error('Stash check failed:', e));
+
+  try {
+    const res = await ConfigLoader.load('all').then(() => ({ ok: true, json: async () => await ConfigLoader.load('all') }));
+
+    if (!res.ok) {
+      throw new Error('Failed to load config/all.json');
+    }
+
+    const cfg = await res.json();
+    const max = cfg?.skyway?.["scheduler-max"];
+
+    if (max === undefined || max === null) {
+      throw new Error('skyway.scheduler-max not found');
+    }
+
+    location.replace(
+      `https://sktoushi.github.io/su/skyway-scheduler.html?max=${encodeURIComponent(max)}`
+    );
+
+  } catch (e) {
+    document.body.textContent = e.message;
+  }
+})();
+</script>
+
+</body>
+</html>
