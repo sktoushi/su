@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>URL Randomizer</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 24px; background: #111318; color: #f3f4f6;
+      font: 16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    main {
+      width: min(100%, 560px); padding: 28px; border: 1px solid #303541;
+      border-radius: 18px; background: #1a1d24; box-shadow: 0 18px 55px #0005;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.55rem; }
+    p { margin: 0 0 20px; color: #b5bbc7; }
+    button {
+      width: 100%; border: 0; border-radius: 10px; padding: 14px 18px;
+      background: #e5e7eb; color: #111318; font: inherit; font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #fff; }
+    button:focus-visible { outline: 3px solid #8ab4ff; outline-offset: 3px; }
+    .status { margin-top: 18px; font-size: .9rem; color: #b5bbc7; }
+    .count { margin-top: 8px; font-size: .85rem; color: #858d9b; }
+    noscript { display: block; margin-top: 14px; color: #ffb4ab; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>URL Randomizer</h1>
+    <p>Press the button to open one randomly selected URL from the list.</p>
+    <button id="randomize" type="button">Randomize &amp; Open</button>
+    <div class="status" id="status" aria-live="polite">Ready to randomize.</div>
+    <div class="count" id="count"></div>
+    <noscript>This randomizer requires JavaScript to be enabled.</noscript>
+  </main>
+
+  <script>
+    "use strict";
+
+    const urls = [
+      "https://github.com/sktoushi/stash2/issues/3159",
+      "https://github.com/mdr19ganseki95cf/public-repo/issues/1414",
+      "https://youtube.com/shorts/k6tOjKK1Zbk?si=z05wd1rYPB4NxVkO",
+      "https://github.com/mdr19ganseki95cf/stash6/issues/3102",
+      "https://github.com/mdr19ganseki95cf/log/issues/203",
+      "https://github.com/mdr19ganseki95cf/log/issues/204",
+      "https://github.com/needacounto/stash8/issues/1386",
+      "https://github.com/needacounto/stash8/issues/1556",
+      "https://github.com/mdr19ganseki95cf/public-repo/issues/1097",
+      "https://github.com/mdr19ganseki95cf/public-repo/issues/3978",
+      "https://github.com/mdr19ganseki95cf/stash/issues/2739",
+      "https://github.com/mdr19ganseki95cf/stash3/issues/23"
+    ];
+
+    document.getElementById("count").textContent = `${urls.length} URLs in the randomizer`;
+
+    document.getElementById("randomize").addEventListener("click", () => {
+      const index = Math.floor(Math.random() * urls.length);
+      const selectedUrl = urls[index];
+      document.getElementById("status").textContent =
+        `Selected ${index + 1} of ${urls.length}. Opening destination…`;
+      window.location.assign(selectedUrl);
+    });
+  </script>
+</body>
+</html>
