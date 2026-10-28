@@ -1,0 +1,438 @@
+{
+  "skyway": {
+    "scheduler-max": 87
+  },
+  "repositories3x": {
+    "the-snackbar": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 33
+    },
+    "img": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 195
+    },
+    "stash1p5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 265
+    },
+    "log": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 9,
+      "issueEndNumber": 517,
+      "probabilityBooster": 9
+    },
+    "redirect0915": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 255
+    },
+    "public-repo": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3991
+    },
+    "stash": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4569
+    },
+    "stash2": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4508
+    },
+    "one-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 481,
+      "probabilityBooster": 3
+    },
+    "two-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 148,
+      "probabilityBooster": 3
+    },
+    "three-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 276,
+      "probabilityBooster": 3
+    },
+    "four-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 254,
+      "probabilityBooster": 3
+    },
+    "five-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 252,
+      "probabilityBooster": 3
+    },
+    "stash3": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash6": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4539
+    },
+    "stash7": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3406
+    },
+    "stash7x2": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 137
+    },
+    "stash7x3": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 135
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
+    },
+    "stash8x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 501
+    },
+    "stash8x3": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 298
+    },
+    "stash9": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 540,
+      "images": true
+    },
+    "stash9x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 273
+    },
+    "stash9x3": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 89
+    }
+  },
+  "repositories2x": {
+    "the-snackbar": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 33
+    },
+    "img": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 195
+    },
+    "stash1p5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 265
+    },
+    "log": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 9,
+      "issueEndNumber": 517,
+      "probabilityBooster": 9
+    },
+    "redirect0915": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 255
+    },
+    "public-repo": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3991
+    },
+    "stash": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4569
+    },
+    "stash2": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4508
+    },
+    "one-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 481,
+      "probabilityBooster": 3
+    },
+    "two-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 148,
+      "probabilityBooster": 3
+    },
+    "three-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 276,
+      "probabilityBooster": 3
+    },
+    "four-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 254,
+      "probabilityBooster": 3
+    },
+    "five-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 252,
+      "probabilityBooster": 3
+    },
+    "stash3": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash6": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4539
+    },
+    "stash7": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3406
+    },
+    "stash7x2": {
+      "username": "sktoushi",
+      "issueStartNumber": 1,
+      "issueEndNumber": 137
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
+    },
+    "stash8x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 501
+    },
+    "stash9": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 540,
+      "images": true
+    },
+    "stash9x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 273
+    }
+  },
+  "repositories": {
+    "the-snackbar": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 33
+    },
+    "img": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 195
+    },
+    "stash1p5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 265
+    },
+    "log": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 9,
+      "issueEndNumber": 517,
+      "probabilityBooster": 9
+    },
+    "redirect0915": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 255
+    },
+    "public-repo": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3991
+    },
+    "stash": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4569
+    },
+    "stash2": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4508
+    },
+    "one-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 481,
+      "probabilityBooster": 3
+    },
+    "two-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 148,
+      "probabilityBooster": 3
+    },
+    "three-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 276,
+      "probabilityBooster": 3
+    },
+    "four-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 254,
+      "probabilityBooster": 3
+    },
+    "five-star-knowledge": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 252,
+      "probabilityBooster": 3
+    },
+    "stash3": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash5": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4500
+    },
+    "stash6": {
+      "username": "mdr19ganseki95cf",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 4539
+    },
+    "stash7": {
+      "username": "sktoushi",
+      "images": true,
+      "issueStartNumber": 1,
+      "issueEndNumber": 3408,
+      "probabilityBooster": 3
+    },
+    "stash8": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 2774,
+      "images": true
+    },
+    "stash9": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 540,
+      "images": true
+    }
+  },
+  "formulas": [
+    "random",
+    "leftLeaning",
+    "rightLeaning1",
+    "rightLeaning1",
+    "recent20Percent",
+    "recent5Percent"
+  ],
+  "_comment": "probabilityBooster is optional per repository (default=1). If set to 2, the repository's weight is doubled in selection calculations, but the actual issue range remains unchanged."
+}
