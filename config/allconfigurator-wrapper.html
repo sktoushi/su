@@ -6,243 +6,117 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="../common/stash-excess-detector.js"></script>
   <style>
-    :root{
-      --bg:#0b0c10;
-      --fg:#cfd8dc;
-      --muted:#90a4ae;
-      --accent:#7cb342;
-      --btn:#263238;
-      --btn-hover:#37474f;
-      --btn-active:#455a64;
-      --danger:#e53935;
-      --success:#66bb6a;
+    :root {
+      --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae;
+      --accent:#7cb342; --btn:#263238; --btn-hover:#37474f;
+      --btn-active:#455a64; --danger:#e53935; --success:#66bb6a;
     }
-    html,body{
-      margin:0;
-      padding:0;
-      min-height:100%;
-      background:var(--bg);
-      color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    html,body {
+      margin:0; padding:0; min-height:100%;
+      background:var(--bg); color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,
+        "Apple Color Emoji","Segoe UI Emoji";
     }
-    .container{
-      max-width:800px;
-      margin:0 auto;
-      padding:2rem 1.5rem;
+    .container { max-width:800px; margin:0 auto; padding:2rem 1.5rem; }
+    h1 { margin:0 0 .5rem; font-size:1.8rem; font-weight:700; }
+    .subtitle { color:var(--muted); margin:0 0 2rem; font-size:.95rem; }
+    .card {
+      background:#11161a; border:1px solid rgba(255,255,255,.08);
+      border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
     }
-    h1{
-      margin:0 0 .5rem;
-      font-size:1.8rem;
-      font-weight:700;
-    }
-    .subtitle{
-      color:var(--muted);
-      margin:0 0 2rem;
-      font-size:.95rem;
-    }
-    .card{
-      background:#11161a;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:12px;
-      padding:1.5rem;
-      margin-bottom:1.5rem;
-    }
-    .field-group{
-      margin-bottom:1.25rem;
-    }
-    .field-group:last-child{
-      margin-bottom:0;
-    }
-    label{
-      display:block;
-      margin-bottom:.5rem;
-      font-weight:600;
-      font-size:.95rem;
-    }
-    .repo-name{
+    .field-group { margin-bottom:1.25rem; }
+    .field-group:last-child { margin-bottom:0; }
+    label { display:block; margin-bottom:.5rem; font-weight:600; font-size:.95rem; }
+    .repo-name {
       color:var(--accent);
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     }
-    .field-row{
-      display:flex;
-      gap:.75rem;
-      align-items:center;
-    }
-    .field-row input[type="number"]{
-      flex:1;
-    }
-    input[type="number"]{
-      width:100%;
-      padding:.75rem;
-      background:#0f1519;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:.5rem;
-      color:var(--fg);
-      font-size:1rem;
+    .field-row { display:flex; gap:.75rem; align-items:center; }
+    .field-row input[type="number"] { flex:1; min-width:0; }
+    input[type="number"] {
+      width:100%; padding:.75rem; background:#0f1519;
+      border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+      color:var(--fg); font-size:1rem;
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-      transition:border-color .2s;
+      transition:border-color .2s; box-sizing:border-box;
     }
-    input[type="number"]:focus{
-      outline:none;
-      border-color:var(--accent);
+    input[type="number"]:focus { outline:none; border-color:var(--accent); }
+    .btn {
+      border:1px solid #111; background:var(--btn); color:var(--fg);
+      padding:.75rem 1.5rem; border-radius:.5rem; font-size:1rem;
+      cursor:pointer; transition:transform .05s,background .15s,box-shadow .15s;
+      box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; font-weight:600;
     }
-    .btn{
-      border:1px solid #111;
-      background:var(--btn);
-      color:var(--fg);
-      padding:.75rem 1.5rem;
-      border-radius:.5rem;
-      font-size:1rem;
-      cursor:pointer;
-      transition:transform .05s,background .15s,box-shadow .15s;
-      box-shadow:0 2px 0 rgba(0,0,0,.3);
-      user-select:none;
-      font-weight:600;
+    .btn:hover { background:var(--btn-hover); }
+    .btn:active { transform:translateY(1px); background:var(--btn-active); }
+    .increment-btn { padding:.6rem 1rem; font-size:.85rem; white-space:nowrap; }
+    .badge {
+      background:rgba(255,255,255,.1); padding:.15rem .5rem;
+      border-radius:999px; font-size:.78rem; margin-left:.35rem;
     }
-    .btn:hover{
-      background:var(--btn-hover);
+    .btn-primary { background:var(--accent); color:#0b0c10; border-color:#5a8e2f; }
+    .btn-primary:hover { background:#8bc34a; }
+    .btn-primary:active { background:#689f38; }
+    .actions { display:flex; gap:1rem; margin-top:2rem; }
+    .status,.warning {
+      margin-top:1.5rem; padding:1rem; border-radius:.5rem;
+      font-size:.95rem; display:none;
     }
-    .btn:active{
-      transform:translateY(1px);
-      background:var(--btn-active);
+    .status.success {
+      display:block; background:rgba(102,187,106,.15);
+      border:1px solid rgba(102,187,106,.3); color:var(--success);
     }
-    .increment-btn{
-      padding:.6rem 1rem;
-      font-size:.85rem;
-      white-space:nowrap;
+    .status.error {
+      display:block; background:rgba(229,57,53,.15);
+      border:1px solid rgba(229,57,53,.3); color:var(--danger);
     }
-    .badge{
-      background:rgba(255,255,255,.1);
-      padding:.15rem .5rem;
-      border-radius:999px;
-      font-size:.78rem;
-      margin-left:.35rem;
-    }
-    .btn-primary{
-      background:var(--accent);
-      color:#0b0c10;
-      border-color:#5a8e2f;
-    }
-    .btn-primary:hover{
-      background:#8bc34a;
-    }
-    .btn-primary:active{
-      background:#689f38;
-    }
-    .actions{
-      display:flex;
-      gap:1rem;
-      margin-top:2rem;
-    }
-    .status{
-      margin-top:1.5rem;
-      padding:1rem;
-      border-radius:.5rem;
-      font-size:.95rem;
-      display:none;
-    }
-    .status.success{
-      display:block;
-      background:rgba(102,187,106,.15);
-      border:1px solid rgba(102,187,106,.3);
-      color:var(--success);
-    }
-    .status.error{
-      display:block;
-      background:rgba(229,57,53,.15);
-      border:1px solid rgba(229,57,53,.3);
-      color:var(--danger);
-    }
-    .mono{
+    .mono {
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     }
-    .loading{
-      text-align:center;
-      padding:3rem;
-      color:var(--muted);
-    }
-    .warning{
-      margin-top:1.5rem;
-      padding:1rem;
-      border-radius:.5rem;
-      font-size:.95rem;
-      display:none;
+    .loading { text-align:center; padding:3rem; color:var(--muted); }
+    .warning {
       background:rgba(255,152,0,.15);
-      border:1px solid rgba(255,152,0,.3);
-      color:#ffa726;
+      border:1px solid rgba(255,152,0,.3); color:#ffa726;
     }
-    .warning.show{
-      display:block;
-    }
-    .warning-title{
-      font-weight:700;
-      margin-bottom:.5rem;
-    }
-    .warning-formula{
+    .warning.show { display:block; }
+    .warning-title { font-weight:700; margin-bottom:.5rem; }
+    .warning-formula {
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-      background:rgba(0,0,0,.3);
-      padding:.5rem;
-      border-radius:.25rem;
-      margin-top:.5rem;
+      background:rgba(0,0,0,.3); padding:.5rem; border-radius:.25rem; margin-top:.5rem;
     }
-    .idb-title{
-      font-size:1.05rem;
-      margin:0 0 .9rem;
-      color:var(--fg);
-      font-weight:700;
+    .idb-title { font-size:1.05rem; margin:0 0 .9rem; color:var(--fg); font-weight:700; }
+    .idb-label {
+      color:var(--muted); font-size:.82rem; font-weight:600;
+      text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem;
     }
-    .idb-label{
-      color:var(--muted);
-      font-size:.82rem;
-      font-weight:600;
-      text-transform:uppercase;
-      letter-spacing:.03em;
-      margin-bottom:.35rem;
+    .idb-row { font-size:.92rem; padding:.2rem 0; }
+    .modal-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.65);
+      align-items:center; justify-content:center; z-index:1000; padding:1.5rem;
     }
-    .idb-row{
-      font-size:.92rem;
-      padding:.2rem 0;
-    }
-    .modal-overlay{
-      display:none;
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.65);
-      align-items:center;
-      justify-content:center;
-      z-index:1000;
-      padding:1.5rem;
-    }
-    .modal-overlay.show{
-      display:flex;
-    }
-    .modal-box{
-      background:#11161a;
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:12px;
-      padding:1.75rem;
-      max-width:420px;
-      width:100%;
+    .modal-overlay.show { display:flex; }
+    .modal-box {
+      background:#11161a; border:1px solid rgba(255,255,255,.14);
+      border-radius:12px; padding:1.75rem; max-width:420px; width:100%;
       box-shadow:0 10px 40px rgba(0,0,0,.5);
     }
-    .modal-title{
-      font-weight:700;
-      font-size:1.15rem;
-      margin-bottom:.75rem;
-      color:#ffa726;
-    }
-    .modal-body{
-      color:var(--fg);
-      margin-bottom:1.5rem;
-      line-height:1.5;
-      font-size:.95rem;
+    .modal-title { font-weight:700; font-size:1.15rem; margin-bottom:.75rem; color:#ffa726; }
+    .modal-body { color:var(--fg); margin-bottom:1.5rem; line-height:1.5; font-size:.95rem; }
+    @media(max-width:480px) {
+      .container { padding:1.25rem 1rem; }
+      .card { padding:1rem; }
+      .field-row { gap:.5rem; }
+      .increment-btn { padding:.6rem .65rem; }
+      .actions .btn { width:100%; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>All.json Configurator</h1>
-    <p class="subtitle">Edit issueEndNumber for the last three repositories in repositories3x</p>
+    <p class="subtitle">
+      Edit issueEndNumber for the last four repositories in repositories10x
+    </p>
 
     <div id="loading" class="loading">
       <p>Loading config/all.json...</p>
@@ -255,29 +129,28 @@
         <div id="idbCounters"></div>
       </div>
 
-      <div class="card" id="fieldsContainer">
-        <!-- Fields will be dynamically generated here -->
-      </div>
+      <div class="card" id="fieldsContainer"></div>
 
       <div id="warning" class="warning">
-        <div class="warning-title">⚠️ Warning: Total exceeds 4500</div>
+        <div class="warning-title">Warning: Total exceeds 4500</div>
         <div>The calculated value is too high. Consider reducing the values.</div>
         <div class="warning-formula" id="warningFormula"></div>
       </div>
 
       <div class="actions">
-        <button id="saveBtn" class="btn btn-primary">Save & Copy to Clipboard</button>
+        <button id="saveBtn" class="btn btn-primary">
+          Save &amp; Copy to Clipboard
+        </button>
       </div>
-
       <div id="status" class="status"></div>
     </div>
   </div>
 
   <div id="modalOverlay" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-title">⚠️ Configuration Update Needed</div>
+      <div class="modal-title">Configuration Update Needed</div>
       <div class="modal-body">
-        The stash increment counter has reached 50. Please review the fields below and use the
+        The weighted stash counter has reached 50. Review the fields below and use the
         Increment buttons to fold the accumulated stash into each field before saving.
       </div>
       <button id="modalCloseBtn" class="btn btn-primary">Got it</button>
@@ -291,27 +164,39 @@
       const DB_NAME = 'AllJsonConfiguratorDB';
       const DB_VERSION = 1;
       const STORE_NAME = 'kv';
-      const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3'];
-      const STASH_THRESHOLD = 50;
 
-      // Random recent-issue redirect settings
-      const RANDOM_ISSUE_PROBABILITY = 0.10;          // 10% of visits
-      const RECENT_WINDOW_SIZES = [16, 25, 50];       // stash, stashx2, stashx3
+      const CONFIG_KEY = 'repositories10x';
+      const EDIT_REPOSITORY_COUNT = 4;
+
+      const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3', 'stashx10'];
+      const STASH_THRESHOLD = 50;
+      const RANDOM_ISSUE_PROBABILITY = 0.10;
+      const RECENT_WINDOW_SIZES = [16, 25, 50, 5];
 
       let configData = null;
       let reposToEdit = [];
-      let counters = { stash: 0, stashx2: 0, stashx3: 0 };
+      let activeCounterKeys = [];
+
+      let counters = {
+        stash: 0,
+        stashx2: 0,
+        stashx3: 0,
+        stashx10: 0
+      };
 
       // ---------- IndexedDB helpers ----------
+
       function openDB() {
         return new Promise((resolve, reject) => {
           const req = indexedDB.open(DB_NAME, DB_VERSION);
+
           req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains(STORE_NAME)) {
               db.createObjectStore(STORE_NAME, { keyPath: 'key' });
             }
           };
+
           req.onsuccess = (e) => resolve(e.target.result);
           req.onerror = (e) => reject(e.target.error);
         });
@@ -319,74 +204,179 @@
 
       async function idbGet(key) {
         const db = await openDB();
+
         return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_NAME, 'readonly');
-          const store = tx.objectStore(STORE_NAME);
-          const req = store.get(key);
-          req.onsuccess = () => resolve(req.result ? req.result.value : undefined);
+          const req = tx.objectStore(STORE_NAME).get(key);
+
+          req.onsuccess = () => {
+            resolve(req.result ? req.result.value : undefined);
+          };
+
           req.onerror = () => reject(req.error);
+          tx.oncomplete = () => db.close();
+          tx.onerror = () => db.close();
         });
       }
 
       async function idbSet(key, value) {
         const db = await openDB();
+
         return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_NAME, 'readwrite');
-          const store = tx.objectStore(STORE_NAME);
-          const req = store.put({ key, value });
-          req.onsuccess = () => resolve();
-          req.onerror = () => reject(req.error);
+          tx.objectStore(STORE_NAME).put({ key, value });
+
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+
+          tx.onerror = () => {
+            const error = tx.error;
+            db.close();
+            reject(error);
+          };
+
+          tx.onabort = () => {
+            const error = tx.error;
+            db.close();
+            reject(error || new Error('IndexedDB transaction aborted'));
+          };
         });
       }
 
-      // ---------- URL params ----------
+      // ---------- URL parameters ----------
+
       function getUrlParams() {
         const p = new URLSearchParams(window.location.search);
+
         const num = (v) => {
           const n = parseInt(v, 10);
-          return Number.isFinite(n) ? n : 0;
+          return Number.isFinite(n) && n > 0 ? n : 0;
         };
+
         return {
           username: p.get('username') || '',
           repo1: p.get('repo1') || '',
           repo2: p.get('repo2') || '',
           repo3: p.get('repo3') || '',
+          repo4: p.get('repo4') || '',
           stash: num(p.get('stash')),
           stashx2: num(p.get('stashx2')),
-          stashx3: num(p.get('stashx3'))
+          stashx3: num(p.get('stashx3')),
+          stashx10: num(p.get('stashx10'))
         };
       }
 
+      // ---------- Repository access ----------
+
+      function getRepositories() {
+        const repositories = configData && configData[CONFIG_KEY];
+
+        if (
+          !repositories ||
+          typeof repositories !== 'object' ||
+          Array.isArray(repositories)
+        ) {
+          throw new Error(`Missing or invalid ${CONFIG_KEY} in all.json`);
+        }
+
+        return repositories;
+      }
+
+      function getRepository(repo) {
+        const repository = getRepositories()[repo];
+
+        if (!repository || typeof repository !== 'object') {
+          throw new Error(`Repository "${repo}" not found in ${CONFIG_KEY}`);
+        }
+
+        return repository;
+      }
+
+      // ---------- Weighted threshold ----------
+
+      function getWeightedTotal() {
+        return (counters.stash || 0)
+          + 2 * (counters.stashx2 || 0)
+          + 3 * (counters.stashx3 || 0)
+          + 10 * (counters.stashx10 || 0);
+      }
+
+      function thresholdReached() {
+        return getWeightedTotal() >= STASH_THRESHOLD;
+      }
+
       // ---------- Config loading ----------
+
       async function loadConfig() {
         const response = await fetch('./all.json');
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText}`
+          );
         }
+
         configData = await response.json();
 
-        const repos3xKeys = Object.keys(configData.repositories3x);
-        if (repos3xKeys.length < 3) {
-          throw new Error('repositories3x must have at least 3 repositories');
+        const repositories = getRepositories();
+        const keys = Object.keys(repositories);
+
+        if (keys.length < EDIT_REPOSITORY_COUNT) {
+          throw new Error(
+            `${CONFIG_KEY} must have at least ${EDIT_REPOSITORY_COUNT} repositories`
+          );
         }
-        reposToEdit = repos3xKeys.slice(-3);
+
+        // Repository selection always comes from repositories10x.
+        // Use the last four keys in JSON insertion order.
+        reposToEdit = keys.slice(-EDIT_REPOSITORY_COUNT);
+        activeCounterKeys = COUNTER_KEYS.slice(0, EDIT_REPOSITORY_COUNT);
+
+        reposToEdit.forEach(repo => {
+          const entry = repositories[repo];
+          const issueEndNumber = Number(entry.issueEndNumber);
+
+          if (
+            !Number.isSafeInteger(issueEndNumber) ||
+            issueEndNumber < 1
+          ) {
+            throw new Error(
+              `Invalid issueEndNumber for ${repo} in ${CONFIG_KEY}`
+            );
+          }
+
+          if (!entry.username) {
+            throw new Error(
+              `Missing username for ${repo} in ${CONFIG_KEY}`
+            );
+          }
+        });
       }
 
       // ---------- Rendering ----------
+
       function populateForm() {
         const container = document.getElementById('fieldsContainer');
         container.innerHTML = '';
 
         reposToEdit.forEach((repo, idx) => {
-          const counterKey = COUNTER_KEYS[idx];
-          const value = configData.repositories3x[repo].issueEndNumber;
+          const counterKey = activeCounterKeys[idx];
+          const value = getRepository(repo).issueEndNumber;
 
           const fieldGroup = document.createElement('div');
           fieldGroup.className = 'field-group';
 
           const label = document.createElement('label');
-          label.setAttribute('for', repo);
-          label.innerHTML = `<span class="repo-name">${repo}</span> issueEndNumber`;
+          label.htmlFor = repo;
+
+          const repoSpan = document.createElement('span');
+          repoSpan.className = 'repo-name';
+          repoSpan.textContent = repo;
+
+          label.appendChild(repoSpan);
+          label.appendChild(document.createTextNode(' issueEndNumber'));
 
           const row = document.createElement('div');
           row.className = 'field-row';
@@ -404,8 +394,12 @@
           incBtn.className = 'btn increment-btn';
           incBtn.dataset.repo = repo;
           incBtn.dataset.counter = counterKey;
-          incBtn.innerHTML = `Increment <span class="badge" id="badge-${repo}">+${counters[counterKey]}</span>`;
-          incBtn.addEventListener('click', () => handleIncrementClick(repo, counterKey));
+          incBtn.innerHTML =
+            `Increment <span class="badge" id="badge-${repo}">+0</span>`;
+
+          incBtn.addEventListener('click', () => {
+            handleIncrementClick(repo, counterKey);
+          });
 
           row.appendChild(input);
           row.appendChild(incBtn);
@@ -422,96 +416,156 @@
         const initialEl = document.getElementById('idbInitialValues');
         const countersEl = document.getElementById('idbCounters');
 
-        initialEl.innerHTML = '<div class="idb-label">Initial values loaded this visit</div>' +
-          reposToEdit.map(r => `<div class="idb-row mono">${r}: ${configData.repositories3x[r].issueEndNumber}</div>`).join('');
+        initialEl.innerHTML =
+          '<div class="idb-label">Initial values loaded this visit</div>';
 
-        countersEl.innerHTML = '<div class="idb-label" style="margin-top:1rem;">Stash increment counters (persisted across visits)</div>' +
-          reposToEdit.map((r, idx) => {
-            const key = COUNTER_KEYS[idx];
-            return `<div class="idb-row mono">${key} (${r}): ${counters[key]}</div>`;
-          }).join('');
+        reposToEdit.forEach(repo => {
+          const line = document.createElement('div');
+          line.className = 'idb-row mono';
+          line.textContent =
+            `${repo}: ${getRepository(repo).issueEndNumber}`;
+          initialEl.appendChild(line);
+        });
 
+        countersEl.innerHTML =
+          '<div class="idb-label" style="margin-top:1rem;">' +
+          'Stash increment counters (persisted across visits)</div>';
+
+        reposToEdit.forEach((repo, idx) => {
+          const key = activeCounterKeys[idx];
+          const line = document.createElement('div');
+          line.className = 'idb-row mono';
+          line.textContent = `${key} (${repo}): ${counters[key] || 0}`;
+          countersEl.appendChild(line);
+        });
+
+        const weighted = document.createElement('div');
+        weighted.className = 'idb-row mono';
+        weighted.style.marginTop = '.5rem';
+        weighted.textContent =
+          `Weighted total: ${getWeightedTotal()} / ${STASH_THRESHOLD}`;
+
+        countersEl.appendChild(weighted);
         panel.style.display = 'block';
       }
 
       function updateBadges() {
         reposToEdit.forEach((repo, idx) => {
-          const key = COUNTER_KEYS[idx];
+          const key = activeCounterKeys[idx];
           const badge = document.getElementById(`badge-${repo}`);
-          if (badge) badge.textContent = `+${counters[key]}`;
+
+          if (badge) {
+            badge.textContent = `+${counters[key] || 0}`;
+          }
         });
       }
 
       function checkWarning() {
         try {
           const values = [];
+
           for (const repo of reposToEdit) {
             const input = document.getElementById(repo);
             const value = parseInt(input.value, 10);
-            if (Number.isFinite(value) && value >= 1) {
-              values.push(value);
-            } else {
-              document.getElementById('warning').classList.remove('show');
+
+            if (!Number.isFinite(value) || value < 1) {
+              document.getElementById('warning')
+                .classList.remove('show');
               return;
             }
+
+            values.push(value);
           }
 
-          if (values.length === 3) {
-            const repos = values.map((v, i) => ({ name: reposToEdit[i], value: v }));
-            const result = StashExcessDetector.calculate(repos);
+          const repos = values.map((value, idx) => ({
+            name: reposToEdit[idx],
+            value
+          }));
 
-            const warningEl = document.getElementById('warning');
-            const formulaEl = document.getElementById('warningFormula');
+          const result = StashExcessDetector.calculate(repos);
+          const warningEl = document.getElementById('warning');
+          const formulaEl = document.getElementById('warningFormula');
 
-            if (result.exceeds) {
-              formulaEl.textContent = `${result.formula} > ${result.threshold}`;
-              warningEl.classList.add('show');
-            } else {
-              warningEl.classList.remove('show');
-            }
+          if (result.exceeds) {
+            formulaEl.textContent =
+              `${result.formula} > ${result.threshold}`;
+            warningEl.classList.add('show');
+          } else {
+            warningEl.classList.remove('show');
           }
         } catch (error) {
           console.error('Warning check failed:', error);
-          document.getElementById('warning').classList.remove('show');
+          document.getElementById('warning')
+            .classList.remove('show');
         }
       }
 
       // ---------- Increment button ----------
+
       async function handleIncrementClick(repo, counterKey) {
         const input = document.getElementById(repo);
-        const current = parseInt(input.value, 10) || 0;
-        const addition = counters[counterKey] || 0;
-        input.value = current + addition;
+        const current = parseInt(input.value, 10);
 
+        if (!Number.isSafeInteger(current) || current < 1) {
+          showStatus(
+            'error',
+            `Invalid value for ${repo}. Enter a positive integer first.`
+          );
+          return;
+        }
+
+        const addition = counters[counterKey] || 0;
+        const updated = current + addition;
+
+        if (!Number.isSafeInteger(updated)) {
+          showStatus('error', `The updated value for ${repo} is too large.`);
+          return;
+        }
+
+        const previous = counters[counterKey];
         counters[counterKey] = 0;
-        await idbSet('counters', counters);
+
+        try {
+          await idbSet('counters', counters);
+        } catch (error) {
+          counters[counterKey] = previous;
+          showStatus('error', `Failed to update IndexedDB: ${error.message}`);
+          return;
+        }
+
+        input.value = updated;
+
         updateBadges();
         renderIdbPanel();
         checkWarning();
 
-        // The threshold that opens the modal is tied specifically to the
-        // "stash" counter (first field). Resetting it closes the modal.
-        if (counterKey === 'stash') {
+        if (thresholdReached()) {
+          showModal();
+        } else {
           hideModal();
         }
       }
 
       // ---------- Modal ----------
+
       function showModal() {
         document.getElementById('modalOverlay').classList.add('show');
       }
+
       function hideModal() {
         document.getElementById('modalOverlay').classList.remove('show');
       }
 
       // ---------- Editor visibility / status ----------
+
       function showEditor() {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('editor').style.display = 'block';
       }
 
       function showLoadingError(message) {
-        document.getElementById('loading').innerHTML = `<p>Failed to load config: ${message}</p>`;
+        document.getElementById('loading').textContent =
+          `Failed to load config: ${message}`;
       }
 
       function showStatus(type, message) {
@@ -521,31 +575,49 @@
       }
 
       // ---------- Save flow ----------
+
       function getUpdatedValues() {
         const values = {};
+
         for (const repo of reposToEdit) {
           const input = document.getElementById(repo);
-          const value = parseInt(input.value, 10);
-          if (!Number.isFinite(value) || value < 1) {
-            throw new Error(`Invalid value for ${repo}: must be a positive integer`);
+          const value = Number(input.value);
+
+          if (!Number.isSafeInteger(value) || value < 1) {
+            throw new Error(
+              `Invalid value for ${repo}: must be a positive safe integer`
+            );
           }
+
           values[repo] = value;
         }
+
         return values;
       }
 
       function applyUpdates(values) {
+        // Synchronize issueEndNumber across every configuration group
+        // that contains a selected repository with the same exact name.
+        const repositoryGroups = [
+          configData.repositories10x,
+          configData.repositories3x,
+          configData.repositories2x,
+          configData.repositories
+        ];
+
         for (const repo of reposToEdit) {
-          configData.repositories3x[repo].issueEndNumber = values[repo];
-        }
-        for (const repo of reposToEdit) {
-          if (configData.repositories2x && configData.repositories2x[repo]) {
-            configData.repositories2x[repo].issueEndNumber = values[repo];
-          }
-        }
-        for (const repo of reposToEdit) {
-          if (configData.repositories && configData.repositories[repo]) {
-            configData.repositories[repo].issueEndNumber = values[repo];
+          const updatedValue = values[repo];
+
+          for (const group of repositoryGroups) {
+            if (
+              group &&
+              Object.prototype.hasOwnProperty.call(group, repo) &&
+              group[repo] &&
+              typeof group[repo] === 'object' &&
+              !Array.isArray(group[repo])
+            ) {
+              group[repo].issueEndNumber = updatedValue;
+            }
           }
         }
       }
@@ -559,12 +631,14 @@
           textarea.value = text;
           textarea.style.position = 'fixed';
           textarea.style.opacity = '0';
+
           document.body.appendChild(textarea);
           textarea.select();
+
           try {
-            document.execCommand('copy');
+            const copied = document.execCommand('copy');
             document.body.removeChild(textarea);
-            return true;
+            return copied;
           } catch (e) {
             document.body.removeChild(textarea);
             return false;
@@ -575,18 +649,28 @@
       async function handleSave() {
         try {
           const values = getUpdatedValues();
+
           applyUpdates(values);
 
           const jsonString = JSON.stringify(configData, null, 2);
           const copied = await copyToClipboard(jsonString);
 
           if (copied) {
-            showStatus('success', 'Configuration updated and copied to clipboard! Redirecting to GitHub in 3 seconds...');
+            showStatus(
+              'success',
+              'Configuration updated and copied to clipboard! ' +
+              'Redirecting to GitHub in 3 seconds...'
+            );
+
             setTimeout(() => {
-              window.location.href = 'https://github.com/sktoushi/su/edit/in/config/all.json';
+              window.location.href =
+                'https://github.com/sktoushi/su/edit/in/config/all.json';
             }, 3000);
           } else {
-            showStatus('error', 'Failed to copy to clipboard. Please try again.');
+            showStatus(
+              'error',
+              'Failed to copy to clipboard. Please try again.'
+            );
           }
         } catch (error) {
           showStatus('error', error.message);
@@ -594,30 +678,42 @@
       }
 
       // ---------- Random recent-issue redirect ----------
-      // Builds the pool of most recently added issue indices:
-      //   stash   -> latest 50 indices of repo 1
-      //   stashx2 -> latest 25 indices of repo 2
-      //   stashx3 -> latest 16 indices of repo 3
-      // The latest index for a repo is its issueEndNumber (from all.json)
-      // plus the accumulated, not-yet-folded counter for that repo.
+
       function buildRecentIssuePool(urlParams) {
-        const urlRepos = [urlParams.repo1, urlParams.repo2, urlParams.repo3];
         const pool = [];
 
-        // Below 91 total added indices: use exactly the indices added (uniform over all of them).
-        // At/above 91: use the preset windows (50 / 25 / 16).
-        const windowsTotal = RECENT_WINDOW_SIZES.reduce((a, b) => a + b, 0);
-        const addedTotal = COUNTER_KEYS.reduce((sum, k) => sum + (counters[k] || 0), 0);
+        const windowsTotal = RECENT_WINDOW_SIZES
+          .slice(0, reposToEdit.length)
+          .reduce((sum, size) => sum + size, 0);
+
+        const addedTotal = activeCounterKeys.reduce(
+          (sum, key) => sum + (counters[key] || 0),
+          0
+        );
+
         const useAddedCounts = addedTotal < windowsTotal;
 
-        reposToEdit.forEach((cfgRepo, idx) => {
-          const repoName = urlRepos[idx] || cfgRepo;
-          const base = configData.repositories3x[cfgRepo].issueEndNumber || 0;
-          const latest = base + (counters[COUNTER_KEYS[idx]] || 0);
-          const windowSize = useAddedCounts ? (counters[COUNTER_KEYS[idx]] || 0) : RECENT_WINDOW_SIZES[idx];
+        reposToEdit.forEach((repo, idx) => {
+          const repository = getRepository(repo);
+          const username = repository.username || urlParams.username;
+          const base = Number(repository.issueEndNumber) || 0;
+          const counter = counters[activeCounterKeys[idx]] || 0;
+          const latest = base + counter;
 
-          for (let n = latest; n > latest - windowSize && n >= 1; n--) {
-            pool.push({ repo: repoName, issue: n });
+          const windowSize = useAddedCounts
+            ? counter
+            : RECENT_WINDOW_SIZES[idx];
+
+          for (
+            let n = latest;
+            n > latest - windowSize && n >= 1;
+            n--
+          ) {
+            pool.push({
+              username,
+              repo,
+              issue: n
+            });
           }
         });
 
@@ -625,19 +721,59 @@
       }
 
       function tryRandomRecentIssueRedirect(urlParams) {
-        if (!urlParams.username) return false;
-        if (Math.random() >= RANDOM_ISSUE_PROBABILITY) return false;
+        if (Math.random() >= RANDOM_ISSUE_PROBABILITY) {
+          return false;
+        }
 
         const pool = buildRecentIssuePool(urlParams);
-        if (pool.length === 0) return false;
+
+        if (pool.length === 0) {
+          return false;
+        }
 
         const pick = pool[Math.floor(Math.random() * pool.length)];
+
+        if (!pick.username) {
+          return false;
+        }
+
         window.location.href =
-          `https://github.com/${encodeURIComponent(urlParams.username)}/${encodeURIComponent(pick.repo)}/issues/${pick.issue}`;
+          `https://github.com/${encodeURIComponent(pick.username)}/` +
+          `${encodeURIComponent(pick.repo)}/issues/${pick.issue}`;
+
+        return true;
+      }
+
+      // ---------- Fallback issue-creation redirect ----------
+
+      function tryIssueCreationRedirect(urlParams) {
+        if (!urlParams.username) {
+          return false;
+        }
+
+        const candidates = reposToEdit.map((repo, idx) => ({
+          repo,
+          username: getRepository(repo).username || urlParams.username,
+          value: urlParams[activeCounterKeys[idx]] || 0
+        }));
+
+        if (candidates.length === 0) {
+          return false;
+        }
+
+        candidates.sort((a, b) => b.value - a.value);
+
+        const chosen = candidates[0];
+
+        window.location.href =
+          `https://github.com/${encodeURIComponent(chosen.username)}/` +
+          `${encodeURIComponent(chosen.repo)}/issues/new?template=aaa.md`;
+
         return true;
       }
 
       // ---------- Init / main flow ----------
+
       async function init() {
         const urlParams = getUrlParams();
 
@@ -648,64 +784,68 @@
           return;
         }
 
-        // Snapshot of values as loaded from all.json this visit, stored to IndexedDB.
-        const initialValues = {};
-        reposToEdit.forEach(r => { initialValues[r] = configData.repositories3x[r].issueEndNumber; });
-        await idbSet('initialValues', initialValues);
+        try {
+          const initialValues = {};
 
-        // Load persisted counters and increment by this visit's URL params.
-        const stored = await idbGet('counters');
-        counters = stored || { stash: 0, stashx2: 0, stashx3: 0 };
-        counters.stash = (counters.stash || 0) + urlParams.stash;
-        counters.stashx2 = (counters.stashx2 || 0) + urlParams.stashx2;
-        counters.stashx3 = (counters.stashx3 || 0) + urlParams.stashx3;
-        await idbSet('counters', counters);
+          reposToEdit.forEach(repo => {
+            initialValues[repo] = getRepository(repo).issueEndNumber;
+          });
 
-        // If the stash counter hasn't hit the threshold, and we have enough
-        // info to build a redirect target, skip the editor and go straight
-        // to creating a new GitHub issue in whichever repo has the highest
-        // stash value for this visit.
-        if ((counters.stash + (counters.stashx2 * 2) + (counters.stashx3 * 3)) < STASH_THRESHOLD) {
-          // 10% of the time: jump to a random recently added issue instead.
+          await idbSet('initialValues', initialValues);
+
+          // Merge with existing counters to retain legacy IndexedDB data.
+          const stored = await idbGet('counters');
+
+          counters = {
+            stash: 0,
+            stashx2: 0,
+            stashx3: 0,
+            stashx10: 0,
+            ...(stored || {})
+          };
+
+          // Only active URL parameters are added on this visit.
+          activeCounterKeys.forEach(key => {
+            counters[key] =
+              Math.max(0, Number(counters[key]) || 0)
+              + (urlParams[key] || 0);
+          });
+
+          await idbSet('counters', counters);
+        } catch (error) {
+          showLoadingError(`IndexedDB error: ${error.message}`);
+          return;
+        }
+
+        // Preserve redirect-first behavior below the threshold.
+        if (!thresholdReached()) {
           if (tryRandomRecentIssueRedirect(urlParams)) {
             return;
           }
 
-          const hasRedirectTarget = !!urlParams.username &&
-            (urlParams.repo1 || urlParams.repo2 || urlParams.repo3);
-
-          if (hasRedirectTarget) {
-            const candidates = [
-              { repo: urlParams.repo1, value: urlParams.stash },
-              { repo: urlParams.repo2, value: urlParams.stashx2 },
-              { repo: urlParams.repo3, value: urlParams.stashx3 }
-            ].filter(c => c.repo);
-
-            if (candidates.length > 0) {
-              candidates.sort((a, b) => b.value - a.value);
-              const chosenRepo = candidates[0].repo;       
-              
-              window.location.href =
-                `https://github.com/${encodeURIComponent(urlParams.username)}/${encodeURIComponent(chosenRepo)}/issues/new?template=aaa.md`;
-              return;
-            }
+          if (tryIssueCreationRedirect(urlParams)) {
+            return;
           }
         }
 
-        // Otherwise show the editor (and the modal, if the threshold was hit).
         populateForm();
         renderIdbPanel();
+        updateBadges();
         showEditor();
 
-        if (counters.stash >= STASH_THRESHOLD) {
+        if (thresholdReached()) {
           showModal();
         }
       }
 
       document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('saveBtn')
+          .addEventListener('click', handleSave);
+
+        document.getElementById('modalCloseBtn')
+          .addEventListener('click', hideModal);
+
         init();
-        document.getElementById('saveBtn').addEventListener('click', handleSave);
-        document.getElementById('modalCloseBtn').addEventListener('click', hideModal);
       });
     })();
   </script>
