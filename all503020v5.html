@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deja Vu Randomizer (Pre-loaded)</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+/* Mobile-first design inspired by skyway-scheduler */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: #0a0e27;
+  color: #e0e6ed;
+}
+
+.wrap {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 1rem;
+  text-align: center;
+}
+
+.card {
+  max-width: 600px;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #1a1f3a 0%, #0f1429 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #66fcf1;
+}
+
+.status {
+  margin: 1rem 0;
+  font-size: 1rem;
+  color: #c5c6c7;
+  line-height: 1.6;
+}
+
+.progress-container {
+  margin: 2rem 0 1rem 0;
+  width: 100%;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #45a29e 0%, #66fcf1 50%, #45a29e 100%);
+  background-size: 200% 100%;
+  border-radius: 16px;
+  transition: width 0.3s ease;
+  position: relative;
+  animation: shimmer 2s infinite;
+  box-shadow: 0 0 20px rgba(102, 252, 241, 0.5);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.progress-text {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: #66fcf1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.cache-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(102, 252, 241, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(102, 252, 241, 0.2);
+  font-size: 0.9rem;
+  color: #8892b0;
+}
+
+.cache-info strong {
+  color: #66fcf1;
+}
+
+code {
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(102, 252, 241, 0.1);
+  color: #66fcf1;
+  font-size: 0.9em;
+}
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(102, 252, 241, 0.3);
+  border-top-color: #66fcf1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .card {
+    padding: 1.5rem 1rem;
+    border-radius: 12px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  .status {
+    font-size: 0.95rem;
+  }
+  
+  .progress-bar-bg {
+    height: 28px;
+  }
+  
+  .progress-text {
+    font-size: 0.9rem;
+  }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .wrap {
+    padding: 0.5rem;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  h1 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .progress-container {
+    margin: 1rem 0 0.5rem 0;
+  }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🎲 Deja Vu Randomizer</h1>
+    <div class="status" id="status">
+      <span class="spinner"></span>
+      Initializing URL cache...
+    </div>
+    
+    <div class="progress-container" id="progressContainer" style="display:none;">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+      </div>
+      <div class="progress-text" id="progressText">0 / 100</div>
+    </div>
+    
+    <div class="cache-info" id="cacheInfo" style="display:none;">
+      <strong>Cache Status:</strong> <span id="cacheStatus">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function(){
+"use strict";
+
+// Configuration constants
+const DEFAULT_MAX = 29;
+const HARD_MAX = 0x100000000;
+const LS_KEY = "dejavu_randomizer_v1";
+const SS_KEY = "dejavu_session_v1";
+const SESSION_TIMEOUT_MS = 7200000; // 2 hours
+const SESSION_SOFT_RESET_MS = 900000; // 15 minutes
+const ERA_DURATION_MS = 1200000; // 20 minutes
+const RECENT_HISTORY_LIMIT = 30;
+const PURE_RANDOM_CHANCE = 0.02;
+
+// URL Cache constants
+const URL_CACHE_SIZE = 100;
+const IDB_NAME = "dejavu_url_cache_v1";
+const IDB_VERSION = 1;
+const STORE_NAME = "urlCache";
+const CACHE_KEY = "preloadedUrls";
+
+// UI Elements
+const statusEl = document.getElementById('status');
+const progressContainer = document.getElementById('progressContainer');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const cacheInfo = document.getElementById('cacheInfo');
+const cacheStatus = document.getElementById('cacheStatus');
+
+// Crypto-secure random number generation
+const cryptoRand32 = () => crypto.getRandomValues(new Uint32Array(1))[0];
+const randomFloat = () => cryptoRand32() / 4294967296;
+
+// IndexedDB helpers
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE_NAME)){
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getCachedUrls(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(CACHE_KEY);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveCachedUrls(urls){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(urls, CACHE_KEY);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Update progress UI
+function updateProgress(current, total){
+  const percent = Math.round((current / total) * 100);
+  progressBar.style.width = percent + '%';
+  progressText.textContent = `${current} / ${total}`;
+}
+
+// Weighted random selection
+function weightedPick(items){
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+  if(total <= 0) return items[Math.floor(randomFloat() * items.length)].value;
+  
+  let r = randomFloat() * total;
+  for(const item of items){
+    r -= item.weight;
+    if(r < 0) return item.value;
+  }
+  return items[items.length - 1].value;
+}
+
+// Parse max parameter from URL
+function parseMax(){
+  try{
+    const raw = new URLSearchParams(location.search).get("max");
+    if(!raw) return DEFAULT_MAX;
+    const n = Math.floor(Number(raw));
+    return (Number.isFinite(n) && n >= 1) ? Math.min(n, HARD_MAX) : DEFAULT_MAX;
+  }catch(e){
+    return DEFAULT_MAX;
+  }
+}
+
+// Storage helpers
+const loadJSON = (storage, key, fallback) => {
+  try{
+    const v = storage.getItem(key);
+    return v ? JSON.parse(v) : fallback;
+  }catch(e){
+    return fallback;
+  }
+};
+
+const saveJSON = (storage, key, obj) => {
+  try{
+    storage.setItem(key, JSON.stringify(obj));
+  }catch(e){}
+};
+
+// Simulate the full cascade to get final URL
+async function simulateCascade(versionNumber){
+  const prefixRand = randomFloat();
+  let urlPrefix;
+  
+  if(prefixRand < 0.1667){
+    urlPrefix = "allv";
+  }else if(prefixRand < 0.5){
+    urlPrefix = "allv-2x-";
+  }else{
+    urlPrefix = "allv-3x-";
+  }
+  
+  // Load the allv~ file's config and simulate its logic
+  try{
+    const configRes = await fetch('config/all.json', {cache: 'no-store'});
+    const cfg = await configRes.json();
+    
+    // Determine which repository set to use
+    let repos;
+    if(urlPrefix === "allv"){
+      repos = cfg.repositories || {};
+    } else if(urlPrefix === "allv-2x-"){
+      repos = cfg.repositories2x || {};
+    } else if (urlPrefix === "allv-3x-"){
+      repos = cfg.repositories3x || {};
+    } else{
+      repos = cfg.repositories10x || {};
+    }
+    
+    // Gather all issues
+    const issues = [];
+    for(const [repo, info] of Object.entries(repos)){
+      const start = Number(info.issueStartNumber);
+      const end = Number(info.issueEndNumber);
+      const user = info.username;
+      for(let i = start; i <= end; i++){
+        issues.push(`https://github.com/${user}/${repo}/issues/${i}`);
+      }
+    }
+    
+    // Pick a random issue
+    if(issues.length > 0){
+      const idx = Math.floor(randomFloat() * issues.length);
+      return issues[idx];
+    }
+  }catch(e){
+    console.error('Cascade simulation failed:', e);
+  }
+  
+  // Fallback: return the allv~ URL itself
+  return `https://sktoushi.github.io/su/${urlPrefix}${versionNumber}.html`;
+}
+
+// Pre-load URLs with progress animation
+async function preloadUrls(count){
+  const urls = [];
+  
+  statusEl.innerHTML = '<span class="spinner"></span>Pre-loading URL cache...';
+  progressContainer.style.display = 'block';
+  cacheInfo.style.display = 'block';
+  cacheStatus.textContent = 'Building cache...';
+  
+  for(let i = 0; i < count; i++){
+    // Use the same logic as the original to pick version numbers
+    const now = Date.now();
+    const effectiveDefaultMax = randomFloat() < 0.75 ? 12 : DEFAULT_MAX;
+    const max = Math.max(effectiveDefaultMax, parseMax());
+    
+    const longMem = loadJSON(localStorage, LS_KEY, {
+      transitions: {},
+      regionAffinity: {},
+      totalPicks: 0
+    });
+    
+    let session = loadJSON(sessionStorage, SS_KEY, null);
+    
+    if(!session || !session.lastSeen || (now - session.lastSeen) > SESSION_TIMEOUT_MS){
+      session = {
+        sessionStart: now,
+        lastSeen: now,
+        current: null,
+        recent: [],
+        eraCenter: 1 + Math.floor(randomFloat() * max),
+        eraExpiry: now + ERA_DURATION_MS
+      };
+    }
+    
+    if((now - session.lastSeen) > SESSION_SOFT_RESET_MS){
+      session.eraCenter = 1 + Math.floor(randomFloat() * max);
+      session.eraExpiry = now + ERA_DURATION_MS;
+    }
+    
+    session.lastSeen = now;
+    
+    if(now > session.eraExpiry){
+      session.eraCenter = 1 + Math.floor(randomFloat() * max);
+      session.eraExpiry = now + ERA_DURATION_MS;
+    }
+    
+    const sessionMinutes = (now - session.sessionStart) / 60000;
+    let novelty = 0.7, eraW = 0.2, echoW = 0.05, replayW = 0.03, walkW = 0.02;
+    
+    if(sessionMinutes > 90){
+      novelty = 0.1; eraW = 0.25; echoW = 0.35; replayW = 0.3; walkW = 0.2;
+    }else if(sessionMinutes > 30){
+      novelty = 0.2; eraW = 0.4; echoW = 0.25; replayW = 0.15; walkW = 0.15;
+    }else if(sessionMinutes > 10){
+      novelty = 0.4; eraW = 0.3; echoW = 0.2; replayW = 0.1; walkW = 0.1;
+    }
+    
+    if(randomFloat() < PURE_RANDOM_CHANCE){
+      const versionNumber = 1 + Math.floor(randomFloat() * max);
+      const finalUrl = await simulateCascade(versionNumber);
+      urls.push(finalUrl);
+      updateProgress(i + 1, count);
+      continue;
+    }
+    
+    const candidates = [];
+    const recent = session.recent || [];
+    
+    for(let v = 1; v <= max; v++){
+      let score = 1 + novelty;
+      
+      const distEra = Math.abs(v - session.eraCenter);
+      score += eraW * (max / (distEra + 1));
+      
+      for(const r of recent){
+        const d = Math.abs(v - r);
+        score += echoW * (1 / (d + 1));
+      }
+      
+      if(session.current !== null){
+        const wd = Math.abs(v - session.current);
+        score += walkW * (1 / (wd + 1)) * 5;
+        
+        const key = session.current + "->" + v;
+        if(longMem.transitions[key]){
+          score += replayW * Math.log(1 + longMem.transitions[key]);
+        }
+      }
+      
+      if(longMem.regionAffinity[v]){
+        score += Math.log(1 + longMem.regionAffinity[v]) * 0.15;
+      }
+      
+      candidates.push({value: v, weight: score});
+    }
+    
+    const chosen = weightedPick(candidates);
+    
+    // Update state for next iteration
+    if(session.current !== null){
+      const tk = session.current + "->" + chosen;
+      longMem.transitions[tk] = (longMem.transitions[tk] || 0) + 1;
+    }
+    
+    longMem.regionAffinity[chosen] = (longMem.regionAffinity[chosen] || 0) + 1;
+    longMem.totalPicks++;
+    
+    session.current = chosen;
+    session.recent.push(chosen);
+    
+    if(session.recent.length > RECENT_HISTORY_LIMIT){
+      session.recent = session.recent.slice(-RECENT_HISTORY_LIMIT);
+    }
+    
+    saveJSON(localStorage, LS_KEY, longMem);
+    saveJSON(sessionStorage, SS_KEY, session);
+    
+    const finalUrl = await simulateCascade(chosen);
+    urls.push(finalUrl);
+    
+    updateProgress(i + 1, count);
+  }
+  
+  return urls;
+}
+
+// Main execution
+async function main(){
+  try{
+    // Try to get cached URLs
+    let cache = await getCachedUrls();
+    
+    // If cache is empty or exhausted, pre-load new URLs
+    if(!cache || !cache.urls || cache.urls.length === 0){
+      statusEl.innerHTML = '<span class="spinner"></span>Cache empty, building new cache...';
+      const urls = await preloadUrls(URL_CACHE_SIZE);
+      cache = {
+        urls: urls,
+        index: 0,
+        createdAt: Date.now()
+      };
+      await saveCachedUrls(cache);
+      cacheStatus.textContent = `Fresh cache created with ${URL_CACHE_SIZE} URLs`;
+    }else{
+      cacheInfo.style.display = 'block';
+      cacheStatus.textContent = `Using cached URL ${cache.index + 1} of ${cache.urls.length}`;
+    }
+    
+    // Get next URL from cache
+    const nextUrl = cache.urls[cache.index];
+    cache.index++;
+    
+    // If cache exhausted, trigger background reload
+    if(cache.index >= cache.urls.length){
+      statusEl.innerHTML = '<span class="spinner"></span>Cache exhausted, reloading...';
+      cacheStatus.textContent = 'Cache exhausted, rebuilding in background...';
+      
+      // Reset cache
+      cache.urls = [];
+      cache.index = 0;
+      await saveCachedUrls(cache);
+      
+      // Pre-load in background (non-blocking)
+      preloadUrls(URL_CACHE_SIZE).then(urls => {
+        saveCachedUrls({
+          urls: urls,
+          index: 0,
+          createdAt: Date.now()
+        });
+      });
+    }else{
+      // Save updated index
+      await saveCachedUrls(cache);
+    }
+    
+    // Redirect to the cached URL
+    statusEl.innerHTML = '✓ Redirecting from cache...';
+    
+    setTimeout(() => {
+      window.location.replace(nextUrl);
+    }, 300);
+    
+  }catch(e){
+    console.error('Cache system failed:', e);
+    statusEl.innerHTML = '⚠️ Cache failed, using fallback...';
+    cacheInfo.style.display = 'block';
+    cacheStatus.textContent = 'Error: ' + e.message;
+    
+    // Fallback to original logic
+    setTimeout(() => {
+      const now = Date.now();
+      const effectiveDefaultMax = randomFloat() < 0.75 ? 12 : DEFAULT_MAX;
+      const max = Math.max(effectiveDefaultMax, parseMax());
+      
+      const versionNumber = 1 + Math.floor(randomFloat() * max);
+      const prefixRand = randomFloat();
+      let urlPrefix;
+      
+      if(prefixRand < 0.0625){
+        urlPrefix = "allv";
+      } else if(prefixRand < .1250){
+        urlPrefix = "allv-2x-";
+      } else if(prefixRand < 0.1875){
+        urlPrefix = "allv-3x-";
+      } else {
+        urlPrefix = "allv-10x-";
+      }
+      
+      window.location.replace("https://sktoushi.github.io/su/" + urlPrefix + versionNumber + ".html");
+    }, 1000);
+  }
+}
+
+main();
+
+})();
+</script>
+</body>
+</html>
