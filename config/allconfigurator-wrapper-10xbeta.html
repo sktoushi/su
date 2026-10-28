@@ -115,7 +115,7 @@
   <div class="container">
     <h1>All.json Configurator</h1>
     <p class="subtitle">
-      Edit issueEndNumber for the last three or four repositories in repositories3x
+      Edit issueEndNumber for the last four repositories in repositories10x
     </p>
 
     <div id="loading" class="loading">
@@ -138,7 +138,9 @@
       </div>
 
       <div class="actions">
-        <button id="saveBtn" class="btn btn-primary">Save &amp; Copy to Clipboard</button>
+        <button id="saveBtn" class="btn btn-primary">
+          Save &amp; Copy to Clipboard
+        </button>
       </div>
       <div id="status" class="status"></div>
     </div>
@@ -163,19 +165,18 @@
       const DB_VERSION = 1;
       const STORE_NAME = 'kv';
 
-      // The fourth key is activated when all.json has at least four repositories.
-      const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3', 'stashx10'];
+      const CONFIG_KEY = 'repositories10x';
+      const EDIT_REPOSITORY_COUNT = 4;
 
+      const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3', 'stashx10'];
       const STASH_THRESHOLD = 50;
       const RANDOM_ISSUE_PROBABILITY = 0.10;
-
-      // Preserve existing window sizes and add a small fourth window.
-      // Total: 16 + 25 + 50 + 5 = 96.
       const RECENT_WINDOW_SIZES = [16, 25, 50, 5];
 
       let configData = null;
       let reposToEdit = [];
       let activeCounterKeys = [];
+
       let counters = {
         stash: 0,
         stashx2: 0,
@@ -208,7 +209,10 @@
           const tx = db.transaction(STORE_NAME, 'readonly');
           const req = tx.objectStore(STORE_NAME).get(key);
 
-          req.onsuccess = () => resolve(req.result ? req.result.value : undefined);
+          req.onsuccess = () => {
+            resolve(req.result ? req.result.value : undefined);
+          };
+
           req.onerror = () => reject(req.error);
           tx.oncomplete = () => db.close();
           tx.onerror = () => db.close();
@@ -264,6 +268,32 @@
         };
       }
 
+      // ---------- Repository access ----------
+
+      function getRepositories() {
+        const repositories = configData && configData[CONFIG_KEY];
+
+        if (
+          !repositories ||
+          typeof repositories !== 'object' ||
+          Array.isArray(repositories)
+        ) {
+          throw new Error(`Missing or invalid ${CONFIG_KEY} in all.json`);
+        }
+
+        return repositories;
+      }
+
+      function getRepository(repo) {
+        const repository = getRepositories()[repo];
+
+        if (!repository || typeof repository !== 'object') {
+          throw new Error(`Repository "${repo}" not found in ${CONFIG_KEY}`);
+        }
+
+        return repository;
+      }
+
       // ---------- Weighted threshold ----------
 
       function getWeightedTotal() {
@@ -283,29 +313,46 @@
         const response = await fetch('./all.json');
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText}`
+          );
         }
 
         configData = await response.json();
 
-        if (!configData.repositories10x ||
-            typeof configData.repositories10x !== 'object') {
-          throw new Error('all.json must contain repositories10x');
+        const repositories = getRepositories();
+        const keys = Object.keys(repositories);
+
+        if (keys.length < EDIT_REPOSITORY_COUNT) {
+          throw new Error(
+            `${CONFIG_KEY} must have at least ${EDIT_REPOSITORY_COUNT} repositories`
+          );
         }
 
-        const keys = Object.keys(configData.repositories3x);
+        // Repository selection always comes from repositories10x.
+        // Use the last four keys in JSON insertion order.
+        reposToEdit = keys.slice(-EDIT_REPOSITORY_COUNT);
+        activeCounterKeys = COUNTER_KEYS.slice(0, EDIT_REPOSITORY_COUNT);
 
-        // Backward compatibility:
-        // - 3 repositories: retain the original three-field behavior.
-        // - 4 or more repositories: edit the last four.
-        const fieldCount = keys.length >= 4 ? 4 : 3;
+        reposToEdit.forEach(repo => {
+          const entry = repositories[repo];
+          const issueEndNumber = Number(entry.issueEndNumber);
 
-        if (keys.length < 3) {
-          throw new Error('repositories10x must have at least 3 repositories');
-        }
+          if (
+            !Number.isSafeInteger(issueEndNumber) ||
+            issueEndNumber < 1
+          ) {
+            throw new Error(
+              `Invalid issueEndNumber for ${repo} in ${CONFIG_KEY}`
+            );
+          }
 
-        reposToEdit = keys.slice(-fieldCount);
-        activeCounterKeys = COUNTER_KEYS.slice(0, fieldCount);
+          if (!entry.username) {
+            throw new Error(
+              `Missing username for ${repo} in ${CONFIG_KEY}`
+            );
+          }
+        });
       }
 
       // ---------- Rendering ----------
@@ -316,7 +363,7 @@
 
         reposToEdit.forEach((repo, idx) => {
           const counterKey = activeCounterKeys[idx];
-          const value = configData.repositories3x[repo].issueEndNumber;
+          const value = getRepository(repo).issueEndNumber;
 
           const fieldGroup = document.createElement('div');
           fieldGroup.className = 'field-group';
@@ -347,13 +394,12 @@
           incBtn.className = 'btn increment-btn';
           incBtn.dataset.repo = repo;
           incBtn.dataset.counter = counterKey;
-
           incBtn.innerHTML =
             `Increment <span class="badge" id="badge-${repo}">+0</span>`;
 
-          incBtn.addEventListener('click', () =>
-            handleIncrementClick(repo, counterKey)
-          );
+          incBtn.addEventListener('click', () => {
+            handleIncrementClick(repo, counterKey);
+          });
 
           row.appendChild(input);
           row.appendChild(incBtn);
@@ -377,7 +423,7 @@
           const line = document.createElement('div');
           line.className = 'idb-row mono';
           line.textContent =
-            `${repo}: ${configData.repositories3x[repo].issueEndNumber}`;
+            `${repo}: ${getRepository(repo).issueEndNumber}`;
           initialEl.appendChild(line);
         });
 
@@ -398,8 +444,8 @@
         weighted.style.marginTop = '.5rem';
         weighted.textContent =
           `Weighted total: ${getWeightedTotal()} / ${STASH_THRESHOLD}`;
-        countersEl.appendChild(weighted);
 
+        countersEl.appendChild(weighted);
         panel.style.display = 'block';
       }
 
@@ -423,7 +469,8 @@
             const value = parseInt(input.value, 10);
 
             if (!Number.isFinite(value) || value < 1) {
-              document.getElementById('warning').classList.remove('show');
+              document.getElementById('warning')
+                .classList.remove('show');
               return;
             }
 
@@ -448,7 +495,8 @@
           }
         } catch (error) {
           console.error('Warning check failed:', error);
-          document.getElementById('warning').classList.remove('show');
+          document.getElementById('warning')
+            .classList.remove('show');
         }
       }
 
@@ -459,7 +507,10 @@
         const current = parseInt(input.value, 10);
 
         if (!Number.isSafeInteger(current) || current < 1) {
-          showStatus('error', `Invalid value for ${repo}. Enter a positive integer first.`);
+          showStatus(
+            'error',
+            `Invalid value for ${repo}. Enter a positive integer first.`
+          );
           return;
         }
 
@@ -471,7 +522,6 @@
           return;
         }
 
-        // Persist the reset before changing the visible field.
         const previous = counters[counterKey];
         counters[counterKey] = 0;
 
@@ -484,11 +534,11 @@
         }
 
         input.value = updated;
+
         updateBadges();
         renderIdbPanel();
         checkWarning();
 
-        // Close the modal once the user has folded the accumulated stash.
         if (thresholdReached()) {
           showModal();
         } else {
@@ -514,8 +564,8 @@
       }
 
       function showLoadingError(message) {
-        const loading = document.getElementById('loading');
-        loading.textContent = `Failed to load config: ${message}`;
+        document.getElementById('loading').textContent =
+          `Failed to load config: ${message}`;
       }
 
       function showStatus(type, message) {
@@ -546,21 +596,28 @@
       }
 
       function applyUpdates(values) {
-        for (const repo of reposToEdit) {
-          configData.repositories3x[repo].issueEndNumber = values[repo];
-        }
+        // Synchronize issueEndNumber across every configuration group
+        // that contains a selected repository with the same exact name.
+        const repositoryGroups = [
+          configData.repositories10x,
+          configData.repositories3x,
+          configData.repositories2x,
+          configData.repositories
+        ];
 
         for (const repo of reposToEdit) {
-          if (configData.repositories2x &&
-              configData.repositories2x[repo]) {
-            configData.repositories2x[repo].issueEndNumber = values[repo];
-          }
-        }
+          const updatedValue = values[repo];
 
-        for (const repo of reposToEdit) {
-          if (configData.repositories &&
-              configData.repositories[repo]) {
-            configData.repositories[repo].issueEndNumber = values[repo];
+          for (const group of repositoryGroups) {
+            if (
+              group &&
+              Object.prototype.hasOwnProperty.call(group, repo) &&
+              group[repo] &&
+              typeof group[repo] === 'object' &&
+              !Array.isArray(group[repo])
+            ) {
+              group[repo].issueEndNumber = updatedValue;
+            }
           }
         }
       }
@@ -574,6 +631,7 @@
           textarea.value = text;
           textarea.style.position = 'fixed';
           textarea.style.opacity = '0';
+
           document.body.appendChild(textarea);
           textarea.select();
 
@@ -591,6 +649,7 @@
       async function handleSave() {
         try {
           const values = getUpdatedValues();
+
           applyUpdates(values);
 
           const jsonString = JSON.stringify(configData, null, 2);
@@ -621,14 +680,8 @@
       // ---------- Random recent-issue redirect ----------
 
       function buildRecentIssuePool(urlParams) {
-        const urlRepos = [
-          urlParams.repo1,
-          urlParams.repo2,
-          urlParams.repo3,
-          urlParams.repo4
-        ];
-
         const pool = [];
+
         const windowsTotal = RECENT_WINDOW_SIZES
           .slice(0, reposToEdit.length)
           .reduce((sum, size) => sum + size, 0);
@@ -638,20 +691,17 @@
           0
         );
 
-        // Below the combined preset-window size, use only accumulated
-        // new indices. Above it, use the preset window for each repository.
         const useAddedCounts = addedTotal < windowsTotal;
 
-        reposToEdit.forEach((cfgRepo, idx) => {
-          const repoName = urlRepos[idx] || cfgRepo;
-          const base = Number(
-            configData.repositories3x[cfgRepo].issueEndNumber
-          ) || 0;
-
-          const latest = base + (counters[activeCounterKeys[idx]] || 0);
+        reposToEdit.forEach((repo, idx) => {
+          const repository = getRepository(repo);
+          const username = repository.username || urlParams.username;
+          const base = Number(repository.issueEndNumber) || 0;
+          const counter = counters[activeCounterKeys[idx]] || 0;
+          const latest = base + counter;
 
           const windowSize = useAddedCounts
-            ? (counters[activeCounterKeys[idx]] || 0)
+            ? counter
             : RECENT_WINDOW_SIZES[idx];
 
           for (
@@ -659,7 +709,11 @@
             n > latest - windowSize && n >= 1;
             n--
           ) {
-            pool.push({ repo: repoName, issue: n });
+            pool.push({
+              username,
+              repo,
+              issue: n
+            });
           }
         });
 
@@ -667,17 +721,53 @@
       }
 
       function tryRandomRecentIssueRedirect(urlParams) {
-        if (!urlParams.username) return false;
-        if (Math.random() >= RANDOM_ISSUE_PROBABILITY) return false;
+        if (Math.random() >= RANDOM_ISSUE_PROBABILITY) {
+          return false;
+        }
 
         const pool = buildRecentIssuePool(urlParams);
-        if (pool.length === 0) return false;
+
+        if (pool.length === 0) {
+          return false;
+        }
 
         const pick = pool[Math.floor(Math.random() * pool.length)];
 
+        if (!pick.username) {
+          return false;
+        }
+
         window.location.href =
-          `https://github.com/${encodeURIComponent(urlParams.username)}/` +
+          `https://github.com/${encodeURIComponent(pick.username)}/` +
           `${encodeURIComponent(pick.repo)}/issues/${pick.issue}`;
+
+        return true;
+      }
+
+      // ---------- Fallback issue-creation redirect ----------
+
+      function tryIssueCreationRedirect(urlParams) {
+        if (!urlParams.username) {
+          return false;
+        }
+
+        const candidates = reposToEdit.map((repo, idx) => ({
+          repo,
+          username: getRepository(repo).username || urlParams.username,
+          value: urlParams[activeCounterKeys[idx]] || 0
+        }));
+
+        if (candidates.length === 0) {
+          return false;
+        }
+
+        candidates.sort((a, b) => b.value - a.value);
+
+        const chosen = candidates[0];
+
+        window.location.href =
+          `https://github.com/${encodeURIComponent(chosen.username)}/` +
+          `${encodeURIComponent(chosen.repo)}/issues/new?template=aaa.md`;
 
         return true;
       }
@@ -698,13 +788,12 @@
           const initialValues = {};
 
           reposToEdit.forEach(repo => {
-            initialValues[repo] =
-              configData.repositories3x[repo].issueEndNumber;
+            initialValues[repo] = getRepository(repo).issueEndNumber;
           });
 
           await idbSet('initialValues', initialValues);
 
-          // Merge with existing counters so legacy IndexedDB data is retained.
+          // Merge with existing counters to retain legacy IndexedDB data.
           const stored = await idbGet('counters');
 
           counters = {
@@ -715,9 +804,10 @@
             ...(stored || {})
           };
 
-          // Only the active URL parameters are added on this visit.
+          // Only active URL parameters are added on this visit.
           activeCounterKeys.forEach(key => {
-            counters[key] = Math.max(0, Number(counters[key]) || 0)
+            counters[key] =
+              Math.max(0, Number(counters[key]) || 0)
               + (urlParams[key] || 0);
           });
 
@@ -727,46 +817,14 @@
           return;
         }
 
-        // Preserve the original redirect-first flow below the threshold.
+        // Preserve redirect-first behavior below the threshold.
         if (!thresholdReached()) {
           if (tryRandomRecentIssueRedirect(urlParams)) {
             return;
           }
 
-          const hasRedirectTarget = !!urlParams.username &&
-            activeCounterKeys.some((key, idx) =>
-              !![
-                urlParams.repo1,
-                urlParams.repo2,
-                urlParams.repo3,
-                urlParams.repo4
-              ][idx]
-            );
-
-          if (hasRedirectTarget) {
-            const candidates = activeCounterKeys
-              .map((key, idx) => ({
-                repo: [
-                  urlParams.repo1,
-                  urlParams.repo2,
-                  urlParams.repo3,
-                  urlParams.repo4
-                ][idx],
-                value: urlParams[key] || 0
-              }))
-              .filter(candidate => candidate.repo);
-
-            if (candidates.length > 0) {
-              candidates.sort((a, b) => b.value - a.value);
-
-              const chosenRepo = candidates[0].repo;
-
-              window.location.href =
-                `https://github.com/${encodeURIComponent(urlParams.username)}/` +
-                `${encodeURIComponent(chosenRepo)}/issues/new?template=aaa.md`;
-
-              return;
-            }
+          if (tryIssueCreationRedirect(urlParams)) {
+            return;
           }
         }
 
