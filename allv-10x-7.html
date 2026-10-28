@@ -146,7 +146,7 @@ function fnv1aHex(str) {
 const NS = (() => {
   const params = new URLSearchParams(location.search);
   const override = params.get('ns');
-  if (override && /^[a-z0-9_\-]{2,40}$/i.test(override)) return `rrx_v6_${override}`;
+  if (override && /^[a-z0-9_\-]{2,40}$/i.test(override)) return `rrx_v6_AAA_${override}`;
   const scope = `${location.origin}${location.pathname}`; // includes GH Pages subpath (/username/repo/)
   return `rrx_v6_${fnv1aHex(scope)}`;
 })();
