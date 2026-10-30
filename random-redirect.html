@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random URL redirect</title>
+<style>
+  :root {
+    --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae;
+    --accent:#a3207f; --accent-hover:#b72a92; --accent-active:#861a68; --accent-soft:#d65db5;
+    --btn:#3a1a33; --btn-hover:#4b2142; --btn-active:#5c2851;
+    --danger:#e53935; --success:#66bb6a;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  [hidden] { display:none !important; }
+  html,body {
+    margin:0; padding:0; min-height:100%;
+    background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,
+      "Apple Color Emoji","Segoe UI Emoji";
+  }
+  .container { max-width:800px; margin:0 auto; padding:2rem 1.5rem; }
+  h1 { margin:0 0 .5rem; font-size:1.8rem; font-weight:700; }
+  .subtitle { color:var(--muted); margin:0 0 2rem; font-size:.95rem; }
+  .card {
+    background:#11161a; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+  }
+  .card-title { font-size:1.05rem; margin:0 0 .9rem; color:var(--fg); font-weight:700; }
+  .card-title.spaced { margin-top:1.5rem; }
+  code { font-family:var(--mono); color:var(--accent-soft); font-size:.9em; }
+  textarea, input[type="text"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono);
+    transition:border-color .2s; box-sizing:border-box;
+  }
+  textarea { min-height:150px; resize:vertical; line-height:1.4; }
+  textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--accent); }
+  .field-row, .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; }
+  .row > input[type="text"] { flex:1 1 240px; width:auto; min-width:0; }
+  .btn {
+    border:1px solid #111; background:var(--btn); color:var(--fg);
+    padding:.75rem 1.5rem; border-radius:.5rem; font-size:1rem;
+    cursor:pointer; transition:transform .05s,background .15s,box-shadow .15s;
+    box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; font-weight:600; font-family:inherit;
+  }
+  .btn:hover { background:var(--btn-hover); }
+  .btn:active { transform:translateY(1px); background:var(--btn-active); }
+  .btn:focus-visible { outline:2px solid var(--accent-soft); outline-offset:2px; }
+  .btn:disabled { opacity:.45; cursor:default; transform:none; background:var(--btn); }
+  .btn-primary { background:var(--accent); color:#fff; border-color:#6f1558; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-primary:active { background:var(--accent-active); }
+  .btn-primary:disabled { background:var(--accent); }
+  .btn-small { padding:.6rem 1rem; font-size:.85rem; white-space:nowrap; }
+  .check { display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem; font-size:.92rem; }
+  .check input { margin-top:.2rem; accent-color:var(--accent); }
+  .list { display:grid; gap:.4rem; margin-top:.5rem; }
+  .item {
+    position:relative; display:flex; gap:.75rem; align-items:baseline; overflow:hidden;
+    background:#0f1519; border:1px solid rgba(255,255,255,.12);
+    border-radius:.5rem; padding:.55rem .75rem;
+  }
+  .item .fill { position:absolute; inset:0 auto 0 0; background:rgba(163,32,127,.38); z-index:0; }
+  .item > span { position:relative; z-index:1; }
+  .w { font-family:var(--mono); font-size:.85rem; white-space:nowrap; min-width:5.5em; color:var(--accent-soft); }
+  .u { font-family:var(--mono); font-size:.82rem; overflow-wrap:anywhere; }
+  .stat { color:var(--muted); font-size:.92rem; margin:0 0 .5rem; }
+  .hint { color:var(--muted); font-size:.85rem; margin:.75rem 0 0; }
+  .err { color:var(--danger); }
+  #redirecting { text-align:center; padding-top:4rem; }
+  #redirecting a { color:var(--accent-soft); }
+  @media(max-width:480px) {
+    .container { padding:1.25rem 1rem; }
+    .card { padding:1rem; }
+    .row { gap:.5rem; }
+    .btn-small { padding:.6rem .65rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="container" id="redirecting" hidden>
+    <h1 id="rtitle">Redirecting…</h1>
+    <p class="subtitle" id="rmsg"></p>
+  </div>
+
+  <div class="container" id="app">
+    <h1>Random URL Redirect</h1>
+    <p class="subtitle">
+      Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
+    </p>
+
+    <div class="card">
+      <div class="card-title">URLs</div>
+      <textarea id="input" spellcheck="false" placeholder="https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvxhttps://github.com/owner/repo/issues/805"></textarea>
+      <label class="check">
+        <input type="checkbox" id="drop">
+        <span>Drop tracking parameters (<code>si</code>, <code>xtok</code>, <code>srtk</code>) for a much shorter string. The links still open the same page.</span>
+      </label>
+      <div class="row" style="margin-top:1rem">
+        <button id="sample" type="button" class="btn btn-small">Insert sample</button>
+        <button id="clear" type="button" class="btn btn-small">Clear</button>
+        <button id="copyLink" type="button" class="btn btn-small" disabled>Copy link</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Short string</div>
+      <div class="row">
+        <input type="text" id="code" readonly aria-label="Short string">
+        <button id="copyCode" type="button" class="btn btn-small" disabled>Copy string</button>
+      </div>
+      <p class="hint" id="size"></p>
+      <div class="card-title spaced">Redirect link</div>
+      <div class="row">
+        <input type="text" id="link" readonly aria-label="Redirect link">
+        <button id="open" type="button" class="btn btn-primary btn-small" disabled>Try it</button>
+      </div>
+      <p class="hint">Opening this page with <code>?r=&lt;string&gt;</code> picks one URL by weight and redirects immediately. Keep this file hosted somewhere stable so the link keeps working.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Load an existing string</div>
+      <div class="row">
+        <input type="text" id="decodeIn" placeholder="Paste a short string or a full redirect link" aria-label="Short string or link to load">
+        <button id="decodeBtn" type="button" class="btn btn-primary btn-small">Load into editor</button>
+      </div>
+      <p class="hint err" id="decodeErr" hidden></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Weights</div>
+      <p class="stat" id="stat">No URLs yet.</p>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ==CODEC==
+  // Known URL shapes. Anything else is stored as a plain string (type 0).
+  //  1 music.youtube.com/watch?v=ID[&si=TOKEN]     2 github.com/OWNER/REPO/issues/N
+  //  3 youtu.be/ID[?si=TOKEN]                      4 instagram.com/p/ID/[?xtok=TOKEN]
+  //  5 instagram.com/reel/ID/[?srtk=TOKEN]
+  var PATTERNS = [
+    [1, /^https:\/\/music\.youtube\.com\/watch\?v=([\w-]{11})(?:&si=([\w-]{16}))?$/],
+    [3, /^https:\/\/youtu\.be\/([\w-]{11})(?:\?si=([\w-]{16}))?$/],
+    [4, /^https:\/\/www\.instagram\.com\/p\/([\w-]{11})\/(?:\?xtok=([\w-]{16}))?$/],
+    [5, /^https:\/\/www\.instagram\.com\/reel\/([\w-]{11})\/(?:\?srtk=([\w-]{16}))?$/]
+  ];
+  var GITHUB = /^https:\/\/github\.com\/([A-Za-z0-9-]+\/[\w.-]+)\/issues\/(0|[1-9]\d{0,14})$/;
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  var AIDX = {};
+  for (var ai = 0; ai < 64; ai++) AIDX[ALPHA.charAt(ai)] = ai;
+
+  function build(r) {
+    switch (r.t) {
+      case 1: return "https://music.youtube.com/watch?v=" + r.id + (r.tok ? "&si=" + r.tok : "");
+      case 2: return "https://github.com/" + r.repo + "/issues/" + r.n;
+      case 3: return "https://youtu.be/" + r.id + (r.tok ? "?si=" + r.tok : "");
+      case 4: return "https://www.instagram.com/p/" + r.id + "/" + (r.tok ? "?xtok=" + r.tok : "");
+      case 5: return "https://www.instagram.com/reel/" + r.id + "/" + (r.tok ? "?srtk=" + r.tok : "");
+      default: return r.url;
+    }
+  }
+
+  function classify(url) {
+    var m, rec = null;
+    for (var i = 0; i < PATTERNS.length && !rec; i++) {
+      m = url.match(PATTERNS[i][1]);
+      if (m) rec = { t: PATTERNS[i][0], id: m[1], tok: m[2] || "" };
+    }
+    if (!rec && (m = url.match(GITHUB))) rec = { t: 2, repo: m[1], n: m[2] };
+    if (rec && build(rec) === url) return rec;   // only trust an exact round trip
+    return { t: 0, url: url };
+  }
+
+  function normalize(url) {
+    var r = classify(url);
+    if (r.tok) { r.tok = ""; return build(r); }
+    return url;
+  }
+
+  function varint(w, v) {
+    while (v >= 128) { w.push((v % 128) | 128); v = Math.floor(v / 128); }
+    w.push(v);
+  }
+  function packChars(w, s) {            // 6 bits per character
+    var acc = 0, bits = 0;
+    for (var i = 0; i < s.length; i++) {
+      acc = (acc << 6) | AIDX[s.charAt(i)]; bits += 6;
+      if (bits >= 8) { bits -= 8; w.push((acc >> bits) & 255); acc &= (1 << bits) - 1; }
+    }
+    if (bits > 0) w.push((acc << (8 - bits)) & 255);
+  }
+
+  // Binary layout:
+  //  varint repoCount, then repoCount x (varint len, utf8 "owner/repo")
+  //  varint recordCount, then per URL:
+  //    header byte: bits 0-2 type, bit 3 has token, bit 4 weight > 1
+  //    [varint weight-2]  then  type fields (id/token as 6-bit chars, or repo index + issue number)
+  function encodeBin(m) {
+    var recs = [], repos = [], repoIdx = new Map(), enc = new TextEncoder(), w = [];
+    m.forEach(function (count, url) {
+      var r = classify(url); r.c = count;
+      if (r.t === 2 && !repoIdx.has(r.repo)) { repoIdx.set(r.repo, repos.length); repos.push(r.repo); }
+      recs.push(r);
+    });
+    varint(w, repos.length);
+    repos.forEach(function (s) {
+      var b = enc.encode(s); varint(w, b.length);
+      for (var i = 0; i < b.length; i++) w.push(b[i]);
+    });
+    varint(w, recs.length);
+    recs.forEach(function (r) {
+      w.push(r.t | (r.tok ? 8 : 0) | (r.c > 1 ? 16 : 0));
+      if (r.c > 1) varint(w, r.c - 2);
+      if (r.t === 0) {
+        var b = enc.encode(r.url); varint(w, b.length);
+        for (var i = 0; i < b.length; i++) w.push(b[i]);
+      } else if (r.t === 2) {
+        varint(w, repoIdx.get(r.repo)); varint(w, Number(r.n));
+      } else {
+        packChars(w, r.id);
+        if (r.tok) packChars(w, r.tok);
+      }
+    });
+    return new Uint8Array(w);
+  }
+
+  function Reader(b) { this.b = b; this.p = 0; }
+  Reader.prototype.byte = function () {
+    if (this.p >= this.b.length) throw new Error("short");
+    return this.b[this.p++];
+  };
+  Reader.prototype.varint = function () {
+    var v = 0, m = 1, x;
+    do { x = this.byte(); v += (x & 127) * m; m *= 128; if (m > 1e17) throw new Error("big"); } while (x & 128);
+    return v;
+  };
+  Reader.prototype.bytes = function (n) {
+    if (this.p + n > this.b.length) throw new Error("short");
+    var s = this.b.subarray(this.p, this.p + n); this.p += n; return s;
+  };
+  Reader.prototype.chars = function (n) {
+    var out = "", acc = 0, bits = 0;
+    while (out.length < n) {
+      if (bits < 6) { acc = (acc << 8) | this.byte(); bits += 8; }
+      bits -= 6; out += ALPHA.charAt((acc >> bits) & 63); acc &= (1 << bits) - 1;
+    }
+    return out;
+  };
+
+  function decodeBin(bytes) {
+    var r = new Reader(bytes), dec = new TextDecoder("utf-8", { fatal: true }), repos = [], m = new Map();
+    var nr = r.varint(); if (nr > 100000) throw new Error("big");
+    for (var i = 0; i < nr; i++) {
+      var s = dec.decode(r.bytes(r.varint()));
+      if (!/^[A-Za-z0-9-]+\/[\w.-]+$/.test(s)) throw new Error("bad repo");
+      repos.push(s);
+    }
+    var n = r.varint(); if (n > 100000) throw new Error("big");
+    for (var j = 0; j < n; j++) {
+      var h = r.byte(), t = h & 7, hasTok = (h & 8) !== 0, c = (h & 16) ? r.varint() + 2 : 1, url;
+      if (t === 0) {
+        url = dec.decode(r.bytes(r.varint()));
+        if (!/^https?:\/\/[^\/?#\s]+\S*$/i.test(url)) throw new Error("bad url");
+      } else if (t === 2) {
+        var ri = r.varint(); if (ri >= repos.length) throw new Error("bad repo index");
+        url = "https://github.com/" + repos[ri] + "/issues/" + r.varint();
+      } else if (t <= 5) {
+        var id = r.chars(11);
+        url = build({ t: t, id: id, tok: hasTok ? r.chars(16) : "" });
+      } else throw new Error("bad type");
+      m.set(url, (m.get(url) || 0) + c);
+    }
+    return m;
+  }
+
+  // Older strings (formats "a"/"b"): text groups by origin.
+  function deserializeLegacy(s) {
+    var m = new Map();
+    s.split("\n").forEach(function (line) {
+      var parts = line.split("\t"), origin = parts[0];
+      if (!/^https?:\/\/[^\/?#\s]+$/i.test(origin)) return;
+      parts.slice(1).forEach(function (e) {
+        var x = e.match(/^(\d*)([\s\S]*)$/), count = parseInt(x[1] || "1", 10);
+        if (count > 0 && /^(?:[\/?#]|$)/.test(x[2]) && !/\s/.test(x[2])) {
+          var url = origin + x[2]; m.set(url, (m.get(url) || 0) + count);
+        }
+      });
+    });
+    return m;
+  }
+
+  function toB64(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromB64(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var r = atob(s), out = new Uint8Array(r.length);
+    for (var i = 0; i < r.length; i++) out[i] = r.charCodeAt(i);
+    return out;
+  }
+  async function pipe(bytes, stream) {
+    var res = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  // First character = format: c plain binary, d deflated binary (a/b = older text formats).
+  async function encode(m) {
+    var bin = encodeBin(m), best = "c" + toB64(bin);
+    if (typeof CompressionStream !== "undefined") {
+      try {
+        var z = "d" + toB64(await pipe(bin, new CompressionStream("deflate-raw")));
+        if (z.length < best.length) best = z;
+      } catch (e) {}
+    }
+    return best;
+  }
+  async function decode(code) {
+    var kind = code.charAt(0), data = fromB64(code.slice(1));
+    if (kind === "c") return decodeBin(data);
+    if (kind === "d") return decodeBin(await pipe(data, new DecompressionStream("deflate-raw")));
+    if (kind === "a") return deserializeLegacy(new TextDecoder().decode(data));
+    if (kind === "b") return deserializeLegacy(new TextDecoder().decode(await pipe(data, new DecompressionStream("deflate-raw"))));
+    throw new Error("Unknown format");
+  }
+
+  function parseInput(text, drop) {
+    var m = new Map();
+    text.split(/\s+/).forEach(function (tok) {
+      tok.split(/(?=https?:\/\/)/i).forEach(function (u) {
+        if (!/^https?:\/\/[^\/?#\s]+/i.test(u)) return;
+        if (drop) u = normalize(u);
+        m.set(u, (m.get(u) || 0) + 1);
+      });
+    });
+    return m;
+  }
+  // ==/CODEC==
+
+  function pick(m) {
+    var total = 0, last = null;
+    m.forEach(function (c, u) { total += c; last = u; });
+    var r = Math.random() * total, chosen = last;
+    for (var e of m) { r -= e[1]; if (r < 0) { chosen = e[0]; break; } }
+    return chosen;
+  }
+
+  // Full address of this page without ?query or #hash, so links keep the host and folder
+  // it is served from (e.g. https://user.github.io/repo/random-redirect.html).
+  function baseUrl() { return location.href.split(/[?#]/)[0]; }
+
+  // ---- Randomize-and-redirect mode ----
+  var param = new URLSearchParams(location.search).get("r");
+  if (param) {
+    $("app").hidden = true;
+    $("redirecting").hidden = false;
+    decode(param.trim()).then(function (m) {
+      if (!m.size) throw new Error("empty");
+      location.replace(pick(m));
+    }).catch(function () {
+      $("rtitle").textContent = "This link can’t be read";
+      var a = document.createElement("a");
+      a.href = baseUrl();
+      a.textContent = "Create a new redirect link";
+      $("rmsg").appendChild(document.createTextNode("The string in the link is damaged or incomplete. "));
+      $("rmsg").appendChild(a);
+    });
+    return;
+  }
+
+  // ---- Editor mode ----
+  var timer = null, current = null;
+
+  function render(m) {
+    var list = $("list"), total = 0;
+    list.textContent = "";
+    m.forEach(function (c) { total += c; });
+    if (!m.size) { $("stat").textContent = "No URLs yet."; return; }
+    $("stat").textContent = m.size + (m.size === 1 ? " unique URL" : " unique URLs") + ", total weight " + total + ".";
+    m.forEach(function (count, url) {
+      var pct = count / total * 100;
+      var item = document.createElement("div"); item.className = "item";
+      var fill = document.createElement("span"); fill.className = "fill"; fill.style.width = pct + "%";
+      var w = document.createElement("span"); w.className = "w"; w.textContent = "×" + count + "  " + pct.toFixed(pct % 1 ? 1 : 0) + "%";
+      var u = document.createElement("span"); u.className = "u"; u.textContent = url;
+      item.appendChild(fill); item.appendChild(w); item.appendChild(u);
+      list.appendChild(item);
+    });
+  }
+
+  async function update() {
+    var text = $("input").value;
+    var m = parseInput(text, $("drop").checked);
+    current = m;
+    render(m);
+    var has = m.size > 0;
+    if (!has) {
+      $("code").value = ""; $("link").value = ""; $("size").textContent = "";
+    } else {
+      var code = await encode(m);
+      if (current !== m) return; // a newer edit superseded this one
+      $("code").value = code;
+      $("link").value = baseUrl() + "?r=" + code;
+      $("size").textContent = code.length + " characters, from " + text.replace(/\s+/g, "").length + " characters pasted.";
+    }
+    ["copyCode", "copyLink", "open"].forEach(function (id) { $(id).disabled = !has; });
+  }
+
+  function schedule() { clearTimeout(timer); timer = setTimeout(update, 120); }
+
+  function copy(inputId, btn) {
+    var v = $(inputId).value, label = btn.textContent;
+    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1200); };
+    var fallback = function () { $(inputId).select(); document.execCommand("copy"); done(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, fallback);
+    else fallback();
+  }
+
+  $("input").addEventListener("input", schedule);
+  $("drop").addEventListener("change", update);
+  $("clear").addEventListener("click", function () { $("input").value = ""; update(); $("input").focus(); });
+  $("sample").addEventListener("click", function () {
+    $("input").value =
+      "https://music.youtube.com/watch?v=ChXcD6Z4uvQ&si=4BYC3PhgXcIO8BVQ " +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805 " +
+      "https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvx" +
+      "https://www.instagram.com/p/DfIH0ZaGGjE/?xtok=eTd3bnJrcjd2YnZ2" +
+      "https://www.instagram.com/reel/De6EA-UTE-g/?srtk=YThjOGV2OWtraDdk" +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805";
+    update();
+  });
+  $("copyCode").addEventListener("click", function () { copy("code", $("copyCode")); });
+  $("copyLink").addEventListener("click", function () { copy("link", $("copyLink")); });
+  $("open").addEventListener("click", function () { window.open($("link").value, "_blank", "noopener"); });
+
+  $("decodeBtn").addEventListener("click", async function () {
+    var v = $("decodeIn").value.trim(), err = $("decodeErr");
+    err.hidden = true;
+    var q = v.match(/[?&]r=([^&#\s]+)/);
+    if (q) v = q[1];
+    try {
+      var m = await decode(v);
+      if (!m.size) throw new Error("empty");
+      var lines = [];
+      m.forEach(function (c, u) { for (var i = 0; i < c; i++) lines.push(u); });
+      $("input").value = lines.join("\n");
+      $("drop").checked = false;
+      update();
+    } catch (e) {
+      err.textContent = "That string can’t be read. Check that you copied all of it.";
+      err.hidden = false;
+    }
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
