@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,7 +172,10 @@
       const COUNTER_KEYS = ['stash', 'stashx2', 'stashx3', 'stashx10'];
       const STASH_THRESHOLD = 50;
       const RANDOM_ISSUE_PROBABILITY = 0.10;
-      const RECENT_WINDOW_SIZES = [16, 25, 50, 5];
+
+      // Recent issue windows and individual issue selection weights.
+      const RECENT_WINDOW_SIZES = [75, 45, 32, 10];
+      const RECENT_ISSUE_WEIGHTS = [1, 2, 3, 10];
 
       let configData = null;
       let reposToEdit = [];
@@ -682,27 +686,16 @@
       function buildRecentIssuePool(urlParams) {
         const pool = [];
 
-        const windowsTotal = RECENT_WINDOW_SIZES
-          .slice(0, reposToEdit.length)
-          .reduce((sum, size) => sum + size, 0);
-
-        const addedTotal = activeCounterKeys.reduce(
-          (sum, key) => sum + (counters[key] || 0),
-          0
-        );
-
-        const useAddedCounts = addedTotal < windowsTotal;
-
         reposToEdit.forEach((repo, idx) => {
           const repository = getRepository(repo);
           const username = repository.username || urlParams.username;
+
           const base = Number(repository.issueEndNumber) || 0;
           const counter = counters[activeCounterKeys[idx]] || 0;
           const latest = base + counter;
 
-          const windowSize = useAddedCounts
-            ? counter
-            : RECENT_WINDOW_SIZES[idx];
+          const windowSize = RECENT_WINDOW_SIZES[idx];
+          const weight = RECENT_ISSUE_WEIGHTS[idx];
 
           for (
             let n = latest;
@@ -712,7 +705,8 @@
             pool.push({
               username,
               repo,
-              issue: n
+              issue: n,
+              weight
             });
           }
         });
@@ -731,9 +725,27 @@
           return false;
         }
 
-        const pick = pool[Math.floor(Math.random() * pool.length)];
+        // Calculate the combined selection weight.
+        const totalWeight = pool.reduce(
+          (sum, item) => sum + item.weight,
+          0
+        );
 
-        if (!pick.username) {
+        // Generate a random position within the weighted pool.
+        let random = Math.random() * totalWeight;
+
+        let pick = null;
+
+        for (const item of pool) {
+          random -= item.weight;
+
+          if (random < 0) {
+            pick = item;
+            break;
+          }
+        }
+
+        if (!pick || !pick.username) {
           return false;
         }
 
