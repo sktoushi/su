@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Instagram Screenshot</title>
+    <script>
+        const images = [
+            "Screenshot_20261030_214658_Instagram.jpg",
+            "Screenshot_20261030_214652_Instagram.jpg",
+            "Screenshot_20261030_214607_Instagram.jpg",
+            "Screenshot_20261030_214539_Instagram.jpg",
+            "Screenshot_20261030_214440_Instagram.jpg",
+            "Screenshot_20261030_214331_Instagram.jpg",
+            "Screenshot_20261030_214250_Instagram.jpg",
+            "Screenshot_20261030_214228_Instagram.jpg"
+        ];
+
+        const baseUrl = "https://github.com/needacounto/stash9/blob/main/20261030/";
+        const randomImage = images[Math.floor(Math.random() * images.length)];
+
+        window.location.replace(baseUrl + randomImage);
+    </script>
+</head>
+<body>
+    Redirecting...
+</body>
+</htm l>
