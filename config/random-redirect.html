@@ -101,6 +101,45 @@
   .link-item:first-child { border-top:0; }
   .link-r { word-break:break-all; font-size:.82rem; font-family:var(--mono); }
   .link-meta { color:var(--muted); font-size:.82rem; margin-top:.2rem; }
+
+/* ---- Random source probability gauge ---- */
+.random-gauge {
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  margin-bottom:.85rem;
+  padding:.65rem .75rem;
+  background:#0f1519;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:.5rem;
+}
+
+.random-gauge input[type="range"] {
+  flex:1;
+  min-width:0;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+
+.random-gauge-value {
+  min-width:3.5em;
+  text-align:right;
+  font-family:var(--mono);
+  font-size:.9rem;
+  color:var(--accent-soft);
+  font-weight:700;
+}
+
+.random-gauge .btn {
+  padding:.4rem .7rem;
+  font-size:.75rem;
+}
+
+.random-gauge-hint {
+  color:var(--muted);
+  font-size:.78rem;
+  margin:-.35rem 0 .75rem;
+}
 </style>
 </head>
 <body>
@@ -115,8 +154,32 @@
       Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
     </p>
 
-    <div class="card">
-      <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+  <div class="card">
+  <div class="random-gauge">
+    <input
+      type="range"
+      id="randomDbGauge"
+      min="0"
+      max="100"
+      step="1"
+      value="15"
+      aria-label="Random database-only probability"
+    >
+    <span id="randomDbValue" class="random-gauge-value">15%</span>
+    <button
+      id="saveRandomDbGauge"
+      type="button"
+      class="btn btn-small"
+    >Save</button>
+  </div>
+
+  <p class="random-gauge-hint">
+    Database only: <span id="randomDbSaved">15%</span>
+    · Remaining probability: <span id="randomLegacySaved">85%</span>
+    (legacy + database)
+  </p>
+
+  <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
       <div id="weightRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem;">
         <button type="button" class="btn btn-small" data-w="1" style="width:100%;" disabled>x1</button>
         <button type="button" class="btn btn-small" data-w="2" style="width:100%;" disabled>x2</button>
@@ -590,7 +653,11 @@
   let legacy = [];          // legacy regions from all.json (repositories10x), in file order
   let legacyStatus = null;
   let lastOpened = null;    // { r, url, at } of the link the Random button last opened
-
+// Random source probability.
+// Default: 15% database-only, 85% existing mixed selection.
+let randomDbPercent = 15;
+let randomDbDraft = 15;
+  
   const $ = (id) => document.getElementById(id);
   const buildUrl = (r) => REDIRECT_PREFIX + r;
 
@@ -941,6 +1008,38 @@
     render();
   }
 
+// ---------- Random source probability gauge ----------
+
+function renderRandomGauge() {
+  $('randomDbGauge').value = randomDbDraft;
+  $('randomDbValue').textContent = randomDbDraft + '%';
+
+  $('randomDbSaved').textContent = randomDbPercent + '%';
+  $('randomLegacySaved').textContent = (100 - randomDbPercent) + '%';
+}
+
+$('randomDbGauge').addEventListener('input', () => {
+  randomDbDraft = Number($('randomDbGauge').value);
+  $('randomDbValue').textContent = randomDbDraft + '%';
+});
+
+$('saveRandomDbGauge').addEventListener('click', async () => {
+  try {
+    randomDbPercent = randomDbDraft;
+
+    await putMeta('randomDbPercent', randomDbPercent);
+
+    renderRandomGauge();
+
+    showStatus(
+      'success',
+      `Random probability saved: ${randomDbPercent}% database-only, ${100 - randomDbPercent}% legacy + database.`
+    );
+  } catch (e) {
+    showStatus('error', `Failed to save random probability: ${e.message}`);
+  }
+});
+  
   // ---------- Actions ----------
 
   const nextOrder = () => links.reduce((m, l) => Math.max(m, l.order), 0) + 1;
@@ -1074,26 +1173,26 @@
   }
 
   async function randomRedirect() {
-    try {
-      // Legacy regions (all.json, in file order) precede the stored links.
-      const pick = pickRandomLink(legacy.concat(links));
-      if (!pick) {
-        showStatus('error', 'No links available.');
-        return;
-      }
-      const url = pick.legacy ? legacyIssueUrl(pick) : buildUrl(pick.r);
-      // Remember it so the x1/x2/x3/x10 buttons can add it after coming back.
-      try {
-        const r = pick.legacy
-          ? await window.RRCodec.encode(window.RRCodec.parseInput(url, false))
-          : pick.r;
-        lastOpened = { r, url, at: Date.now() };
-        await putMeta('lastOpened', lastOpened);
-      } catch (e) {}
-      window.location.href = url;
-    } catch (e) {
-      showStatus('error', e.message);
-    }
+  const databaseOnly =
+    Math.random() * 100 < randomDbPercent;
+
+  const source = databaseOnly
+    ? links
+    : legacy.concat(links);
+
+  const pick = pickRandomLink(source);
+
+  if (!pick) {
+    setStatus('No links available.');
+    return;
+  }
+
+  // Keep your existing lastOpened tracking.
+  state.lastOpened = pick.r;
+
+  saveState();
+
+  window.location.href = pick.url;
   }
 
   function renderLast() {
@@ -1136,6 +1235,19 @@
       showStatus('error', `IndexedDB error: ${e.message}`);
       return;
     }
+const savedGauge = await getMeta('randomDbPercent');
+
+if (
+  Number.isInteger(savedGauge) &&
+  savedGauge >= 0 &&
+  savedGauge <= 100
+) {
+  randomDbPercent = savedGauge;
+}
+
+randomDbDraft = randomDbPercent;
+
+renderRandomGauge( );
     render();
     // Local data is usable immediately; the remote sync only ever appends.
     [lastSync, legacyStatus] = await Promise.all([syncRemote(), refreshLegacy()]);
