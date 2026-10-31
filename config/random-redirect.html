@@ -117,6 +117,13 @@
 
     <div class="card">
       <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+      <div id="weightRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem;">
+        <button type="button" class="btn btn-small" data-w="1" style="width:100%;" disabled>x1</button>
+        <button type="button" class="btn btn-small" data-w="2" style="width:100%;" disabled>x2</button>
+        <button type="button" class="btn btn-small" data-w="3" style="width:100%;" disabled>x3</button>
+        <button type="button" class="btn btn-small" data-w="10" style="width:100%;" disabled>x10</button>
+      </div>
+      <p class="hint" id="lastInfo" style="overflow-wrap:anywhere;"></p>
     </div>
 
     <div class="card">
@@ -563,6 +570,7 @@
   const REDIRECT_PREFIX = 'https://sktoushi.github.io/su/random-redirect.html?r=';
   const REMOTE_JSON = './random-redirect-db.json';
   const EXPORT_NAME = 'random-redirect-db.json';
+  const GITHUB_EDIT_URL = 'https://github.com/sktoushi/su/edit/in/config/random-redirect-db.json';
   const LEGACY_JSON = './all.json';
   const LEGACY_KEY = 'repositories10x';
 
@@ -581,6 +589,7 @@
   let lastSync = null;
   let legacy = [];          // legacy regions from all.json (repositories10x), in file order
   let legacyStatus = null;
+  let lastOpened = null;    // { r, url, at } of the link the Random button last opened
 
   const $ = (id) => document.getElementById(id);
   const buildUrl = (r) => REDIRECT_PREFIX + r;
@@ -924,6 +933,7 @@
     $('totalWeight').textContent = Number(links.reduce((s, l) => s + l.weight, 0).toFixed(6));
     renderSync();
     renderList();
+    renderLast();
   }
 
   async function refresh() {
@@ -1056,13 +1066,14 @@
       countBy(all).forEach((n, r) => { state.published[r] = Math.max(state.published[r] || 0, n); });
       await saveState();
       render();
-      showStatus('success', `Exported ${all.length} links as ${EXPORT_NAME}. Commit it next to this page to deploy.`);
+      showStatus('success', `Exported ${all.length} links as ${EXPORT_NAME}. Redirecting to GitHub...`);
+      setTimeout(() => { window.location.href = GITHUB_EDIT_URL; }, 2000);
     } catch (e) {
       showStatus('error', `Export failed: ${e.message}`);
     }
   }
 
-  function randomRedirect() {
+  async function randomRedirect() {
     try {
       // Legacy regions (all.json, in file order) precede the stored links.
       const pick = pickRandomLink(legacy.concat(links));
@@ -1070,7 +1081,40 @@
         showStatus('error', 'No links available.');
         return;
       }
-      window.location.href = pick.legacy ? legacyIssueUrl(pick) : buildUrl(pick.r);
+      const url = pick.legacy ? legacyIssueUrl(pick) : buildUrl(pick.r);
+      // Remember it so the x1/x2/x3/x10 buttons can add it after coming back.
+      try {
+        const r = pick.legacy
+          ? await window.RRCodec.encode(window.RRCodec.parseInput(url, false))
+          : pick.r;
+        lastOpened = { r, url, at: Date.now() };
+        await putMeta('lastOpened', lastOpened);
+      } catch (e) {}
+      window.location.href = url;
+    } catch (e) {
+      showStatus('error', e.message);
+    }
+  }
+
+  function renderLast() {
+    $('lastInfo').textContent = lastOpened
+      ? `Last opened: ${lastOpened.url}`
+      : 'Press Random, then come back to add the opened link with a weight.';
+    document.querySelectorAll('#weightRow [data-w]').forEach((b) => { b.disabled = !lastOpened; });
+  }
+
+  // Append the most recently opened link with the weight of the pressed button.
+  async function addLastOpened(weight) {
+    if (!lastOpened) {
+      showStatus('error', 'No link opened yet. Press Random first.');
+      return;
+    }
+    try {
+      const oDef = $('orderIn').value.trim();
+      const { records } = normalize([{ r: lastOpened.r, order: Number(oDef === '' ? nextOrder() : oDef), weight }]);
+      await appendRecords(records, 'all');
+      await refresh();
+      showStatus('success', `Added the last opened link with weight ${weight}.`);
     } catch (e) {
       showStatus('error', e.message);
     }
@@ -1087,6 +1131,7 @@
       await loadState();
       links = await readAll();
       legacy = (await getMeta('legacy')) || [];
+      lastOpened = (await getMeta('lastOpened')) || null;
     } catch (e) {
       showStatus('error', `IndexedDB error: ${e.message}`);
       return;
@@ -1108,6 +1153,9 @@
   });
   $('exportBtn').addEventListener('click', exportJson);
   $('randomBtn').addEventListener('click', randomRedirect);
+  document.querySelectorAll('#weightRow [data-w]').forEach((b) => {
+    b.addEventListener('click', () => addLastOpened(Number(b.dataset.w)));
+  });
   document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
     b.addEventListener('click', () => {
       const n = Number(b.dataset.mult);
