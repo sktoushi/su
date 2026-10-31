@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random URL redirect</title>
+<style>
+  :root {
+    --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae;
+    --accent:#a3207f; --accent-hover:#b72a92; --accent-active:#861a68; --accent-soft:#d65db5;
+    --btn:#3a1a33; --btn-hover:#4b2142; --btn-active:#5c2851;
+    --danger:#e53935; --success:#66bb6a;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  [hidden] { display:none !important; }
+  html,body {
+    margin:0; padding:0; min-height:100%;
+    background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,
+      "Apple Color Emoji","Segoe UI Emoji";
+  }
+  .container { max-width:800px; margin:0 auto; padding:2rem 1.5rem; }
+  h1 { margin:0 0 .5rem; font-size:1.8rem; font-weight:700; }
+  .subtitle { color:var(--muted); margin:0 0 2rem; font-size:.95rem; }
+  .card {
+    background:#11161a; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+  }
+  .card-title { font-size:1.05rem; margin:0 0 .9rem; color:var(--fg); font-weight:700; }
+  .card-title.spaced { margin-top:1.5rem; }
+  code { font-family:var(--mono); color:var(--accent-soft); font-size:.9em; }
+  textarea, input[type="text"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono);
+    transition:border-color .2s; box-sizing:border-box;
+  }
+  textarea { min-height:150px; resize:vertical; line-height:1.4; }
+  textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--accent); }
+  .field-row, .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; }
+  .row > input[type="text"] { flex:1 1 240px; width:auto; min-width:0; }
+  .btn {
+    border:1px solid #111; background:var(--btn); color:var(--fg);
+    padding:.75rem 1.5rem; border-radius:.5rem; font-size:1rem;
+    cursor:pointer; transition:transform .05s,background .15s,box-shadow .15s;
+    box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; font-weight:600; font-family:inherit;
+  }
+  .btn:hover { background:var(--btn-hover); }
+  .btn:active { transform:translateY(1px); background:var(--btn-active); }
+  .btn:focus-visible { outline:2px solid var(--accent-soft); outline-offset:2px; }
+  .btn:disabled { opacity:.45; cursor:default; transform:none; background:var(--btn); }
+  .btn-primary { background:var(--accent); color:#fff; border-color:#6f1558; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-primary:active { background:var(--accent-active); }
+  .btn-primary:disabled { background:var(--accent); }
+  .btn-small { padding:.6rem 1rem; font-size:.85rem; white-space:nowrap; }
+  .check { display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem; font-size:.92rem; }
+  .check input { margin-top:.2rem; accent-color:var(--accent); }
+  .list { display:grid; gap:.4rem; margin-top:.5rem; }
+  .item {
+    position:relative; display:flex; gap:.75rem; align-items:baseline; overflow:hidden;
+    background:#0f1519; border:1px solid rgba(255,255,255,.12);
+    border-radius:.5rem; padding:.55rem .75rem;
+  }
+  .item .fill { position:absolute; inset:0 auto 0 0; background:rgba(163,32,127,.38); z-index:0; }
+  .item > span { position:relative; z-index:1; }
+  .w { font-family:var(--mono); font-size:.85rem; white-space:nowrap; min-width:5.5em; color:var(--accent-soft); }
+  .u { font-family:var(--mono); font-size:.82rem; overflow-wrap:anywhere; }
+  .stat { color:var(--muted); font-size:.92rem; margin:0 0 .5rem; }
+  .hint { color:var(--muted); font-size:.85rem; margin:.75rem 0 0; }
+  .err { color:var(--danger); }
+  #redirecting { text-align:center; padding-top:4rem; }
+  #redirecting a { color:var(--accent-soft); }
+  @media(max-width:480px) {
+    .container { padding:1.25rem 1rem; }
+    .card { padding:1rem; }
+    .row { gap:.5rem; }
+    .btn-small { padding:.6rem .65rem; }
+  }
+
+  /* ---- Additions for the link repository (rules above are unchanged) ---- */
+  label { display:block; margin-bottom:.5rem; font-weight:600; font-size:.95rem; }
+  input[type="number"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono); box-sizing:border-box;
+  }
+  input[type="number"]:focus { outline:none; border-color:var(--accent); }
+  .field-group { margin-bottom:1rem; }
+  .field-row > div { flex:1 1 8rem; min-width:0; }
+  .actions { display:flex; gap:.75rem; flex-wrap:wrap; margin-top:1rem; }
+  .status { display:none; margin:0 0 1.5rem; padding:1rem; border-radius:.5rem; font-size:.95rem; }
+  .status.success { display:block; background:rgba(102,187,106,.15); border:1px solid rgba(102,187,106,.3); color:var(--success); }
+  .status.error { display:block; background:rgba(229,57,53,.15); border:1px solid rgba(229,57,53,.3); color:var(--danger); }
+  .warning { margin-top:.75rem; padding:.7rem .9rem; border-radius:.5rem; font-size:.9rem; background:rgba(255,152,0,.15); border:1px solid rgba(255,152,0,.3); color:#ffa726; }
+  .idb-row { font-size:.9rem; padding:.2rem 0; font-family:var(--mono); }
+  .idb-label { color:var(--muted); font-size:.82rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem; }
+  .stats { display:flex; gap:2rem; flex-wrap:wrap; }
+  .stat-value { font-size:1.5rem; font-weight:700; font-family:var(--mono); }
+  .link-item { display:flex; gap:.75rem; align-items:center; justify-content:space-between; padding:.75rem 0; border-top:1px solid rgba(255,255,255,.08); }
+  .link-item:first-child { border-top:0; }
+  .link-r { word-break:break-all; font-size:.82rem; font-family:var(--mono); }
+  .link-meta { color:var(--muted); font-size:.82rem; margin-top:.2rem; }
+</style>
+</head>
+<body>
+  <div class="container" id="redirecting" hidden>
+    <h1 id="rtitle">Redirecting…</h1>
+    <p class="subtitle" id="rmsg"></p>
+  </div>
+
+  <div class="container" id="app">
+    <h1>Random URL Redirect</h1>
+    <p class="subtitle">
+      Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
+    </p>
+
+    <div class="card">
+      <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add links to repository</div>
+      <div class="field-group">
+        <label for="bulkIn">Multiple entries, one per line: a URL series, or r [weight] [order]</label>
+        <textarea id="bulkIn" style="min-height:90px;" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-row">
+          <div><label for="weightIn">Weight</label><input id="weightIn" type="number" min="0" step="any" placeholder="auto (number of links)"></div>
+          <div><label for="orderIn">Order</label><input id="orderIn" type="number" min="0" step="1" placeholder="auto (max + 1)"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Weight multiplier (next add only; tap again to cancel)</label>
+        <div class="row" id="multRow">
+          <button type="button" class="btn btn-small" data-mult="2">x2</button>
+          <button type="button" class="btn btn-small" data-mult="3">x3</button>
+          <button type="button" class="btn btn-small" data-mult="10">x10</button>
+        </div>
+      </div>
+      <div class="actions"><button id="bulkBtn" class="btn btn-primary" type="button">Add multiple</button></div>
+      <div class="field-group" style="margin-top:1.5rem;">
+        <label for="rIn">Single string (r value or full redirect link)</label>
+        <input id="rIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="actions"><button id="addBtn" class="btn" type="button">Add link</button></div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="card">
+      <div class="stats">
+        <div><div class="idb-label">Links</div><div class="stat-value" id="totalCount">0</div></div>
+        <div><div class="idb-label">Total weight</div><div class="stat-value" id="totalWeight">0</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Synchronization</div>
+      <div id="syncInfo"></div>
+      <div id="alerts"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">URLs</div>
+      <textarea id="input" spellcheck="false" placeholder="https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvxhttps://github.com/owner/repo/issues/805"></textarea>
+      <label class="check">
+        <input type="checkbox" id="drop">
+        <span>Drop tracking parameters (<code>si</code>, <code>xtok</code>, <code>srtk</code>) for a much shorter string. The links still open the same page.</span>
+      </label>
+      <div class="row" style="margin-top:1rem">
+        <button id="sample" type="button" class="btn btn-small">Insert sample</button>
+        <button id="clear" type="button" class="btn btn-small">Clear</button>
+        <button id="copyLink" type="button" class="btn btn-small" disabled>Copy link</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Short string</div>
+      <div class="row">
+        <input type="text" id="code" readonly aria-label="Short string">
+        <button id="copyCode" type="button" class="btn btn-small" disabled>Copy string</button>
+        <button id="addCode" type="button" class="btn btn-primary btn-small" disabled>Add to repository</button>
+      </div>
+      <p class="hint" id="size"></p>
+      <div class="card-title spaced">Redirect link</div>
+      <div class="row">
+        <input type="text" id="link" readonly aria-label="Redirect link">
+        <button id="open" type="button" class="btn btn-primary btn-small" disabled>Try it</button>
+      </div>
+      <p class="hint">Opening this page with <code>?r=&lt;string&gt;</code> picks one URL by weight and redirects immediately. Keep this file hosted somewhere stable so the link keeps working.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Load an existing string</div>
+      <div class="row">
+        <input type="text" id="decodeIn" placeholder="Paste a short string or a full redirect link" aria-label="Short string or link to load">
+        <button id="decodeBtn" type="button" class="btn btn-primary btn-small">Load into editor</button>
+      </div>
+      <p class="hint err" id="decodeErr" hidden></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Weights</div>
+      <p class="stat" id="stat">No URLs yet.</p>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Import / Export</div>
+      <div class="actions" style="margin-top:0;">
+        <button id="importBtn" class="btn" type="button">Import JSON</button>
+        <button id="exportBtn" class="btn" type="button">Export JSON</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Repository preview (latest 10)</div>
+      <div id="linkList"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ==CODEC==
+  // Known URL shapes. Anything else is stored as a plain string (type 0).
+  //  1 music.youtube.com/watch?v=ID[&si=TOKEN]     2 github.com/OWNER/REPO/issues/N
+  //  3 youtu.be/ID[?si=TOKEN]                      4 instagram.com/p/ID/[?xtok=TOKEN]
+  //  5 instagram.com/reel/ID/[?srtk=TOKEN]
+  var PATTERNS = [
+    [1, /^https:\/\/music\.youtube\.com\/watch\?v=([\w-]{11})(?:&si=([\w-]{16}))?$/],
+    [3, /^https:\/\/youtu\.be\/([\w-]{11})(?:\?si=([\w-]{16}))?$/],
+    [4, /^https:\/\/www\.instagram\.com\/p\/([\w-]{11})\/(?:\?xtok=([\w-]{16}))?$/],
+    [5, /^https:\/\/www\.instagram\.com\/reel\/([\w-]{11})\/(?:\?srtk=([\w-]{16}))?$/]
+  ];
+  var GITHUB = /^https:\/\/github\.com\/([A-Za-z0-9-]+\/[\w.-]+)\/issues\/(0|[1-9]\d{0,14})$/;
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  var AIDX = {};
+  for (var ai = 0; ai < 64; ai++) AIDX[ALPHA.charAt(ai)] = ai;
+
+  function build(r) {
+    switch (r.t) {
+      case 1: return "https://music.youtube.com/watch?v=" + r.id + (r.tok ? "&si=" + r.tok : "");
+      case 2: return "https://github.com/" + r.repo + "/issues/" + r.n;
+      case 3: return "https://youtu.be/" + r.id + (r.tok ? "?si=" + r.tok : "");
+      case 4: return "https://www.instagram.com/p/" + r.id + "/" + (r.tok ? "?xtok=" + r.tok : "");
+      case 5: return "https://www.instagram.com/reel/" + r.id + "/" + (r.tok ? "?srtk=" + r.tok : "");
+      default: return r.url;
+    }
+  }
+
+  function classify(url) {
+    var m, rec = null;
+    for (var i = 0; i < PATTERNS.length && !rec; i++) {
+      m = url.match(PATTERNS[i][1]);
+      if (m) rec = { t: PATTERNS[i][0], id: m[1], tok: m[2] || "" };
+    }
+    if (!rec && (m = url.match(GITHUB))) rec = { t: 2, repo: m[1], n: m[2] };
+    if (rec && build(rec) === url) return rec;   // only trust an exact round trip
+    return { t: 0, url: url };
+  }
+
+  function normalize(url) {
+    var r = classify(url);
+    if (r.tok) { r.tok = ""; return build(r); }
+    return url;
+  }
+
+  function varint(w, v) {
+    while (v >= 128) { w.push((v % 128) | 128); v = Math.floor(v / 128); }
+    w.push(v);
+  }
+  function packChars(w, s) {            // 6 bits per character
+    var acc = 0, bits = 0;
+    for (var i = 0; i < s.length; i++) {
+      acc = (acc << 6) | AIDX[s.charAt(i)]; bits += 6;
+      if (bits >= 8) { bits -= 8; w.push((acc >> bits) & 255); acc &= (1 << bits) - 1; }
+    }
+    if (bits > 0) w.push((acc << (8 - bits)) & 255);
+  }
+
+  // Binary layout:
+  //  varint repoCount, then repoCount x (varint len, utf8 "owner/repo")
+  //  varint recordCount, then per URL:
+  //    header byte: bits 0-2 type, bit 3 has token, bit 4 weight > 1
+  //    [varint weight-2]  then  type fields (id/token as 6-bit chars, or repo index + issue number)
+  function encodeBin(m) {
+    var recs = [], repos = [], repoIdx = new Map(), enc = new TextEncoder(), w = [];
+    m.forEach(function (count, url) {
+      var r = classify(url); r.c = count;
+      if (r.t === 2 && !repoIdx.has(r.repo)) { repoIdx.set(r.repo, repos.length); repos.push(r.repo); }
+      recs.push(r);
+    });
+    varint(w, repos.length);
+    repos.forEach(function (s) {
+      var b = enc.encode(s); varint(w, b.length);
+      for (var i = 0; i < b.length; i++) w.push(b[i]);
+    });
+    varint(w, recs.length);
+    recs.forEach(function (r) {
+      w.push(r.t | (r.tok ? 8 : 0) | (r.c > 1 ? 16 : 0));
+      if (r.c > 1) varint(w, r.c - 2);
+      if (r.t === 0) {
+        var b = enc.encode(r.url); varint(w, b.length);
+        for (var i = 0; i < b.length; i++) w.push(b[i]);
+      } else if (r.t === 2) {
+        varint(w, repoIdx.get(r.repo)); varint(w, Number(r.n));
+      } else {
+        packChars(w, r.id);
+        if (r.tok) packChars(w, r.tok);
+      }
+    });
+    return new Uint8Array(w);
+  }
+
+  function Reader(b) { this.b = b; this.p = 0; }
+  Reader.prototype.byte = function () {
+    if (this.p >= this.b.length) throw new Error("short");
+    return this.b[this.p++];
+  };
+  Reader.prototype.varint = function () {
+    var v = 0, m = 1, x;
+    do { x = this.byte(); v += (x & 127) * m; m *= 128; if (m > 1e17) throw new Error("big"); } while (x & 128);
+    return v;
+  };
+  Reader.prototype.bytes = function (n) {
+    if (this.p + n > this.b.length) throw new Error("short");
+    var s = this.b.subarray(this.p, this.p + n); this.p += n; return s;
+  };
+  Reader.prototype.chars = function (n) {
+    var out = "", acc = 0, bits = 0;
+    while (out.length < n) {
+      if (bits < 6) { acc = (acc << 8) | this.byte(); bits += 8; }
+      bits -= 6; out += ALPHA.charAt((acc >> bits) & 63); acc &= (1 << bits) - 1;
+    }
+    return out;
+  };
+
+  function decodeBin(bytes) {
+    var r = new Reader(bytes), dec = new TextDecoder("utf-8", { fatal: true }), repos = [], m = new Map();
+    var nr = r.varint(); if (nr > 100000) throw new Error("big");
+    for (var i = 0; i < nr; i++) {
+      var s = dec.decode(r.bytes(r.varint()));
+      if (!/^[A-Za-z0-9-]+\/[\w.-]+$/.test(s)) throw new Error("bad repo");
+      repos.push(s);
+    }
+    var n = r.varint(); if (n > 100000) throw new Error("big");
+    for (var j = 0; j < n; j++) {
+      var h = r.byte(), t = h & 7, hasTok = (h & 8) !== 0, c = (h & 16) ? r.varint() + 2 : 1, url;
+      if (t === 0) {
+        url = dec.decode(r.bytes(r.varint()));
+        if (!/^https?:\/\/[^\/?#\s]+\S*$/i.test(url)) throw new Error("bad url");
+      } else if (t === 2) {
+        var ri = r.varint(); if (ri >= repos.length) throw new Error("bad repo index");
+        url = "https://github.com/" + repos[ri] + "/issues/" + r.varint();
+      } else if (t <= 5) {
+        var id = r.chars(11);
+        url = build({ t: t, id: id, tok: hasTok ? r.chars(16) : "" });
+      } else throw new Error("bad type");
+      m.set(url, (m.get(url) || 0) + c);
+    }
+    return m;
+  }
+
+  // Older strings (formats "a"/"b"): text groups by origin.
+  function deserializeLegacy(s) {
+    var m = new Map();
+    s.split("\n").forEach(function (line) {
+      var parts = line.split("\t"), origin = parts[0];
+      if (!/^https?:\/\/[^\/?#\s]+$/i.test(origin)) return;
+      parts.slice(1).forEach(function (e) {
+        var x = e.match(/^(\d*)([\s\S]*)$/), count = parseInt(x[1] || "1", 10);
+        if (count > 0 && /^(?:[\/?#]|$)/.test(x[2]) && !/\s/.test(x[2])) {
+          var url = origin + x[2]; m.set(url, (m.get(url) || 0) + count);
+        }
+      });
+    });
+    return m;
+  }
+
+  function toB64(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromB64(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var r = atob(s), out = new Uint8Array(r.length);
+    for (var i = 0; i < r.length; i++) out[i] = r.charCodeAt(i);
+    return out;
+  }
+  async function pipe(bytes, stream) {
+    var res = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  // First character = format: c plain binary, d deflated binary (a/b = older text formats).
+  async function encode(m) {
+    var bin = encodeBin(m), best = "c" + toB64(bin);
+    if (typeof CompressionStream !== "undefined") {
+      try {
+        var z = "d" + toB64(await pipe(bin, new CompressionStream("deflate-raw")));
+        if (z.length < best.length) best = z;
+      } catch (e) {}
+    }
+    return best;
+  }
+  async function decode(code) {
+    var kind = code.charAt(0), data = fromB64(code.slice(1));
+    if (kind === "c") return decodeBin(data);
+    if (kind === "d") return decodeBin(await pipe(data, new DecompressionStream("deflate-raw")));
+    if (kind === "a") return deserializeLegacy(new TextDecoder().decode(data));
+    if (kind === "b") return deserializeLegacy(new TextDecoder().decode(await pipe(data, new DecompressionStream("deflate-raw"))));
+    throw new Error("Unknown format");
+  }
+
+  function parseInput(text, drop) {
+    var m = new Map();
+    text.split(/\s+/).forEach(function (tok) {
+      tok.split(/(?=https?:\/\/)/i).forEach(function (u) {
+        if (!/^https?:\/\/[^\/?#\s]+/i.test(u)) return;
+        if (drop) u = normalize(u);
+        m.set(u, (m.get(u) || 0) + 1);
+      });
+    });
+    return m;
+  }
+  // ==/CODEC==
+
+  window.RRCodec = { decode: decode, encode: encode, parseInput: parseInput };   // used by the repository script below
+
+  function pick(m) {
+    var total = 0, last = null;
+    m.forEach(function (c, u) { total += c; last = u; });
+    var r = Math.random() * total, chosen = last;
+    for (var e of m) { r -= e[1]; if (r < 0) { chosen = e[0]; break; } }
+    return chosen;
+  }
+
+  // Full address of this page without ?query or #hash, so links keep the host and folder
+  // it is served from (e.g. https://user.github.io/repo/random-redirect.html).
+  function baseUrl() { return location.href.split(/[?#]/)[0]; }
+
+  // ---- Randomize-and-redirect mode ----
+  var param = new URLSearchParams(location.search).get("r");
+  if (param) {
+    $("app").hidden = true;
+    $("redirecting").hidden = false;
+    decode(param.trim()).then(function (m) {
+      if (!m.size) throw new Error("empty");
+      location.replace(pick(m));
+    }).catch(function () {
+      $("rtitle").textContent = "This link can’t be read";
+      var a = document.createElement("a");
+      a.href = baseUrl();
+      a.textContent = "Create a new redirect link";
+      $("rmsg").appendChild(document.createTextNode("The string in the link is damaged or incomplete. "));
+      $("rmsg").appendChild(a);
+    });
+    return;
+  }
+
+  // ---- Editor mode ----
+  var timer = null, current = null;
+
+  function render(m) {
+    var list = $("list"), total = 0;
+    list.textContent = "";
+    m.forEach(function (c) { total += c; });
+    if (!m.size) { $("stat").textContent = "No URLs yet."; return; }
+    $("stat").textContent = m.size + (m.size === 1 ? " unique URL" : " unique URLs") + ", total weight " + total + ".";
+    m.forEach(function (count, url) {
+      var pct = count / total * 100;
+      var item = document.createElement("div"); item.className = "item";
+      var fill = document.createElement("span"); fill.className = "fill"; fill.style.width = pct + "%";
+      var w = document.createElement("span"); w.className = "w"; w.textContent = "×" + count + "  " + pct.toFixed(pct % 1 ? 1 : 0) + "%";
+      var u = document.createElement("span"); u.className = "u"; u.textContent = url;
+      item.appendChild(fill); item.appendChild(w); item.appendChild(u);
+      list.appendChild(item);
+    });
+  }
+
+  async function update() {
+    var text = $("input").value;
+    var m = parseInput(text, $("drop").checked);
+    current = m;
+    render(m);
+    var has = m.size > 0;
+    if (!has) {
+      $("code").value = ""; $("link").value = ""; $("size").textContent = "";
+    } else {
+      var code = await encode(m);
+      if (current !== m) return; // a newer edit superseded this one
+      $("code").value = code;
+      $("link").value = baseUrl() + "?r=" + code;
+      $("size").textContent = code.length + " characters, from " + text.replace(/\s+/g, "").length + " characters pasted.";
+    }
+    ["copyCode", "copyLink", "open", "addCode"].forEach(function (id) { $(id).disabled = !has; });
+  }
+
+  function schedule() { clearTimeout(timer); timer = setTimeout(update, 120); }
+
+  function copy(inputId, btn) {
+    var v = $(inputId).value, label = btn.textContent;
+    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1200); };
+    var fallback = function () { $(inputId).select(); document.execCommand("copy"); done(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, fallback);
+    else fallback();
+  }
+
+  $("input").addEventListener("input", schedule);
+  $("drop").addEventListener("change", update);
+  $("clear").addEventListener("click", function () { $("input").value = ""; update(); $("input").focus(); });
+  $("sample").addEventListener("click", function () {
+    $("input").value =
+      "https://music.youtube.com/watch?v=ChXcD6Z4uvQ&si=4BYC3PhgXcIO8BVQ " +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805 " +
+      "https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvx" +
+      "https://www.instagram.com/p/DfIH0ZaGGjE/?xtok=eTd3bnJrcjd2YnZ2" +
+      "https://www.instagram.com/reel/De6EA-UTE-g/?srtk=YThjOGV2OWtraDdk" +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805";
+    update();
+  });
+  $("copyCode").addEventListener("click", function () { copy("code", $("copyCode")); });
+  $("copyLink").addEventListener("click", function () { copy("link", $("copyLink")); });
+  $("open").addEventListener("click", function () { window.open($("link").value, "_blank", "noopener"); });
+
+  $("decodeBtn").addEventListener("click", async function () {
+    var v = $("decodeIn").value.trim(), err = $("decodeErr");
+    err.hidden = true;
+    var q = v.match(/[?&]r=([^&#\s]+)/);
+    if (q) v = q[1];
+    try {
+      var m = await decode(v);
+      if (!m.size) throw new Error("empty");
+      var lines = [];
+      m.forEach(function (c, u) { for (var i = 0; i < c; i++) lines.push(u); });
+      $("input").value = lines.join("\n");
+      $("drop").checked = false;
+      update();
+    } catch (e) {
+      err.textContent = "That string can’t be read. Check that you copied all of it.";
+      err.hidden = false;
+    }
+  });
+
+  update();
+})();
+</script>
+
+<script>
+// ---- Append-only link repository (editor mode only; redirect mode never reaches here) ----
+(function () {
+  'use strict';
+  if (new URLSearchParams(location.search).get('r')) return;
+
+  const REDIRECT_PREFIX = 'https://sktoushi.github.io/su/random-redirect.html?r=';
+  const REMOTE_JSON = './random-redirect-db.json';
+  const EXPORT_NAME = 'random-redirect-db.json';
+
+  const DB_NAME = 'RandomRedirectLinksDB';
+  const DB_VERSION = 2;   // v2: records keyed by an internal auto id so "r" may repeat
+  const LINKS = 'links';   // keyPath: r (records are never edited or deleted)
+  const META = 'meta';     // sync/export bookkeeping only
+
+  const PREVIEW_LIMIT = 10;           // records shown in the repository preview
+  const ALERT_PENDING_COUNT = 10;     // unexported local records
+  const ALERT_EXPORT_DAYS = 14;       // days since last export
+
+  let db = null;
+  let links = [];
+  let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: {} };   // r -> copies known to be in deployed/exported JSON
+  let lastSync = null;
+
+  const $ = (id) => document.getElementById(id);
+  const buildUrl = (r) => REDIRECT_PREFIX + r;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ---------- IndexedDB ----------
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const q = indexedDB.open(DB_NAME, DB_VERSION);
+      q.onupgradeneeded = (e) => {
+        const d = q.result;
+        const makeLinks = () => {
+          const st = d.createObjectStore(LINKS, { keyPath: 'id', autoIncrement: true });
+          st.createIndex('order', 'order');
+          st.createIndex('r', 'r');
+        };
+        if (!d.objectStoreNames.contains(LINKS)) {
+          makeLinks();
+        } else if (e.oldVersion < 2) {
+          // v1 keyed records by "r". Rebuild the store so duplicates are possible, keeping every record.
+          q.transaction.objectStore(LINKS).getAll().onsuccess = (ev) => {
+            const old = ev.target.result.sort((a, b) => a.order - b.order);
+            d.deleteObjectStore(LINKS);
+            makeLinks();
+            const st = q.transaction.objectStore(LINKS);
+            old.forEach((x) => st.add({ r: x.r, order: x.order, weight: x.weight }));
+          };
+        }
+        if (!d.objectStoreNames.contains(META)) {
+          d.createObjectStore(META, { keyPath: 'key' });
+        }
+      };
+      q.onsuccess = () => resolve(q.result);
+      q.onerror = () => reject(q.error);
+    });
+  }
+
+  const reqP = (r) => new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+  // Ascending "order" via index; ties fall back to primary key.
+  const readAll = () => reqP(db.transaction(LINKS).objectStore(LINKS).index('order').getAll());
+
+  // Atomic append; existing records are never modified.
+  //  mode 'all':     append every record, so the same "r" may be stored several times (manual adds).
+  //  mode 'missing': append only copies not stored yet, so sync/import can be repeated safely.
+  function appendRecords(records, mode = 'missing') {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(LINKS, 'readwrite');
+      const store = tx.objectStore(LINKS);
+      let added = 0, skipped = 0;
+      if (mode === 'all') {
+        records.forEach((rec) => { store.add(rec); added++; });
+      } else {
+        const groups = new Map();
+        records.forEach((rec) => {
+          if (!groups.has(rec.r)) groups.set(rec.r, []);
+          groups.get(rec.r).push(rec);
+        });
+        groups.forEach((copies, r) => {
+          store.index('r').count(r).onsuccess = (e) => {
+            const have = e.target.result;
+            skipped += Math.min(have, copies.length);
+            copies.slice(have).forEach((rec) => { store.add(rec); added++; });
+          };
+        });
+      }
+      tx.oncomplete = () => resolve({ added, skipped });
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+    });
+  }
+
+  async function loadState() {
+    const row = await reqP(db.transaction(META).objectStore(META).get('state'));
+    if (row && row.value) {
+      state = Object.assign(state, row.value);
+      if (Array.isArray(state.published)) {
+        const o = {};
+        state.published.forEach((r) => { o[r] = 1; });
+        state.published = o;
+      }
+    }
+    else await saveState();
+  }
+
+  function saveState() {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      tx.objectStore(META).put({ key: 'state', value: state });
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Failed to save metadata'));
+    });
+  }
+
+  // ---------- Validation ----------
+
+  function validateRecord(x, i) {
+    const n = `Record ${i + 1}`;
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error(`${n}: must be an object`);
+    if (typeof x.r !== 'string' || !x.r.trim()) throw new Error(`${n}: "r" must be a nonempty string`);
+    if (!Number.isInteger(x.order) || x.order < 0) throw new Error(`${n}: "order" must be a nonnegative integer`);
+    if (typeof x.weight !== 'number' || !Number.isFinite(x.weight) || x.weight <= 0) {
+      throw new Error(`${n}: "weight" must be a positive finite number`);
+    }
+    return { r: x.r, order: x.order, weight: x.weight };
+  }
+
+  // Validates everything first (throws, nothing written). Repeated "r" values are allowed.
+  function normalize(list) {
+    if (!Array.isArray(list)) throw new Error('"links" must be an array');
+    return { records: list.map(validateRecord), duplicates: 0 };
+  }
+
+  function parseDoc(doc) {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc) || doc.version !== 1) {
+      throw new Error('Unsupported or missing "version" (expected 1)');
+    }
+    return normalize(doc.links);
+  }
+
+  // ---------- Synchronization ----------
+
+  async function syncRemote() {
+    try {
+      const resp = await fetch(REMOTE_JSON, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { records } = parseDoc(await resp.json());
+      const { added } = await appendRecords(records);
+      countBy(records).forEach((n, r) => { state.published[r] = Math.max(state.published[r] || 0, n); });
+      state.lastSyncAt = Date.now();
+      await saveState();
+      return { ok: true, added, remoteTotal: records.length };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  const countBy = (list) => {
+    const m = new Map();
+    list.forEach((x) => m.set(x.r, (m.get(x.r) || 0) + 1));
+    return m;
+  };
+
+  // Local copies beyond what the deployed/exported JSON is known to contain.
+  const unexportedCount = () => {
+    let n = 0;
+    countBy(links).forEach((have, r) => { n += Math.max(0, have - (state.published[r] || 0)); });
+    return n;
+  };
+
+  // ---------- Random selection (isolated: no storage access, no mutation) ----------
+
+  // To add an algorithm: add a function to ALGORITHMS, then set DEFAULT_ALGORITHM to its key.
+  // Contract: (list) => record | null. `list` is sorted by ascending order, each record is
+  // { r, order, weight }. Algorithms must be pure: never mutate the list or touch storage.
+  const ALGORITHMS = {
+    // Every link equally likely, ignoring weight.
+    uniform(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    },
+    // P(link) = link.weight / sum(all weights)
+    weighted(list) {
+      const total = list.reduce((s, l) => s + l.weight, 0);
+      let x = Math.random() * total;
+      for (const l of list) {
+        x -= l.weight;
+        if (x < 0) return l;
+      }
+      return list[list.length - 1];
+    }
+  };
+  const DEFAULT_ALGORITHM = 'uniform';
+
+  function pickRandomLink(list, algorithm = DEFAULT_ALGORITHM) {
+    const fn = ALGORITHMS[algorithm];
+    if (!fn) throw new Error(`Unknown algorithm: ${algorithm}`);
+    return list.length ? fn(list) : null;
+  }
+
+  // ---------- Rendering ----------
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+  }
+
+  function showStatus(type, message) {
+    const s = $('status');
+    s.className = `status ${type}`;
+    s.textContent = message;
+    s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function renderSync() {
+    const fmt = (t) => (t ? new Date(t).toLocaleString() : 'never');
+    const pending = unexportedCount();
+    const box = $('syncInfo');
+    box.textContent = '';
+
+    let remoteText = 'Syncing...';
+    if (lastSync) {
+      remoteText = lastSync.ok
+        ? `Deployed JSON: ${lastSync.remoteTotal} records, ${lastSync.added} new`
+        : `Deployed JSON unavailable (${lastSync.error}). Using local data.`;
+    }
+    [remoteText,
+     `Last successful sync: ${fmt(state.lastSyncAt)}`,
+     `Last export: ${fmt(state.lastExportAt)}`,
+     `Local records not in deployed/exported JSON: ${pending}`
+    ].forEach((t) => box.appendChild(el('div', 'idb-row', t)));
+
+    const alerts = [];
+    if (lastSync && lastSync.ok && lastSync.added > 0) {
+      alerts.push(`${lastSync.added} new record(s) from the deployed JSON were appended.`);
+    }
+    if (pending >= ALERT_PENDING_COUNT) {
+      alerts.push(`${pending} local records are not in the deployed JSON. Export and commit the file.`);
+    }
+    const days = (Date.now() - (state.lastExportAt || state.createdAt)) / 864e5;
+    if (pending > 0 && days >= ALERT_EXPORT_DAYS) {
+      alerts.push(`It has been ${Math.floor(days)} days since the last export, with ${pending} unexported record(s).`);
+    }
+    const ab = $('alerts');
+    ab.textContent = '';
+    alerts.forEach((t) => ab.appendChild(el('div', 'warning show', t)));
+    $('exportBtn').classList.toggle('btn-primary', pending > 0);
+  }
+
+  function renderList() {
+    const box = $('linkList');
+    box.textContent = '';
+    if (!links.length) {
+      box.appendChild(el('div', 'link-meta', 'No links yet.'));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    links.slice(-PREVIEW_LIMIT).forEach((l) => {
+      const item = el('div', 'link-item');
+      const info = el('div');
+      info.appendChild(el('div', 'link-r', l.r));
+      info.appendChild(el('div', 'link-meta', `order ${l.order} · weight ${l.weight}`));
+      const btn = el('button', 'btn btn-small', 'Copy link');
+      btn.type = 'button';
+      btn.addEventListener('click', async () => {
+        const ok = await copyToClipboard(buildUrl(l.r));
+        showStatus(ok ? 'success' : 'error', ok ? 'Link copied to clipboard.' : 'Failed to copy link.');
+      });
+      item.appendChild(info);
+      item.appendChild(btn);
+      frag.appendChild(item);
+    });
+    box.appendChild(frag);
+    if (links.length > PREVIEW_LIMIT) {
+      box.appendChild(el('div', 'link-meta', `Showing the last ${PREVIEW_LIMIT} of ${links.length} links (by order). Export JSON for the full list.`));
+    }
+  }
+
+  function render() {
+    $('totalCount').textContent = links.length;
+    $('totalWeight').textContent = Number(links.reduce((s, l) => s + l.weight, 0).toFixed(6));
+    renderSync();
+    renderList();
+  }
+
+  async function refresh() {
+    links = await readAll();
+    render();
+  }
+
+  // ---------- Actions ----------
+
+  const nextOrder = () => links.reduce((m, l) => Math.max(m, l.order), 0) + 1;
+
+  function extractR(token) {
+    const m = token.match(/[?&]r=([^&#]*)/);
+    return m ? m[1] : token.trim();
+  }
+
+  let weightMultiplier = 1;
+  function setMultiplier(n) {
+    weightMultiplier = n;
+    document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+      b.classList.toggle('btn-primary', Number(b.dataset.mult) === n);
+    });
+  }
+
+  async function addLines(lines) {
+    const wDef = $('weightIn').value.trim();
+    const oDef = $('orderIn').value.trim();
+    const auto = nextOrder();
+    const list = [];
+    const total = (m) => { let n = 0; m.forEach((c) => { n += c; }); return n; };
+    for (const line of lines) {
+      const t = line.trim().split(/[\s,]+/).filter(Boolean);
+      if (!t.length) continue;
+      let r, autoW, tokW, tokO;
+      if (/https?:\/\//i.test(line) && !/[?&]r=/.test(line)) {
+        // Undelimited (or delimited) URL series: the whole line becomes one redirect string.
+        const m = window.RRCodec.parseInput(line, $('drop').checked);
+        if (!m.size) throw new Error('No valid URLs found in: ' + line.trim().slice(0, 40));
+        r = await window.RRCodec.encode(m);
+        autoW = total(m);
+      } else {
+        r = extractR(t[0]);
+        tokW = t[1];
+        tokO = t[2];
+        try { autoW = total(await window.RRCodec.decode(r)); }
+        catch (e) { throw new Error(`Not a valid redirect string: ${r.slice(0, 16)}...`); }
+      }
+      // Weight: explicit value if given, otherwise the number of links in the entry; then the multiplier.
+      const base = tokW !== undefined ? Number(tokW) : (wDef !== '' ? Number(wDef) : autoW);
+      list.push({
+        r,
+        weight: base * weightMultiplier,
+        order: Number(tokO !== undefined ? tokO : (oDef === '' ? auto : oDef))
+      });
+    }
+    if (!list.length) throw new Error('Nothing to add.');
+    const { records, duplicates } = normalize(list);
+    for (const rec of records) {
+      try { await window.RRCodec.decode(rec.r); }
+      catch (e) { throw new Error(`Not a valid redirect string: ${rec.r.slice(0, 16)}...`); }
+    }
+    const res = await appendRecords(records, 'all');
+    await refresh();
+    return { added: res.added, skipped: 0, urls: Array.from(new Set(records.map((x) => buildUrl(x.r)))) };
+  }
+
+  async function runAdd(lines, inputId, copy) {
+    // The clipboard write starts inside the click gesture (iOS Safari requires this);
+    // its text is supplied once the strings are encoded.
+    let setText = null, setFail = null, copied = null;
+    if (copy && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      const blobP = new Promise((res, rej) => {
+        setText = (t) => res(new Blob([t], { type: 'text/plain' }));
+        setFail = rej;
+      });
+      copied = navigator.clipboard.write([new ClipboardItem({ 'text/plain': blobP })]).then(() => true, () => false);
+    }
+    try {
+      const { added, skipped, urls } = await addLines(lines);
+      if (added > 0 && inputId) $(inputId).value = '';
+      let msg = `Added ${added} link(s).`;
+      if (copy && urls.length) {
+        const text = urls.join('\n');
+        if (setText) setText(text);
+        let ok = copied ? await copied : false;
+        if (!ok) ok = await copyToClipboard(text);
+        msg += ok
+          ? (urls.length > 1 ? ` ${urls.length} links copied to clipboard.` : ' Link copied to clipboard.')
+          : ' Could not copy to clipboard.';
+      } else if (setFail) {
+        setFail(new Error('nothing to copy'));
+      }
+      showStatus('success', msg);
+      setMultiplier(1);
+    } catch (e) {
+      if (setFail) setFail(e);
+      showStatus('error', e.message);
+    }
+  }
+
+  async function importFile(file) {
+    try {
+      let doc;
+      try { doc = JSON.parse(await file.text()); }
+      catch (e) { throw new Error('File is not valid JSON.'); }
+      const { records, duplicates } = parseDoc(doc);
+      const res = await appendRecords(records);
+      await refresh();
+      showStatus('success',
+        `Imported ${res.added}. Skipped ${res.skipped} already stored. Total records: ${links.length}.`);
+    } catch (e) {
+      showStatus('error', `Import rejected: ${e.message}`);
+    }
+  }
+
+  async function exportJson() {
+    try {
+      const all = await readAll();
+      const doc = { version: 1, links: all.map(({ r, order, weight }) => ({ r, order, weight })) };
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = EXPORT_NAME;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+      state.lastExportAt = Date.now();
+      countBy(all).forEach((n, r) => { state.published[r] = Math.max(state.published[r] || 0, n); });
+      await saveState();
+      render();
+      showStatus('success', `Exported ${all.length} links as ${EXPORT_NAME}. Commit it next to this page to deploy.`);
+    } catch (e) {
+      showStatus('error', `Export failed: ${e.message}`);
+    }
+  }
+
+  function randomRedirect() {
+    try {
+      const pick = pickRandomLink(links);
+      if (!pick) {
+        showStatus('error', 'No links available.');
+        return;
+      }
+      window.location.href = buildUrl(pick.r);
+    } catch (e) {
+      showStatus('error', e.message);
+    }
+  }
+
+
+
+  // ---------- Init ----------
+
+  async function init() {
+    try {
+      db = await openDB();
+      db.onversionchange = () => db.close();
+      await loadState();
+      links = await readAll();
+    } catch (e) {
+      showStatus('error', `IndexedDB error: ${e.message}`);
+      return;
+    }
+    render();
+    // Local data is usable immediately; the remote sync only ever appends.
+    lastSync = await syncRemote();
+    try { await refresh(); } catch (e) { showStatus('error', e.message); }
+  }
+
+  $('addBtn').addEventListener('click', () => runAdd([$('rIn').value], 'rIn'));
+  $('bulkBtn').addEventListener('click', () => runAdd($('bulkIn').value.split(/\r?\n/), 'bulkIn', true));
+  $('addCode').addEventListener('click', () => runAdd([$('code').value], null));
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) await importFile(f);
+  });
+  $('exportBtn').addEventListener('click', exportJson);
+  $('randomBtn').addEventListener('click', randomRedirect);
+  document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const n = Number(b.dataset.mult);
+      setMultiplier(weightMultiplier === n ? 1 : n);
+    });
+  });
+  init();
+})();
+</script>
+</body>
+</html>
