@@ -503,8 +503,15 @@
   }
   // ==/CODEC==
 
-  window.RRCodec = { decode: decode, encode: encode, parseInput: parseInput };   // used by the repository script below
+  // window.RRCodec = { decode: decode, encode: encode, parseInput: parseInput };   // used by the repository script below
 
+window.RRCodec = {
+  decode: decode,
+  encode: encode,
+  parseInput: parseInput,
+  pick: pick
+};
+  
   function pick(m) {
     var total = 0, last = null;
     m.forEach(function (c, u) { total += c; last = u; });
@@ -1172,28 +1179,64 @@ $('saveRandomDbGauge').addEventListener('click', async () => {
     }
   }
 
-  async function randomRedirect() {
-  const databaseOnly =
-    Math.random() * 100 < randomDbPercent;
+async function randomRedirect() {
+  try {
+    const databaseOnly =
+      Math.random() * 100 < randomDbPercent;
 
-  const source = databaseOnly
-    ? links
-    : legacy.concat(links);
+    const source = databaseOnly
+      ? links
+      : legacy.concat(links);
 
-  const pick = pickRandomLink(source);
+    const selected = pickRandomLink(source);
 
-  if (!pick) {
-    setStatus('No links available.');
-    return;
+    if (!selected) {
+      showStatus('error', 'No links available in the selected source.');
+      return;
+    }
+
+    let url;
+    let r;
+
+    if (selected.legacy) {
+      // Legacy selection produces a direct GitHub issue URL.
+      url = legacyIssueUrl(selected);
+
+      // Encode it so the existing Add Last Opened feature can use it.
+      const map = window.RRCodec.parseInput(url, false);
+      r = await window.RRCodec.encode(map);
+
+    } else {
+      // Database selection: decode the stored redirect string.
+      r = selected.r;
+
+      const map = await window.RRCodec.decode(r);
+
+      // Select an actual URL using its encoded weight.
+      url = window.RRCodec.pick(map);
+    }
+
+    if (!url) {
+      showStatus('error', 'Could not select a URL.');
+      return;
+    }
+
+    lastOpened = {
+      r,
+      url,
+      at: Date.now()
+    };
+
+    await putMeta('lastOpened', lastOpened);
+
+    renderLast();
+
+    window.location.href = url;
+
+  } catch (e) {
+    showStatus('error', `Random redirect failed: ${e.message}`);
   }
-
-  // Keep your existing lastOpened tracking.
-  state.lastOpened = pick.r;
-
-  saveState();
-
-  window.location.href = pick.url;
-  }
+}
 
   function renderLast() {
     $('lastInfo').textContent = lastOpened
