@@ -565,7 +565,7 @@
   const EXPORT_NAME = 'random-redirect-db.json';
 
   const DB_NAME = 'RandomRedirectLinksDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;   // v2: records keyed by an internal auto id so "r" may repeat
   const LINKS = 'links';   // keyPath: r (records are never edited or deleted)
   const META = 'meta';     // sync/export bookkeeping only
 
@@ -575,7 +575,7 @@
 
   let db = null;
   let links = [];
-  let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: [] };
+  let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: {} };   // r -> copies known to be in deployed/exported JSON
   let lastSync = null;
 
   const $ = (id) => document.getElementById(id);
@@ -593,10 +593,24 @@
   function openDB() {
     return new Promise((resolve, reject) => {
       const q = indexedDB.open(DB_NAME, DB_VERSION);
-      q.onupgradeneeded = () => {
+      q.onupgradeneeded = (e) => {
         const d = q.result;
+        const makeLinks = () => {
+          const st = d.createObjectStore(LINKS, { keyPath: 'id', autoIncrement: true });
+          st.createIndex('order', 'order');
+          st.createIndex('r', 'r');
+        };
         if (!d.objectStoreNames.contains(LINKS)) {
-          d.createObjectStore(LINKS, { keyPath: 'r' }).createIndex('order', 'order');
+          makeLinks();
+        } else if (e.oldVersion < 2) {
+          // v1 keyed records by "r". Rebuild the store so duplicates are possible, keeping every record.
+          q.transaction.objectStore(LINKS).getAll().onsuccess = (ev) => {
+            const old = ev.target.result.sort((a, b) => a.order - b.order);
+            d.deleteObjectStore(LINKS);
+            makeLinks();
+            const st = q.transaction.objectStore(LINKS);
+            old.forEach((x) => st.add({ r: x.r, order: x.order, weight: x.weight }));
+          };
         }
         if (!d.objectStoreNames.contains(META)) {
           d.createObjectStore(META, { keyPath: 'key' });
@@ -615,17 +629,30 @@
   // Ascending "order" via index; ties fall back to primary key.
   const readAll = () => reqP(db.transaction(LINKS).objectStore(LINKS).index('order').getAll());
 
-  // Atomic append: records whose "r" exists are skipped, never overwritten.
-  function appendRecords(records) {
+  // Atomic append; existing records are never modified.
+  //  mode 'all':     append every record, so the same "r" may be stored several times (manual adds).
+  //  mode 'missing': append only copies not stored yet, so sync/import can be repeated safely.
+  function appendRecords(records, mode = 'missing') {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(LINKS, 'readwrite');
       const store = tx.objectStore(LINKS);
       let added = 0, skipped = 0;
-      records.forEach((rec) => {
-        store.getKey(rec.r).onsuccess = (e) => {
-          if (e.target.result === undefined) { store.add(rec); added++; } else { skipped++; }
-        };
-      });
+      if (mode === 'all') {
+        records.forEach((rec) => { store.add(rec); added++; });
+      } else {
+        const groups = new Map();
+        records.forEach((rec) => {
+          if (!groups.has(rec.r)) groups.set(rec.r, []);
+          groups.get(rec.r).push(rec);
+        });
+        groups.forEach((copies, r) => {
+          store.index('r').count(r).onsuccess = (e) => {
+            const have = e.target.result;
+            skipped += Math.min(have, copies.length);
+            copies.slice(have).forEach((rec) => { store.add(rec); added++; });
+          };
+        });
+      }
       tx.oncomplete = () => resolve({ added, skipped });
       tx.onerror = tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
     });
@@ -633,7 +660,14 @@
 
   async function loadState() {
     const row = await reqP(db.transaction(META).objectStore(META).get('state'));
-    if (row && row.value) state = Object.assign(state, row.value);
+    if (row && row.value) {
+      state = Object.assign(state, row.value);
+      if (Array.isArray(state.published)) {
+        const o = {};
+        state.published.forEach((r) => { o[r] = 1; });
+        state.published = o;
+      }
+    }
     else await saveState();
   }
 
@@ -659,18 +693,10 @@
     return { r: x.r, order: x.order, weight: x.weight };
   }
 
-  // Validates everything first (throws, nothing written). Duplicate "r" in one batch: first wins.
+  // Validates everything first (throws, nothing written). Repeated "r" values are allowed.
   function normalize(list) {
     if (!Array.isArray(list)) throw new Error('"links" must be an array');
-    const seen = new Set(), records = [];
-    let duplicates = 0;
-    list.forEach((x, i) => {
-      const rec = validateRecord(x, i);
-      if (seen.has(rec.r)) { duplicates++; return; }
-      seen.add(rec.r);
-      records.push(rec);
-    });
-    return { records, duplicates };
+    return { records: list.map(validateRecord), duplicates: 0 };
   }
 
   function parseDoc(doc) {
@@ -688,7 +714,7 @@
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const { records } = parseDoc(await resp.json());
       const { added } = await appendRecords(records);
-      state.published = Array.from(new Set(state.published.concat(records.map((x) => x.r))));
+      countBy(records).forEach((n, r) => { state.published[r] = Math.max(state.published[r] || 0, n); });
       state.lastSyncAt = Date.now();
       await saveState();
       return { ok: true, added, remoteTotal: records.length };
@@ -697,9 +723,17 @@
     }
   }
 
+  const countBy = (list) => {
+    const m = new Map();
+    list.forEach((x) => m.set(x.r, (m.get(x.r) || 0) + 1));
+    return m;
+  };
+
+  // Local copies beyond what the deployed/exported JSON is known to contain.
   const unexportedCount = () => {
-    const pub = new Set(state.published);
-    return links.filter((l) => !pub.has(l.r)).length;
+    let n = 0;
+    countBy(links).forEach((have, r) => { n += Math.max(0, have - (state.published[r] || 0)); });
+    return n;
   };
 
   // ---------- Random selection (isolated: no storage access, no mutation) ----------
@@ -887,9 +921,9 @@
       try { await window.RRCodec.decode(rec.r); }
       catch (e) { throw new Error(`Not a valid redirect string: ${rec.r.slice(0, 16)}...`); }
     }
-    const res = await appendRecords(records);
+    const res = await appendRecords(records, 'all');
     await refresh();
-    return { added: res.added, skipped: res.skipped + duplicates, urls: records.map((x) => buildUrl(x.r)) };
+    return { added: res.added, skipped: 0, urls: Array.from(new Set(records.map((x) => buildUrl(x.r)))) };
   }
 
   async function runAdd(lines, inputId, copy) {
@@ -906,7 +940,7 @@
     try {
       const { added, skipped, urls } = await addLines(lines);
       if (added > 0 && inputId) $(inputId).value = '';
-      let msg = `Added ${added} link(s). Skipped ${skipped} duplicate(s).`;
+      let msg = `Added ${added} link(s).`;
       if (copy && urls.length) {
         const text = urls.join('\n');
         if (setText) setText(text);
@@ -935,7 +969,7 @@
       const res = await appendRecords(records);
       await refresh();
       showStatus('success',
-        `Imported ${res.added}. Skipped ${res.skipped + duplicates} duplicate(s). Total records: ${links.length}.`);
+        `Imported ${res.added}. Skipped ${res.skipped} already stored. Total records: ${links.length}.`);
     } catch (e) {
       showStatus('error', `Import rejected: ${e.message}`);
     }
@@ -955,7 +989,7 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 
       state.lastExportAt = Date.now();
-      state.published = Array.from(new Set(state.published.concat(all.map((l) => l.r))));
+      countBy(all).forEach((n, r) => { state.published[r] = Math.max(state.published[r] || 0, n); });
       await saveState();
       render();
       showStatus('success', `Exported ${all.length} links as ${EXPORT_NAME}. Commit it next to this page to deploy.`);
