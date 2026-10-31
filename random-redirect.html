@@ -77,6 +77,30 @@
     .row { gap:.5rem; }
     .btn-small { padding:.6rem .65rem; }
   }
+
+  /* ---- Additions for the link repository (rules above are unchanged) ---- */
+  label { display:block; margin-bottom:.5rem; font-weight:600; font-size:.95rem; }
+  input[type="number"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono); box-sizing:border-box;
+  }
+  input[type="number"]:focus { outline:none; border-color:var(--accent); }
+  .field-group { margin-bottom:1rem; }
+  .field-row > div { flex:1 1 8rem; min-width:0; }
+  .actions { display:flex; gap:.75rem; flex-wrap:wrap; margin-top:1rem; }
+  .status { display:none; margin:0 0 1.5rem; padding:1rem; border-radius:.5rem; font-size:.95rem; }
+  .status.success { display:block; background:rgba(102,187,106,.15); border:1px solid rgba(102,187,106,.3); color:var(--success); }
+  .status.error { display:block; background:rgba(229,57,53,.15); border:1px solid rgba(229,57,53,.3); color:var(--danger); }
+  .warning { margin-top:.75rem; padding:.7rem .9rem; border-radius:.5rem; font-size:.9rem; background:rgba(255,152,0,.15); border:1px solid rgba(255,152,0,.3); color:#ffa726; }
+  .idb-row { font-size:.9rem; padding:.2rem 0; font-family:var(--mono); }
+  .idb-label { color:var(--muted); font-size:.82rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem; }
+  .stats { display:flex; gap:2rem; flex-wrap:wrap; }
+  .stat-value { font-size:1.5rem; font-weight:700; font-family:var(--mono); }
+  .link-item { display:flex; gap:.75rem; align-items:center; justify-content:space-between; padding:.75rem 0; border-top:1px solid rgba(255,255,255,.08); }
+  .link-item:first-child { border-top:0; }
+  .link-r { word-break:break-all; font-size:.82rem; font-family:var(--mono); }
+  .link-meta { color:var(--muted); font-size:.82rem; margin-top:.2rem; }
 </style>
 </head>
 <body>
@@ -90,6 +114,53 @@
     <p class="subtitle">
       Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
     </p>
+
+    <div class="card">
+      <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add links to repository</div>
+      <div class="field-group">
+        <label for="bulkIn">Multiple entries, one per line: a URL series, or r [weight] [order]</label>
+        <textarea id="bulkIn" style="min-height:90px;" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-row">
+          <div><label for="weightIn">Weight</label><input id="weightIn" type="number" min="0" step="any" placeholder="auto (number of links)"></div>
+          <div><label for="orderIn">Order</label><input id="orderIn" type="number" min="0" step="1" placeholder="auto (max + 1)"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Weight multiplier (next add only; tap again to cancel)</label>
+        <div class="row" id="multRow">
+          <button type="button" class="btn btn-small" data-mult="2">x2</button>
+          <button type="button" class="btn btn-small" data-mult="3">x3</button>
+          <button type="button" class="btn btn-small" data-mult="10">x10</button>
+        </div>
+      </div>
+      <div class="actions"><button id="bulkBtn" class="btn btn-primary" type="button">Add multiple</button></div>
+      <div class="field-group" style="margin-top:1.5rem;">
+        <label for="rIn">Single string (r value or full redirect link)</label>
+        <input id="rIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="actions"><button id="addBtn" class="btn" type="button">Add link</button></div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="card">
+      <div class="stats">
+        <div><div class="idb-label">Links</div><div class="stat-value" id="totalCount">0</div></div>
+        <div><div class="idb-label">Total weight</div><div class="stat-value" id="totalWeight">0</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Synchronization</div>
+      <div id="syncInfo"></div>
+      <div id="alerts"></div>
+    </div>
 
     <div class="card">
       <div class="card-title">URLs</div>
@@ -110,6 +181,7 @@
       <div class="row">
         <input type="text" id="code" readonly aria-label="Short string">
         <button id="copyCode" type="button" class="btn btn-small" disabled>Copy string</button>
+        <button id="addCode" type="button" class="btn btn-primary btn-small" disabled>Add to repository</button>
       </div>
       <p class="hint" id="size"></p>
       <div class="card-title spaced">Redirect link</div>
@@ -133,6 +205,20 @@
       <div class="card-title">Weights</div>
       <p class="stat" id="stat">No URLs yet.</p>
       <div class="list" id="list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Import / Export</div>
+      <div class="actions" style="margin-top:0;">
+        <button id="importBtn" class="btn" type="button">Import JSON</button>
+        <button id="exportBtn" class="btn" type="button">Export JSON</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Repository preview (latest 10)</div>
+      <div id="linkList"></div>
     </div>
   </div>
 
@@ -347,6 +433,8 @@
   }
   // ==/CODEC==
 
+  window.RRCodec = { decode: decode, encode: encode, parseInput: parseInput };   // used by the repository script below
+
   function pick(m) {
     var total = 0, last = null;
     m.forEach(function (c, u) { total += c; last = u; });
@@ -413,7 +501,7 @@
       $("link").value = baseUrl() + "?r=" + code;
       $("size").textContent = code.length + " characters, from " + text.replace(/\s+/g, "").length + " characters pasted.";
     }
-    ["copyCode", "copyLink", "open"].forEach(function (id) { $(id).disabled = !has; });
+    ["copyCode", "copyLink", "open", "addCode"].forEach(function (id) { $(id).disabled = !has; });
   }
 
   function schedule() { clearTimeout(timer); timer = setTimeout(update, 120); }
@@ -463,6 +551,470 @@
   });
 
   update();
+})();
+</script>
+
+<script>
+// ---- Append-only link repository (editor mode only; redirect mode never reaches here) ----
+(function () {
+  'use strict';
+  if (new URLSearchParams(location.search).get('r')) return;
+
+  const REDIRECT_PREFIX = 'https://sktoushi.github.io/su/random-redirect.html?r=';
+  const REMOTE_JSON = './random-redirect-db.json';
+  const EXPORT_NAME = 'random-redirect-db.json';
+
+  const DB_NAME = 'RandomRedirectLinksDB';
+  const DB_VERSION = 1;
+  const LINKS = 'links';   // keyPath: r (records are never edited or deleted)
+  const META = 'meta';     // sync/export bookkeeping only
+
+  const PREVIEW_LIMIT = 10;           // records shown in the repository preview
+  const ALERT_PENDING_COUNT = 10;     // unexported local records
+  const ALERT_EXPORT_DAYS = 14;       // days since last export
+
+  let db = null;
+  let links = [];
+  let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: [] };
+  let lastSync = null;
+
+  const $ = (id) => document.getElementById(id);
+  const buildUrl = (r) => REDIRECT_PREFIX + r;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ---------- IndexedDB ----------
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const q = indexedDB.open(DB_NAME, DB_VERSION);
+      q.onupgradeneeded = () => {
+        const d = q.result;
+        if (!d.objectStoreNames.contains(LINKS)) {
+          d.createObjectStore(LINKS, { keyPath: 'r' }).createIndex('order', 'order');
+        }
+        if (!d.objectStoreNames.contains(META)) {
+          d.createObjectStore(META, { keyPath: 'key' });
+        }
+      };
+      q.onsuccess = () => resolve(q.result);
+      q.onerror = () => reject(q.error);
+    });
+  }
+
+  const reqP = (r) => new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+  // Ascending "order" via index; ties fall back to primary key.
+  const readAll = () => reqP(db.transaction(LINKS).objectStore(LINKS).index('order').getAll());
+
+  // Atomic append: records whose "r" exists are skipped, never overwritten.
+  function appendRecords(records) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(LINKS, 'readwrite');
+      const store = tx.objectStore(LINKS);
+      let added = 0, skipped = 0;
+      records.forEach((rec) => {
+        store.getKey(rec.r).onsuccess = (e) => {
+          if (e.target.result === undefined) { store.add(rec); added++; } else { skipped++; }
+        };
+      });
+      tx.oncomplete = () => resolve({ added, skipped });
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+    });
+  }
+
+  async function loadState() {
+    const row = await reqP(db.transaction(META).objectStore(META).get('state'));
+    if (row && row.value) state = Object.assign(state, row.value);
+    else await saveState();
+  }
+
+  function saveState() {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      tx.objectStore(META).put({ key: 'state', value: state });
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Failed to save metadata'));
+    });
+  }
+
+  // ---------- Validation ----------
+
+  function validateRecord(x, i) {
+    const n = `Record ${i + 1}`;
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error(`${n}: must be an object`);
+    if (typeof x.r !== 'string' || !x.r.trim()) throw new Error(`${n}: "r" must be a nonempty string`);
+    if (!Number.isInteger(x.order) || x.order < 0) throw new Error(`${n}: "order" must be a nonnegative integer`);
+    if (typeof x.weight !== 'number' || !Number.isFinite(x.weight) || x.weight <= 0) {
+      throw new Error(`${n}: "weight" must be a positive finite number`);
+    }
+    return { r: x.r, order: x.order, weight: x.weight };
+  }
+
+  // Validates everything first (throws, nothing written). Duplicate "r" in one batch: first wins.
+  function normalize(list) {
+    if (!Array.isArray(list)) throw new Error('"links" must be an array');
+    const seen = new Set(), records = [];
+    let duplicates = 0;
+    list.forEach((x, i) => {
+      const rec = validateRecord(x, i);
+      if (seen.has(rec.r)) { duplicates++; return; }
+      seen.add(rec.r);
+      records.push(rec);
+    });
+    return { records, duplicates };
+  }
+
+  function parseDoc(doc) {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc) || doc.version !== 1) {
+      throw new Error('Unsupported or missing "version" (expected 1)');
+    }
+    return normalize(doc.links);
+  }
+
+  // ---------- Synchronization ----------
+
+  async function syncRemote() {
+    try {
+      const resp = await fetch(REMOTE_JSON, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { records } = parseDoc(await resp.json());
+      const { added } = await appendRecords(records);
+      state.published = Array.from(new Set(state.published.concat(records.map((x) => x.r))));
+      state.lastSyncAt = Date.now();
+      await saveState();
+      return { ok: true, added, remoteTotal: records.length };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  const unexportedCount = () => {
+    const pub = new Set(state.published);
+    return links.filter((l) => !pub.has(l.r)).length;
+  };
+
+  // ---------- Random selection (isolated: no storage access, no mutation) ----------
+
+  // To add an algorithm: add a function to ALGORITHMS, then set DEFAULT_ALGORITHM to its key.
+  // Contract: (list) => record | null. `list` is sorted by ascending order, each record is
+  // { r, order, weight }. Algorithms must be pure: never mutate the list or touch storage.
+  const ALGORITHMS = {
+    // Every link equally likely, ignoring weight.
+    uniform(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    },
+    // P(link) = link.weight / sum(all weights)
+    weighted(list) {
+      const total = list.reduce((s, l) => s + l.weight, 0);
+      let x = Math.random() * total;
+      for (const l of list) {
+        x -= l.weight;
+        if (x < 0) return l;
+      }
+      return list[list.length - 1];
+    }
+  };
+  const DEFAULT_ALGORITHM = 'uniform';
+
+  function pickRandomLink(list, algorithm = DEFAULT_ALGORITHM) {
+    const fn = ALGORITHMS[algorithm];
+    if (!fn) throw new Error(`Unknown algorithm: ${algorithm}`);
+    return list.length ? fn(list) : null;
+  }
+
+  // ---------- Rendering ----------
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+  }
+
+  function showStatus(type, message) {
+    const s = $('status');
+    s.className = `status ${type}`;
+    s.textContent = message;
+    s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function renderSync() {
+    const fmt = (t) => (t ? new Date(t).toLocaleString() : 'never');
+    const pending = unexportedCount();
+    const box = $('syncInfo');
+    box.textContent = '';
+
+    let remoteText = 'Syncing...';
+    if (lastSync) {
+      remoteText = lastSync.ok
+        ? `Deployed JSON: ${lastSync.remoteTotal} records, ${lastSync.added} new`
+        : `Deployed JSON unavailable (${lastSync.error}). Using local data.`;
+    }
+    [remoteText,
+     `Last successful sync: ${fmt(state.lastSyncAt)}`,
+     `Last export: ${fmt(state.lastExportAt)}`,
+     `Local records not in deployed/exported JSON: ${pending}`
+    ].forEach((t) => box.appendChild(el('div', 'idb-row', t)));
+
+    const alerts = [];
+    if (lastSync && lastSync.ok && lastSync.added > 0) {
+      alerts.push(`${lastSync.added} new record(s) from the deployed JSON were appended.`);
+    }
+    if (pending >= ALERT_PENDING_COUNT) {
+      alerts.push(`${pending} local records are not in the deployed JSON. Export and commit the file.`);
+    }
+    const days = (Date.now() - (state.lastExportAt || state.createdAt)) / 864e5;
+    if (pending > 0 && days >= ALERT_EXPORT_DAYS) {
+      alerts.push(`It has been ${Math.floor(days)} days since the last export, with ${pending} unexported record(s).`);
+    }
+    const ab = $('alerts');
+    ab.textContent = '';
+    alerts.forEach((t) => ab.appendChild(el('div', 'warning show', t)));
+    $('exportBtn').classList.toggle('btn-primary', pending > 0);
+  }
+
+  function renderList() {
+    const box = $('linkList');
+    box.textContent = '';
+    if (!links.length) {
+      box.appendChild(el('div', 'link-meta', 'No links yet.'));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    links.slice(-PREVIEW_LIMIT).forEach((l) => {
+      const item = el('div', 'link-item');
+      const info = el('div');
+      info.appendChild(el('div', 'link-r', l.r));
+      info.appendChild(el('div', 'link-meta', `order ${l.order} · weight ${l.weight}`));
+      const btn = el('button', 'btn btn-small', 'Copy link');
+      btn.type = 'button';
+      btn.addEventListener('click', async () => {
+        const ok = await copyToClipboard(buildUrl(l.r));
+        showStatus(ok ? 'success' : 'error', ok ? 'Link copied to clipboard.' : 'Failed to copy link.');
+      });
+      item.appendChild(info);
+      item.appendChild(btn);
+      frag.appendChild(item);
+    });
+    box.appendChild(frag);
+    if (links.length > PREVIEW_LIMIT) {
+      box.appendChild(el('div', 'link-meta', `Showing the last ${PREVIEW_LIMIT} of ${links.length} links (by order). Export JSON for the full list.`));
+    }
+  }
+
+  function render() {
+    $('totalCount').textContent = links.length;
+    $('totalWeight').textContent = Number(links.reduce((s, l) => s + l.weight, 0).toFixed(6));
+    renderSync();
+    renderList();
+  }
+
+  async function refresh() {
+    links = await readAll();
+    render();
+  }
+
+  // ---------- Actions ----------
+
+  const nextOrder = () => links.reduce((m, l) => Math.max(m, l.order), 0) + 1;
+
+  function extractR(token) {
+    const m = token.match(/[?&]r=([^&#]*)/);
+    return m ? m[1] : token.trim();
+  }
+
+  let weightMultiplier = 1;
+  function setMultiplier(n) {
+    weightMultiplier = n;
+    document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+      b.classList.toggle('btn-primary', Number(b.dataset.mult) === n);
+    });
+  }
+
+  async function addLines(lines) {
+    const wDef = $('weightIn').value.trim();
+    const oDef = $('orderIn').value.trim();
+    const auto = nextOrder();
+    const list = [];
+    const total = (m) => { let n = 0; m.forEach((c) => { n += c; }); return n; };
+    for (const line of lines) {
+      const t = line.trim().split(/[\s,]+/).filter(Boolean);
+      if (!t.length) continue;
+      let r, autoW, tokW, tokO;
+      if (/https?:\/\//i.test(line) && !/[?&]r=/.test(line)) {
+        // Undelimited (or delimited) URL series: the whole line becomes one redirect string.
+        const m = window.RRCodec.parseInput(line, $('drop').checked);
+        if (!m.size) throw new Error('No valid URLs found in: ' + line.trim().slice(0, 40));
+        r = await window.RRCodec.encode(m);
+        autoW = total(m);
+      } else {
+        r = extractR(t[0]);
+        tokW = t[1];
+        tokO = t[2];
+        try { autoW = total(await window.RRCodec.decode(r)); }
+        catch (e) { throw new Error(`Not a valid redirect string: ${r.slice(0, 16)}...`); }
+      }
+      // Weight: explicit value if given, otherwise the number of links in the entry; then the multiplier.
+      const base = tokW !== undefined ? Number(tokW) : (wDef !== '' ? Number(wDef) : autoW);
+      list.push({
+        r,
+        weight: base * weightMultiplier,
+        order: Number(tokO !== undefined ? tokO : (oDef === '' ? auto : oDef))
+      });
+    }
+    if (!list.length) throw new Error('Nothing to add.');
+    const { records, duplicates } = normalize(list);
+    for (const rec of records) {
+      try { await window.RRCodec.decode(rec.r); }
+      catch (e) { throw new Error(`Not a valid redirect string: ${rec.r.slice(0, 16)}...`); }
+    }
+    const res = await appendRecords(records);
+    await refresh();
+    return { added: res.added, skipped: res.skipped + duplicates, urls: records.map((x) => buildUrl(x.r)) };
+  }
+
+  async function runAdd(lines, inputId, copy) {
+    // The clipboard write starts inside the click gesture (iOS Safari requires this);
+    // its text is supplied once the strings are encoded.
+    let setText = null, setFail = null, copied = null;
+    if (copy && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      const blobP = new Promise((res, rej) => {
+        setText = (t) => res(new Blob([t], { type: 'text/plain' }));
+        setFail = rej;
+      });
+      copied = navigator.clipboard.write([new ClipboardItem({ 'text/plain': blobP })]).then(() => true, () => false);
+    }
+    try {
+      const { added, skipped, urls } = await addLines(lines);
+      if (added > 0 && inputId) $(inputId).value = '';
+      let msg = `Added ${added} link(s). Skipped ${skipped} duplicate(s).`;
+      if (copy && urls.length) {
+        const text = urls.join('\n');
+        if (setText) setText(text);
+        let ok = copied ? await copied : false;
+        if (!ok) ok = await copyToClipboard(text);
+        msg += ok
+          ? (urls.length > 1 ? ` ${urls.length} links copied to clipboard.` : ' Link copied to clipboard.')
+          : ' Could not copy to clipboard.';
+      } else if (setFail) {
+        setFail(new Error('nothing to copy'));
+      }
+      showStatus('success', msg);
+      setMultiplier(1);
+    } catch (e) {
+      if (setFail) setFail(e);
+      showStatus('error', e.message);
+    }
+  }
+
+  async function importFile(file) {
+    try {
+      let doc;
+      try { doc = JSON.parse(await file.text()); }
+      catch (e) { throw new Error('File is not valid JSON.'); }
+      const { records, duplicates } = parseDoc(doc);
+      const res = await appendRecords(records);
+      await refresh();
+      showStatus('success',
+        `Imported ${res.added}. Skipped ${res.skipped + duplicates} duplicate(s). Total records: ${links.length}.`);
+    } catch (e) {
+      showStatus('error', `Import rejected: ${e.message}`);
+    }
+  }
+
+  async function exportJson() {
+    try {
+      const all = await readAll();
+      const doc = { version: 1, links: all.map(({ r, order, weight }) => ({ r, order, weight })) };
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = EXPORT_NAME;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+      state.lastExportAt = Date.now();
+      state.published = Array.from(new Set(state.published.concat(all.map((l) => l.r))));
+      await saveState();
+      render();
+      showStatus('success', `Exported ${all.length} links as ${EXPORT_NAME}. Commit it next to this page to deploy.`);
+    } catch (e) {
+      showStatus('error', `Export failed: ${e.message}`);
+    }
+  }
+
+  function randomRedirect() {
+    try {
+      const pick = pickRandomLink(links);
+      if (!pick) {
+        showStatus('error', 'No links available.');
+        return;
+      }
+      window.location.href = buildUrl(pick.r);
+    } catch (e) {
+      showStatus('error', e.message);
+    }
+  }
+
+
+
+  // ---------- Init ----------
+
+  async function init() {
+    try {
+      db = await openDB();
+      db.onversionchange = () => db.close();
+      await loadState();
+      links = await readAll();
+    } catch (e) {
+      showStatus('error', `IndexedDB error: ${e.message}`);
+      return;
+    }
+    render();
+    // Local data is usable immediately; the remote sync only ever appends.
+    lastSync = await syncRemote();
+    try { await refresh(); } catch (e) { showStatus('error', e.message); }
+  }
+
+  $('addBtn').addEventListener('click', () => runAdd([$('rIn').value], 'rIn'));
+  $('bulkBtn').addEventListener('click', () => runAdd($('bulkIn').value.split(/\r?\n/), 'bulkIn', true));
+  $('addCode').addEventListener('click', () => runAdd([$('code').value], null));
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) await importFile(f);
+  });
+  $('exportBtn').addEventListener('click', exportJson);
+  $('randomBtn').addEventListener('click', randomRedirect);
+  document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const n = Number(b.dataset.mult);
+      setMultiplier(weightMultiplier === n ? 1 : n);
+    });
+  });
+  init();
 })();
 </script>
 </body>
