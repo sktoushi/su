@@ -563,6 +563,8 @@
   const REDIRECT_PREFIX = 'https://sktoushi.github.io/su/random-redirect.html?r=';
   const REMOTE_JSON = './random-redirect-db.json';
   const EXPORT_NAME = 'random-redirect-db.json';
+  const LEGACY_JSON = './all.json';
+  const LEGACY_KEY = 'repositories10x';
 
   const DB_NAME = 'RandomRedirectLinksDB';
   const DB_VERSION = 2;   // v2: records keyed by an internal auto id so "r" may repeat
@@ -577,6 +579,8 @@
   let links = [];
   let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: {} };   // r -> copies known to be in deployed/exported JSON
   let lastSync = null;
+  let legacy = [];          // legacy regions from all.json (repositories10x), in file order
+  let legacyStatus = null;
 
   const $ = (id) => document.getElementById(id);
   const buildUrl = (r) => REDIRECT_PREFIX + r;
@@ -736,11 +740,67 @@
     return n;
   };
 
+  // ---------- Legacy regions (all.json -> repositories10x) ----------
+  // Each repository becomes one region: issues start..end of username/repo.
+  // Weight is 1, or 2/3/10 when the repository name ends in x2/x3/x10.
+
+  function parseLegacy(doc) {
+    const repos = doc && doc[LEGACY_KEY];
+    if (!repos || typeof repos !== 'object' || Array.isArray(repos)) {
+      throw new Error(`Missing ${LEGACY_KEY} in all.json`);
+    }
+    const regions = [];
+    Object.keys(repos).forEach((name) => {        // JSON key order is preserved
+      const v = repos[name];
+      const start = Number(v && v.issueStartNumber);
+      const end = Number(v && v.issueEndNumber);
+      if (!v || typeof v.username !== 'string' || !v.username ||
+          !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) return;
+      const m = name.match(/x(2|3|10)$/);
+      regions.push({ legacy: true, username: v.username, repo: name, start, end,
+                     weight: m ? Number(m[1]) : 1, order: regions.length });
+    });
+    if (!regions.length) throw new Error(`No usable regions in ${LEGACY_KEY}`);
+    return regions;
+  }
+
+  function legacyIssueUrl(region) {
+    const n = region.start + Math.floor(Math.random() * (region.end - region.start + 1));
+    return `https://github.com/${encodeURIComponent(region.username)}/${encodeURIComponent(region.repo)}/issues/${n}`;
+  }
+
+  async function getMeta(key) {
+    const row = await reqP(db.transaction(META).objectStore(META).get(key));
+    return row ? row.value : undefined;
+  }
+
+  function putMeta(key, value) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      tx.objectStore(META).put({ key, value });
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Failed to save metadata'));
+    });
+  }
+
+  // Reads all.json next to this page; the last good copy is cached so it works offline.
+  async function refreshLegacy() {
+    try {
+      const resp = await fetch(LEGACY_JSON, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      legacy = parseLegacy(await resp.json());
+      try { await putMeta('legacy', legacy); } catch (e) {}
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
   // ---------- Random selection (isolated: no storage access, no mutation) ----------
 
   // To add an algorithm: add a function to ALGORITHMS, then set DEFAULT_ALGORITHM to its key.
-  // Contract: (list) => record | null. `list` is sorted by ascending order, each record is
-  // { r, order, weight }. Algorithms must be pure: never mutate the list or touch storage.
+  // Contract: (list) => record | null. `list` is the legacy regions (file order) followed by the stored
+  // links (ascending order); every item has { order, weight }. Algorithms must be pure: never mutate the list or touch storage.
   const ALGORITHMS = {
     // Every link equally likely, ignoring weight.
     uniform(list) {
@@ -757,7 +817,7 @@
       return list[list.length - 1];
     }
   };
-  const DEFAULT_ALGORITHM = 'uniform';
+  const DEFAULT_ALGORITHM = 'weighted';
 
   function pickRandomLink(list, algorithm = DEFAULT_ALGORITHM) {
     const fn = ALGORITHMS[algorithm];
@@ -797,6 +857,9 @@
     const box = $('syncInfo');
     box.textContent = '';
 
+    const legacyText = legacy.length
+      ? `Legacy regions (all.json): ${legacy.length}${legacyStatus && !legacyStatus.ok ? ' (cached, all.json unavailable)' : ''}`
+      : `Legacy regions (all.json): none${legacyStatus && !legacyStatus.ok ? ` (${legacyStatus.error})` : ''}`;
     let remoteText = 'Syncing...';
     if (lastSync) {
       remoteText = lastSync.ok
@@ -806,7 +869,8 @@
     [remoteText,
      `Last successful sync: ${fmt(state.lastSyncAt)}`,
      `Last export: ${fmt(state.lastExportAt)}`,
-     `Local records not in deployed/exported JSON: ${pending}`
+     `Local records not in deployed/exported JSON: ${pending}`,
+     legacyText
     ].forEach((t) => box.appendChild(el('div', 'idb-row', t)));
 
     const alerts = [];
@@ -1000,12 +1064,13 @@
 
   function randomRedirect() {
     try {
-      const pick = pickRandomLink(links);
+      // Legacy regions (all.json, in file order) precede the stored links.
+      const pick = pickRandomLink(legacy.concat(links));
       if (!pick) {
         showStatus('error', 'No links available.');
         return;
       }
-      window.location.href = buildUrl(pick.r);
+      window.location.href = pick.legacy ? legacyIssueUrl(pick) : buildUrl(pick.r);
     } catch (e) {
       showStatus('error', e.message);
     }
@@ -1021,13 +1086,14 @@
       db.onversionchange = () => db.close();
       await loadState();
       links = await readAll();
+      legacy = (await getMeta('legacy')) || [];
     } catch (e) {
       showStatus('error', `IndexedDB error: ${e.message}`);
       return;
     }
     render();
     // Local data is usable immediately; the remote sync only ever appends.
-    lastSync = await syncRemote();
+    [lastSync, legacyStatus] = await Promise.all([syncRemote(), refreshLegacy()]);
     try { await refresh(); } catch (e) { showStatus('error', e.message); }
   }
 
