@@ -141,6 +141,7 @@
         (legacy + database)
       </p>
       <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+      <input type="text" id="tagIn" placeholder="Tag(s), comma-separated — required for x1…x10" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:.75rem;">
       <div id="weightRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem;">
         <button type="button" class="btn btn-small" data-w="1" style="width:100%;" disabled>x1</button>
         <button type="button" class="btn btn-small" data-w="2" style="width:100%;" disabled>x2</button>
@@ -184,6 +185,11 @@
         <div><div class="idb-label">Links</div><div class="stat-value" id="totalCount">0</div></div>
         <div><div class="idb-label">Total weight</div><div class="stat-value" id="totalWeight">0</div></div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tag leaderboard (top 10 by weight)</div>
+      <div id="tagBoard"></div>
     </div>
 
     <div class="card">
@@ -626,6 +632,7 @@
   let recent = [];              // [{ url, weight, at }], local-only preview of the latest additions
   let randomDbPercent = 15;
   let randomDbDraft = 15;
+  let tags = {};                // tag -> mask ledger (weight 1 = item carries the tag)
 
   const $ = (id) => document.getElementById(id);
   const buildUrl = (r) => REDIRECT_PREFIX + r;
@@ -793,8 +800,9 @@
     return entryUrl(c[0], c[1], c[2][0] + Math.floor(Math.random() * (c[2][1] - c[2][0] + 1)));
   }
 
-  // ---- JSON v2:  {"version":2, "repos":{"stash8":[[12,3],[20,40,1]]}, "ext":{}, "urls":{}}
+  // ---- JSON v2:  {"version":2, "repos":{"stash8":[[12,3],[20,40,1]]}, "ext":{}, "urls":{}, "tags":{}}
   // run = [issue, weight] for one issue, [first, last, weight] for a range.
+  // tags: {"tag":{"repos":{"stash8":[[12],[20,40]]},"ext":{...},"urls":["key",...]}}  run = [issue] or [first, last].
   function parseV2(doc) {
     const L = emptyLedger();
     ['repos', 'ext'].forEach((k) => {
@@ -823,7 +831,7 @@
   }
 
   // One line per repository keeps the file diff-friendly and compact.
-  function serialize(L) {
+  function serialize(L, T) {
     const run = (x) => (x[0] === x[1] ? '[' + x[0] + ',' + x[2] + ']' : '[' + x[0] + ',' + x[1] + ',' + x[2] + ']');
     const sect = (o, fmt) => {
       const ks = Object.keys(o).sort();
@@ -831,7 +839,80 @@
     };
     const runs = (v) => '[' + v.map(run).join(',') + ']';
     return '{"version":2,\n"repos":' + sect(L.repos, runs) + ',\n"ext":' + sect(L.ext, runs) +
-           ',\n"urls":' + sect(L.urls, String) + '\n}\n';
+           ',\n"urls":' + sect(L.urls, String) + ',\n"tags":' + sectT(T) + '\n}\n';
+  }
+
+  // ---- Tags: mask ledgers (weight 1), stored without weights ----
+  function parseTags(doc) {
+    const src = doc.tags || {}, out = {};
+    if (typeof src !== 'object' || Array.isArray(src)) throw new Error('"tags" must be an object');
+    Object.keys(src).forEach((t) => {
+      const v = src[t] || {}, L = emptyLedger();
+      ['repos', 'ext'].forEach((k) => {
+        const s = v[k] || {};
+        Object.keys(s).forEach((n) => {
+          if (!Array.isArray(s[n])) throw new Error('tags/' + t + '/' + k + '/' + n + ' must be an array');
+          const items = s[n].map((x) => {
+            if (!Array.isArray(x) || x.length < 1 || x.length > 2) throw new Error('tags/' + t + ' is malformed');
+            const a = x[0], b = x.length === 2 ? x[1] : x[0];
+            if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < a) throw new Error('tags/' + t + ' is malformed');
+            return [a, b, 1];
+          });
+          const runs = stepOp(sweep(items), [], (a) => (a > 0 ? 1 : 0));
+          if (runs.length) L[k][n] = runs;
+        });
+      });
+      (Array.isArray(v.urls) ? v.urls : []).forEach((u) => { if (typeof u === 'string') L.urls[u] = 1; });
+      out[t] = L;
+    });
+    return out;
+  }
+
+  function sectT(T) {
+    const run = (x) => (x[0] === x[1] ? '[' + x[0] + ']' : '[' + x[0] + ',' + x[1] + ']');
+    const part = (L, k) => {
+      const ks = Object.keys(L[k]).sort();
+      return ks.length ? '"' + k + '":{' + ks.map((n) => JSON.stringify(n) + ':[' + L[k][n].map(run).join(',') + ']').join(',') + '}' : '';
+    };
+    const lines = Object.keys(T).sort().map((t) => {
+      const L = T[t], u = Object.keys(L.urls).sort();
+      const p = [part(L, 'repos'), part(L, 'ext'), u.length ? '"urls":' + JSON.stringify(u) : ''].filter(Boolean);
+      return p.length ? JSON.stringify(t) + ':{' + p.join(',') + '}' : '';
+    }).filter(Boolean);
+    return lines.length ? '{\n' + lines.join(',\n') + '\n}' : '{}';
+  }
+
+  // Union: never loses tags, repeating a sync cannot double count.
+  function mergeTags(A, B) {
+    const out = {};
+    new Set(Object.keys(A).concat(Object.keys(B))).forEach((n) => {
+      out[n] = ledgerOp(A[n] || emptyLedger(), B[n] || emptyLedger(), Math.max);
+    });
+    return out;
+  }
+
+  function canonTags(T) { Object.keys(T).forEach((n) => canonicalize(T[n])); return T; }
+
+  function readTags() {
+    const s = new Set();
+    $('tagIn').value.split(',').forEach((t) => {
+      t = t.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]/gu, '');
+      if (t) s.add(t);
+    });
+    return Array.from(s);
+  }
+
+  // Summed current ledger weight of the items carrying the tag.
+  function tagWeight(T) {
+    let sum = 0;
+    ['repos', 'ext'].forEach((k) => {
+      for (const n in T[k]) {
+        stepOp(ledger[k][n] || [], T[k][n], (a, b) => (b > 0 ? a : 0))
+          .forEach((x) => { sum += x[2] * (x[1] - x[0] + 1); });
+      }
+    });
+    for (const n in T.urls) sum += ledger.urls[n] || 0;
+    return r6(sum);
   }
   // ==/LEDGER==
 
@@ -869,6 +950,7 @@
 
   const saveState = () => putMeta('state', state);
   const saveLedger = () => putMeta('ledger', ledger);
+  const saveTags = () => putMeta('tags', tags);
 
   async function loadState() {
     const v = await getMeta('state');
@@ -925,10 +1007,10 @@
 
   // ---------- Remote JSON ----------
 
-  // Accepts v2 (ledger) and the old v1 (list of {r, order, weight}). Returns { ledger, version }.
+  // Accepts v2 (ledger) and the old v1 (list of {r, order, weight}). Returns { ledger, version, tags }.
   async function parseDoc(doc) {
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Not a JSON object');
-    if (doc.version === 2) return { ledger: parseV2(doc), version: 2 };
+    if (doc.version === 2) return { ledger: parseV2(doc), version: 2, tags: parseTags(doc) };
     if (doc.version === 1) {
       if (!Array.isArray(doc.links)) throw new Error('"links" must be an array');
       const L = emptyLedger();
@@ -939,7 +1021,7 @@
         all.push(...await entriesFromR(x.r, x.weight));
       }
       ledgerAdd(L, all);
-      return { ledger: L, version: 1 };
+      return { ledger: L, version: 1, tags: {} };
     }
     throw new Error('Unsupported or missing "version" (expected 2 or 1)');
   }
@@ -954,9 +1036,11 @@
       const remote = canonicalize(parsed.ledger);
       const fresh = ledgerStats(ledgerOp(remote, ledger, (a, b) => Math.max(0, a - b)), true);
       ledger = ledgerOp(ledger, remote, Math.max);
+      tags = mergeTags(tags, canonTags(parsed.tags));
       state.published = ledgerOp(state.published, remote, Math.max);
       state.lastSyncAt = Date.now();
       await saveLedger();
+      await saveTags();
       await saveState();
       const remoteStats = ledgerStats(remote, true);
       return { ok: true, added: fresh.count, version: parsed.version, remoteTotal: remoteStats.count, remoteWeight: remoteStats.mass };
@@ -1134,6 +1218,15 @@
     $('exportBtn').classList.toggle('btn-primary', pend > 0 || (lastSync && lastSync.ok && lastSync.version === 1));
   }
 
+  function renderTags() {
+    const box = $('tagBoard');
+    box.textContent = '';
+    const rows = Object.keys(tags).map((t) => ({ t, w: tagWeight(tags[t]) })).filter((x) => x.w > 0)
+      .sort((a, b) => b.w - a.w || (a.t < b.t ? -1 : 1)).slice(0, 10);
+    if (!rows.length) { box.appendChild(el('div', 'link-meta', 'No tags yet.')); return; }
+    rows.forEach((x, i) => box.appendChild(el('div', 'idb-row', (i + 1) + '. ' + x.t + ' — ' + x.w)));
+  }
+
   function renderList() {
     const box = $('linkList');
     box.textContent = '';
@@ -1162,6 +1255,7 @@
     $('totalCount').textContent = s.count;
     $('totalWeight').textContent = s.mass;
     renderSync();
+    renderTags();
     renderList();
     renderLast();
   }
@@ -1275,10 +1369,13 @@
       let doc;
       try { doc = JSON.parse(await file.text()); }
       catch (e) { throw new Error('File is not valid JSON.'); }
-      const incoming = canonicalize((await parseDoc(doc)).ledger);
+      const pd = await parseDoc(doc);
+      const incoming = canonicalize(pd.ledger);
       const fresh = ledgerStats(ledgerOp(incoming, ledger, (a, b) => Math.max(0, a - b)), true);
       ledger = ledgerOp(ledger, incoming, Math.max);
+      tags = mergeTags(tags, canonTags(pd.tags));
       await saveLedger();
+      await saveTags();
       render();
       showStatus('success', 'Imported ' + fresh.count + ' new entr' + (fresh.count === 1 ? 'y' : 'ies') + '. Total entries: ' + ledgerStats(ledger, true).count + '.');
     } catch (e) {
@@ -1289,7 +1386,8 @@
   async function exportJson() {
     try {
       canonicalize(ledger);
-      const text = serialize(ledger);
+      canonTags(tags);
+      const text = serialize(ledger, tags);
       const blob = new Blob([text], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1337,18 +1435,25 @@
     $('lastInfo').textContent = lastOpened
       ? 'Last opened: ' + lastOpened.url
       : 'Press Random, then come back to add the opened link with a weight.';
-    document.querySelectorAll('#weightRow [data-w]').forEach((b) => { b.disabled = !lastOpened; });
+    const ok = !!lastOpened && readTags().length > 0;
+    document.querySelectorAll('#weightRow [data-w]').forEach((b) => { b.disabled = !ok; });
   }
 
   async function addLastOpened(weight) {
     if (!lastOpened) { showStatus('error', 'No link opened yet. Press Random first.'); return; }
     try {
+      const tg = readTags();
+      if (!tg.length) { showStatus('error', 'Enter at least one tag first.'); return; }
       const entries = [urlToEntry(lastOpened.url, weight)];
       ledgerAdd(ledger, entries);
+      const mask = ledgerAdd(emptyLedger(), [Object.assign({}, entries[0], { w: 1 })]);
+      tg.forEach((t) => { tags[t] = ledgerOp(tags[t] || emptyLedger(), mask, Math.max); });
+      $('tagIn').value = '';
       await saveLedger();
+      await saveTags();
       await remember(entries);
       render();
-      showStatus('success', 'Added the last opened link with weight ' + weight + '.');
+      showStatus('success', 'Added the last opened link with weight ' + weight + ' and tag(s): ' + tg.join(', ') + '.');
     } catch (e) {
       showStatus('error', e.message);
     }
@@ -1363,6 +1468,7 @@
       await loadState();
       setLegacy((await getMeta('legacy')) || []);
       ledger = (await getMeta('ledger')) || emptyLedger();
+      tags = (await getMeta('tags')) || {};
       lastOpened = (await getMeta('lastOpened')) || null;
       recent = (await getMeta('recent')) || [];
       await migrateOld();
@@ -1380,6 +1486,7 @@
     legacyStatus = await refreshLegacy();
     canonicalize(ledger);
     canonicalize(state.published);
+    canonTags(tags);
     lastSync = await syncRemote();
     try { render(); } catch (e) { showStatus('error', e.message); }
   }
@@ -1395,6 +1502,7 @@
   });
   $('exportBtn').addEventListener('click', exportJson);
   $('randomBtn').addEventListener('click', randomRedirect);
+  $('tagIn').addEventListener('input', renderLast);
   document.querySelectorAll('#weightRow [data-w]').forEach((b) => {
     b.addEventListener('click', () => addLastOpened(Number(b.dataset.w)));
   });
