@@ -902,17 +902,31 @@
     return Array.from(s);
   }
 
-  // Summed current ledger weight of the items carrying the tag.
-  function tagWeight(T) {
-    let sum = 0;
+  // The part of the ledger carrying the tag, with current weights.
+  function maskedLedger(T) {
+    const L = emptyLedger();
     ['repos', 'ext'].forEach((k) => {
       for (const n in T[k]) {
-        stepOp(ledger[k][n] || [], T[k][n], (a, b) => (b > 0 ? a : 0))
-          .forEach((x) => { sum += x[2] * (x[1] - x[0] + 1); });
+        const r = stepOp(ledger[k][n] || [], T[k][n], (a, b) => (b > 0 ? a : 0));
+        if (r.length) L[k][n] = r;
       }
     });
-    for (const n in T.urls) sum += ledger.urls[n] || 0;
-    return r6(sum);
+    for (const n in T.urls) if (ledger.urls[n]) L.urls[n] = ledger.urls[n];
+    return L;
+  }
+
+  // Summed current ledger weight of the items carrying the tag.
+  function tagWeight(T) { return ledgerStats(maskedLedger(T), true).mass; }
+
+  // Tags carried by one URL.
+  function itemTags(url) {
+    const e = urlToEntry(url, 1), out = [];
+    Object.keys(tags).sort().forEach((t) => {
+      const T = tags[t];
+      const hit = e.k === 'urls' ? !!T.urls[e.name] : (T[e.k][e.name] || []).some((x) => x[0] <= e.s && e.s <= x[1]);
+      if (hit) out.push(t);
+    });
+    return out;
   }
   // ==/LEDGER==
 
@@ -1224,7 +1238,13 @@
     const rows = Object.keys(tags).map((t) => ({ t, w: tagWeight(tags[t]) })).filter((x) => x.w > 0)
       .sort((a, b) => b.w - a.w || (a.t < b.t ? -1 : 1)).slice(0, 10);
     if (!rows.length) { box.appendChild(el('div', 'link-meta', 'No tags yet.')); return; }
-    rows.forEach((x, i) => box.appendChild(el('div', 'idb-row', (i + 1) + '. ' + x.t + ' — ' + x.w)));
+    rows.forEach((x, i) => {
+      const b = el('button', 'btn btn-small', (i + 1) + '. ' + x.t + ' — ' + x.w);
+      b.type = 'button';
+      b.style.cssText = 'display:block;width:100%;text-align:left;margin-bottom:.4rem;';
+      b.addEventListener('click', () => openTagged(x.t));
+      box.appendChild(b);
+    });
   }
 
   function renderList() {
@@ -1424,10 +1444,29 @@
 
       lastOpened = { url, at: Date.now() };
       await putMeta('lastOpened', lastOpened);
+      $('tagIn').value = itemTags(url).join(', ');
       renderLast();
       window.location.href = url;
     } catch (e) {
       showStatus('error', 'Random redirect failed: ' + e.message);
+    }
+  }
+
+  function fillTags() {
+    if (lastOpened && !$('tagIn').value.trim()) $('tagIn').value = itemTags(lastOpened.url).join(', ');
+  }
+
+  async function openTagged(t) {
+    try {
+      const url = pickFromLedger(maskedLedger(tags[t]));
+      if (!url) { showStatus('error', 'No records found for tag: ' + t); return; }
+      lastOpened = { url, at: Date.now() };
+      await putMeta('lastOpened', lastOpened);
+      $('tagIn').value = itemTags(url).join(', ');
+      renderLast();
+      window.location.href = url;
+    } catch (e) {
+      showStatus('error', 'Tag redirect failed: ' + e.message);
     }
   }
 
@@ -1488,6 +1527,7 @@
     canonicalize(state.published);
     canonTags(tags);
     lastSync = await syncRemote();
+    fillTags();
     try { render(); } catch (e) { showStatus('error', e.message); }
   }
 
