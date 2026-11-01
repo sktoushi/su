@@ -94,6 +94,9 @@
   .status.error { display:block; background:rgba(229,57,53,.15); border:1px solid rgba(229,57,53,.3); color:var(--danger); }
   .warning { margin-top:.75rem; padding:.7rem .9rem; border-radius:.5rem; font-size:.9rem; background:rgba(255,152,0,.15); border:1px solid rgba(255,152,0,.3); color:#ffa726; }
   .idb-row { font-size:.9rem; padding:.2rem 0; font-family:var(--mono); }
+  .notes-caption { margin-top:.6rem; padding-top:.6rem; border-top:1px solid rgba(255,255,255,.08); }
+  .c-legacy { color:#85bb65; font-weight:600; }
+  .c-premium { color:#b388ff; font-weight:600; }
   .idb-label { color:var(--muted); font-size:.82rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem; }
   .stats { display:flex; gap:2rem; flex-wrap:wrap; }
   .stat-value { font-size:1.5rem; font-weight:700; font-family:var(--mono); }
@@ -955,7 +958,8 @@
       state.lastSyncAt = Date.now();
       await saveLedger();
       await saveState();
-      return { ok: true, added: fresh.count, version: parsed.version, remoteTotal: ledgerStats(remote, true).count };
+      const remoteStats = ledgerStats(remote, true);
+      return { ok: true, added: fresh.count, version: parsed.version, remoteTotal: remoteStats.count, remoteWeight: remoteStats.mass };
     } catch (e) {
       return { ok: false, error: e.message };
     }
@@ -1069,6 +1073,52 @@
      'Local entries not in deployed/exported JSON: ' + pend,
      legacyText
     ].forEach((t) => box.appendChild(el('div', 'idb-row', t)));
+
+    // Notes / stash caption
+    const sumLegacy = legacy.reduce((s, l) => s + (l.end - l.start + 1), 0);
+    const repoCount = legacy.length;
+    const premium = (lastSync && lastSync.ok) ? lastSync.remoteWeight : ledgerStats(state.published, true).mass;
+    const premiumStashes = premium / 4500;
+    const fmt2 = (n) => Number(n.toFixed(2)).toLocaleString();
+    const line = (parts) => {
+      const row = el('div', 'idb-row');
+      parts.forEach((p) => row.appendChild(p[0] ? el('span', p[0], p[1]) : document.createTextNode(p[1])));
+      return row;
+    };
+    const rowsBox = el('div', 'notes-caption');
+    rowsBox.appendChild(line([
+      ['c-legacy', 'Total Legacy Notes: ' + sumLegacy.toLocaleString() + ' (' + repoCount + ' stashes)']
+    ]));
+    rowsBox.appendChild(line([
+      ['c-premium', 'Total Premium Notes: ' + fmt2(premium) + ' (' + fmt2(premiumStashes) + ' stashes)']
+    ]));
+    rowsBox.appendChild(line([
+      [null, 'Total Stash Count: '],
+      ['c-legacy', String(repoCount)],
+      [null, ' + '],
+      ['c-premium', fmt2(premiumStashes)],
+      [null, ' = ' + fmt2(repoCount + premiumStashes)]
+    ]));
+    // Rates and year-end forecast (epoch: June 6, 2021)
+    const EPOCH = new Date(2021, 5, 6).getTime();
+    const nowMs = Date.now();
+    const yearEnd = new Date(new Date(nowMs).getFullYear() + 1, 0, 1).getTime();
+    const daysSince = Math.max((nowMs - EPOCH) / 864e5, 1);
+    const monthsSince = daysSince / 30.4375;
+    const daysLeft = Math.max((yearEnd - nowMs) / 864e5, 0);
+    const totalNotes = sumLegacy + premium;
+    const perDay = totalNotes / daysSince;
+    const perMonth = totalNotes / monthsSince;
+    const addedByYearEnd = perDay * daysLeft;
+    const noteForecast = totalNotes + addedByYearEnd;
+    const stashNow = repoCount + premiumStashes;
+    const stashForecast = stashNow + addedByYearEnd / 4500;
+    const whole = (n) => Math.round(n).toLocaleString();
+    rowsBox.appendChild(line([[null, 'Rate/Day: ' + whole(perDay) + '/day']]));
+    rowsBox.appendChild(line([[null, 'Rate/Month: ' + whole(perMonth) + '/month']]));
+    rowsBox.appendChild(line([[null, 'Note Forecast: ' + whole(noteForecast)]]));
+    rowsBox.appendChild(line([[null, 'Stash Forecast: ' + whole(stashForecast)]]));
+    box.appendChild(rowsBox);
 
     const alerts = [];
     if (lastSync && lastSync.ok && lastSync.version === 1) alerts.push('The deployed JSON uses the old format. Export to convert it to the lean format.');
