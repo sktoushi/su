@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random URL redirect</title>
+<style>
+  :root {
+    --bg:#0b0c10; --fg:#cfd8dc; --muted:#90a4ae;
+    --accent:#a3207f; --accent-hover:#b72a92; --accent-active:#861a68; --accent-soft:#d65db5;
+    --btn:#3a1a33; --btn-hover:#4b2142; --btn-active:#5c2851;
+    --danger:#e53935; --success:#66bb6a;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  [hidden] { display:none !important; }
+  html,body {
+    margin:0; padding:0; min-height:100%;
+    background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,
+      "Apple Color Emoji","Segoe UI Emoji";
+  }
+  .container { max-width:800px; margin:0 auto; padding:2rem 1.5rem; }
+  h1 { margin:0 0 .5rem; font-size:1.8rem; font-weight:700; }
+  .subtitle { color:var(--muted); margin:0 0 2rem; font-size:.95rem; }
+  .card {
+    background:#11161a; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+  }
+  .card-title { font-size:1.05rem; margin:0 0 .9rem; color:var(--fg); font-weight:700; }
+  .card-title.spaced { margin-top:1.5rem; }
+  code { font-family:var(--mono); color:var(--accent-soft); font-size:.9em; }
+  textarea, input[type="text"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono);
+    transition:border-color .2s; box-sizing:border-box;
+  }
+  textarea { min-height:150px; resize:vertical; line-height:1.4; }
+  textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--accent); }
+  .field-row, .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; }
+  .row > input[type="text"] { flex:1 1 240px; width:auto; min-width:0; }
+  .btn {
+    border:1px solid #111; background:var(--btn); color:var(--fg);
+    padding:.75rem 1.5rem; border-radius:.5rem; font-size:1rem;
+    cursor:pointer; transition:transform .05s,background .15s,box-shadow .15s;
+    box-shadow:0 2px 0 rgba(0,0,0,.3); user-select:none; font-weight:600; font-family:inherit;
+  }
+  .btn:hover { background:var(--btn-hover); }
+  .btn:active { transform:translateY(1px); background:var(--btn-active); }
+  .btn:focus-visible { outline:2px solid var(--accent-soft); outline-offset:2px; }
+  .btn:disabled { opacity:.45; cursor:default; transform:none; background:var(--btn); }
+  .btn-primary { background:var(--accent); color:#fff; border-color:#6f1558; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-primary:active { background:var(--accent-active); }
+  .btn-primary:disabled { background:var(--accent); }
+  .btn-small { padding:.6rem 1rem; font-size:.85rem; white-space:nowrap; }
+  .check { display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem; font-size:.92rem; }
+  .check input { margin-top:.2rem; accent-color:var(--accent); }
+  .list { display:grid; gap:.4rem; margin-top:.5rem; }
+  .item {
+    position:relative; display:flex; gap:.75rem; align-items:baseline; overflow:hidden;
+    background:#0f1519; border:1px solid rgba(255,255,255,.12);
+    border-radius:.5rem; padding:.55rem .75rem;
+  }
+  .item .fill { position:absolute; inset:0 auto 0 0; background:rgba(163,32,127,.38); z-index:0; }
+  .item > span { position:relative; z-index:1; }
+  .w { font-family:var(--mono); font-size:.85rem; white-space:nowrap; min-width:5.5em; color:var(--accent-soft); }
+  .u { font-family:var(--mono); font-size:.82rem; overflow-wrap:anywhere; }
+  .stat { color:var(--muted); font-size:.92rem; margin:0 0 .5rem; }
+  .hint { color:var(--muted); font-size:.85rem; margin:.75rem 0 0; }
+  .err { color:var(--danger); }
+  #redirecting { text-align:center; padding-top:4rem; }
+  #redirecting a { color:var(--accent-soft); }
+  @media(max-width:480px) {
+    .container { padding:1.25rem 1rem; }
+    .card { padding:1rem; }
+    .row { gap:.5rem; }
+    .btn-small { padding:.6rem .65rem; }
+  }
+
+  /* ---- Additions for the link repository (rules above are unchanged) ---- */
+  label { display:block; margin-bottom:.5rem; font-weight:600; font-size:.95rem; }
+  input[type="number"] {
+    width:100%; padding:.75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+    color:var(--fg); font-size:.9rem; font-family:var(--mono); box-sizing:border-box;
+  }
+  input[type="number"]:focus { outline:none; border-color:var(--accent); }
+  .field-group { margin-bottom:1rem; }
+  .field-row > div { flex:1 1 8rem; min-width:0; }
+  .actions { display:flex; gap:.75rem; flex-wrap:wrap; margin-top:1rem; }
+  .status { display:none; margin:0 0 1.5rem; padding:1rem; border-radius:.5rem; font-size:.95rem; }
+  .status.success { display:block; background:rgba(102,187,106,.15); border:1px solid rgba(102,187,106,.3); color:var(--success); }
+  .status.error { display:block; background:rgba(229,57,53,.15); border:1px solid rgba(229,57,53,.3); color:var(--danger); }
+  .warning { margin-top:.75rem; padding:.7rem .9rem; border-radius:.5rem; font-size:.9rem; background:rgba(255,152,0,.15); border:1px solid rgba(255,152,0,.3); color:#ffa726; }
+  .idb-row { font-size:.9rem; padding:.2rem 0; font-family:var(--mono); }
+  .idb-label { color:var(--muted); font-size:.82rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem; }
+  .stats { display:flex; gap:2rem; flex-wrap:wrap; }
+  .stat-value { font-size:1.5rem; font-weight:700; font-family:var(--mono); }
+  .link-item { display:flex; gap:.75rem; align-items:center; justify-content:space-between; padding:.75rem 0; border-top:1px solid rgba(255,255,255,.08); }
+  .link-item:first-child { border-top:0; }
+  .link-r { word-break:break-all; font-size:.82rem; font-family:var(--mono); }
+  .link-meta { color:var(--muted); font-size:.82rem; margin-top:.2rem; }
+
+  /* ---- Random source probability gauge ---- */
+  .random-gauge {
+    display:flex; align-items:center; gap:.65rem; margin-bottom:.85rem;
+    padding:.65rem .75rem; background:#0f1519;
+    border:1px solid rgba(255,255,255,.12); border-radius:.5rem;
+  }
+  .random-gauge input[type="range"] { flex:1; min-width:0; accent-color:var(--accent); cursor:pointer; }
+  .random-gauge-value { min-width:3.5em; text-align:right; font-family:var(--mono); font-size:.9rem; color:var(--accent-soft); font-weight:700; }
+  .random-gauge .btn { padding:.4rem .7rem; font-size:.75rem; }
+  .random-gauge-hint { color:var(--muted); font-size:.78rem; margin:-.35rem 0 .75rem; }
+</style>
+</head>
+<body>
+  <div class="container" id="redirecting" hidden>
+    <h1 id="rtitle">Redirecting…</h1>
+    <p class="subtitle" id="rmsg"></p>
+  </div>
+
+  <div class="container" id="app">
+    <h1>Random URL Redirect</h1>
+    <p class="subtitle">
+      Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
+    </p>
+
+    <div class="card">
+      <div class="random-gauge">
+        <input type="range" id="randomDbGauge" min="0" max="100" step="1" value="15" aria-label="Random database-only probability">
+        <span id="randomDbValue" class="random-gauge-value">15%</span>
+        <button id="saveRandomDbGauge" type="button" class="btn btn-small">Save</button>
+      </div>
+      <p class="random-gauge-hint">
+        Database only: <span id="randomDbSaved">15%</span>
+        · Remaining probability: <span id="randomLegacySaved">85%</span>
+        (legacy + database)
+      </p>
+      <button id="randomBtn" type="button" class="btn btn-primary" style="width:100%;">Random</button>
+      <div id="weightRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem;">
+        <button type="button" class="btn btn-small" data-w="1" style="width:100%;" disabled>x1</button>
+        <button type="button" class="btn btn-small" data-w="2" style="width:100%;" disabled>x2</button>
+        <button type="button" class="btn btn-small" data-w="3" style="width:100%;" disabled>x3</button>
+        <button type="button" class="btn btn-small" data-w="10" style="width:100%;" disabled>x10</button>
+      </div>
+      <p class="hint" id="lastInfo" style="overflow-wrap:anywhere;"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add links to repository</div>
+      <div class="field-group">
+        <label for="bulkIn">Multiple entries, one per line: a URL series, or r [weight]</label>
+        <textarea id="bulkIn" style="min-height:90px;" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-row">
+          <div><label for="weightIn">Weight</label><input id="weightIn" type="number" min="0" step="any" placeholder="auto (number of links)"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Weight multiplier (next add only; tap again to cancel)</label>
+        <div class="row" id="multRow">
+          <button type="button" class="btn btn-small" data-mult="2">x2</button>
+          <button type="button" class="btn btn-small" data-mult="3">x3</button>
+          <button type="button" class="btn btn-small" data-mult="10">x10</button>
+        </div>
+      </div>
+      <div class="actions"><button id="bulkBtn" class="btn btn-primary" type="button">Add multiple</button></div>
+      <div class="field-group" style="margin-top:1.5rem;">
+        <label for="rIn">Single string (r value or full redirect link)</label>
+        <input id="rIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="actions"><button id="addBtn" class="btn" type="button">Add link</button></div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="card">
+      <div class="stats">
+        <div><div class="idb-label">Links</div><div class="stat-value" id="totalCount">0</div></div>
+        <div><div class="idb-label">Total weight</div><div class="stat-value" id="totalWeight">0</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Synchronization</div>
+      <div id="syncInfo"></div>
+      <div id="alerts"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">URLs</div>
+      <textarea id="input" spellcheck="false" placeholder="https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvxhttps://github.com/owner/repo/issues/805"></textarea>
+      <label class="check">
+        <input type="checkbox" id="drop">
+        <span>Drop tracking parameters (<code>si</code>, <code>xtok</code>, <code>srtk</code>) for a much shorter string. The links still open the same page.</span>
+      </label>
+      <div class="row" style="margin-top:1rem">
+        <button id="sample" type="button" class="btn btn-small">Insert sample</button>
+        <button id="clear" type="button" class="btn btn-small">Clear</button>
+        <button id="copyLink" type="button" class="btn btn-small" disabled>Copy link</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Short string</div>
+      <div class="row">
+        <input type="text" id="code" readonly aria-label="Short string">
+        <button id="copyCode" type="button" class="btn btn-small" disabled>Copy string</button>
+        <button id="addCode" type="button" class="btn btn-primary btn-small" disabled>Add to repository</button>
+      </div>
+      <p class="hint" id="size"></p>
+      <div class="card-title spaced">Redirect link</div>
+      <div class="row">
+        <input type="text" id="link" readonly aria-label="Redirect link">
+        <button id="open" type="button" class="btn btn-primary btn-small" disabled>Try it</button>
+      </div>
+      <p class="hint">Opening this page with <code>?r=&lt;string&gt;</code> picks one URL by weight and redirects immediately. Keep this file hosted somewhere stable so the link keeps working.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Load an existing string</div>
+      <div class="row">
+        <input type="text" id="decodeIn" placeholder="Paste a short string or a full redirect link" aria-label="Short string or link to load">
+        <button id="decodeBtn" type="button" class="btn btn-primary btn-small">Load into editor</button>
+      </div>
+      <p class="hint err" id="decodeErr" hidden></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Weights</div>
+      <p class="stat" id="stat">No URLs yet.</p>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Import / Export</div>
+      <div class="actions" style="margin-top:0;">
+        <button id="importBtn" class="btn" type="button">Import JSON</button>
+        <button id="exportBtn" class="btn" type="button">Export JSON</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Recently added (latest 10)</div>
+      <div id="linkList"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ==CODEC==
+  // Known URL shapes. Anything else is stored as a plain string (type 0).
+  //  1 music.youtube.com/watch?v=ID[&si=TOKEN]     2 github.com/OWNER/REPO/issues/N
+  //  3 youtu.be/ID[?si=TOKEN]                      4 instagram.com/p/ID/[?xtok=TOKEN]
+  //  5 instagram.com/reel/ID/[?srtk=TOKEN]
+  var PATTERNS = [
+    [1, /^https:\/\/music\.youtube\.com\/watch\?v=([\w-]{11})(?:&si=([\w-]{16}))?$/],
+    [3, /^https:\/\/youtu\.be\/([\w-]{11})(?:\?si=([\w-]{16}))?$/],
+    [4, /^https:\/\/www\.instagram\.com\/p\/([\w-]{11})\/(?:\?xtok=([\w-]{16}))?$/],
+    [5, /^https:\/\/www\.instagram\.com\/reel\/([\w-]{11})\/(?:\?srtk=([\w-]{16}))?$/]
+  ];
+  var GITHUB = /^https:\/\/github\.com\/([A-Za-z0-9-]+\/[\w.-]+)\/issues\/(0|[1-9]\d{0,14})$/;
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  var AIDX = {};
+  for (var ai = 0; ai < 64; ai++) AIDX[ALPHA.charAt(ai)] = ai;
+
+  function build(r) {
+    switch (r.t) {
+      case 1: return "https://music.youtube.com/watch?v=" + r.id + (r.tok ? "&si=" + r.tok : "");
+      case 2: return "https://github.com/" + r.repo + "/issues/" + r.n;
+      case 3: return "https://youtu.be/" + r.id + (r.tok ? "?si=" + r.tok : "");
+      case 4: return "https://www.instagram.com/p/" + r.id + "/" + (r.tok ? "?xtok=" + r.tok : "");
+      case 5: return "https://www.instagram.com/reel/" + r.id + "/" + (r.tok ? "?srtk=" + r.tok : "");
+      default: return r.url;
+    }
+  }
+
+  function classify(url) {
+    var m, rec = null;
+    for (var i = 0; i < PATTERNS.length && !rec; i++) {
+      m = url.match(PATTERNS[i][1]);
+      if (m) rec = { t: PATTERNS[i][0], id: m[1], tok: m[2] || "" };
+    }
+    if (!rec && (m = url.match(GITHUB))) rec = { t: 2, repo: m[1], n: m[2] };
+    if (rec && build(rec) === url) return rec;   // only trust an exact round trip
+    return { t: 0, url: url };
+  }
+
+  function normalize(url) {
+    var r = classify(url);
+    if (r.tok) { r.tok = ""; return build(r); }
+    return url;
+  }
+
+  function varint(w, v) {
+    while (v >= 128) { w.push((v % 128) | 128); v = Math.floor(v / 128); }
+    w.push(v);
+  }
+  function packChars(w, s) {            // 6 bits per character
+    var acc = 0, bits = 0;
+    for (var i = 0; i < s.length; i++) {
+      acc = (acc << 6) | AIDX[s.charAt(i)]; bits += 6;
+      if (bits >= 8) { bits -= 8; w.push((acc >> bits) & 255); acc &= (1 << bits) - 1; }
+    }
+    if (bits > 0) w.push((acc << (8 - bits)) & 255);
+  }
+
+  // Binary layout:
+  //  varint repoCount, then repoCount x (varint len, utf8 "owner/repo")
+  //  varint recordCount, then per URL:
+  //    header byte: bits 0-2 type, bit 3 has token, bit 4 weight > 1
+  //    [varint weight-2]  then  type fields (id/token as 6-bit chars, or repo index + issue number)
+  function encodeBin(m) {
+    var recs = [], repos = [], repoIdx = new Map(), enc = new TextEncoder(), w = [];
+    m.forEach(function (count, url) {
+      var r = classify(url); r.c = count;
+      if (r.t === 2 && !repoIdx.has(r.repo)) { repoIdx.set(r.repo, repos.length); repos.push(r.repo); }
+      recs.push(r);
+    });
+    varint(w, repos.length);
+    repos.forEach(function (s) {
+      var b = enc.encode(s); varint(w, b.length);
+      for (var i = 0; i < b.length; i++) w.push(b[i]);
+    });
+    varint(w, recs.length);
+    recs.forEach(function (r) {
+      w.push(r.t | (r.tok ? 8 : 0) | (r.c > 1 ? 16 : 0));
+      if (r.c > 1) varint(w, r.c - 2);
+      if (r.t === 0) {
+        var b = enc.encode(r.url); varint(w, b.length);
+        for (var i = 0; i < b.length; i++) w.push(b[i]);
+      } else if (r.t === 2) {
+        varint(w, repoIdx.get(r.repo)); varint(w, Number(r.n));
+      } else {
+        packChars(w, r.id);
+        if (r.tok) packChars(w, r.tok);
+      }
+    });
+    return new Uint8Array(w);
+  }
+
+  function Reader(b) { this.b = b; this.p = 0; }
+  Reader.prototype.byte = function () {
+    if (this.p >= this.b.length) throw new Error("short");
+    return this.b[this.p++];
+  };
+  Reader.prototype.varint = function () {
+    var v = 0, m = 1, x;
+    do { x = this.byte(); v += (x & 127) * m; m *= 128; if (m > 1e17) throw new Error("big"); } while (x & 128);
+    return v;
+  };
+  Reader.prototype.bytes = function (n) {
+    if (this.p + n > this.b.length) throw new Error("short");
+    var s = this.b.subarray(this.p, this.p + n); this.p += n; return s;
+  };
+  Reader.prototype.chars = function (n) {
+    var out = "", acc = 0, bits = 0;
+    while (out.length < n) {
+      if (bits < 6) { acc = (acc << 8) | this.byte(); bits += 8; }
+      bits -= 6; out += ALPHA.charAt((acc >> bits) & 63); acc &= (1 << bits) - 1;
+    }
+    return out;
+  };
+
+  function decodeBin(bytes) {
+    var r = new Reader(bytes), dec = new TextDecoder("utf-8", { fatal: true }), repos = [], m = new Map();
+    var nr = r.varint(); if (nr > 100000) throw new Error("big");
+    for (var i = 0; i < nr; i++) {
+      var s = dec.decode(r.bytes(r.varint()));
+      if (!/^[A-Za-z0-9-]+\/[\w.-]+$/.test(s)) throw new Error("bad repo");
+      repos.push(s);
+    }
+    var n = r.varint(); if (n > 100000) throw new Error("big");
+    for (var j = 0; j < n; j++) {
+      var h = r.byte(), t = h & 7, hasTok = (h & 8) !== 0, c = (h & 16) ? r.varint() + 2 : 1, url;
+      if (t === 0) {
+        url = dec.decode(r.bytes(r.varint()));
+        if (!/^https?:\/\/[^\/?#\s]+\S*$/i.test(url)) throw new Error("bad url");
+      } else if (t === 2) {
+        var ri = r.varint(); if (ri >= repos.length) throw new Error("bad repo index");
+        url = "https://github.com/" + repos[ri] + "/issues/" + r.varint();
+      } else if (t <= 5) {
+        var id = r.chars(11);
+        url = build({ t: t, id: id, tok: hasTok ? r.chars(16) : "" });
+      } else throw new Error("bad type");
+      m.set(url, (m.get(url) || 0) + c);
+    }
+    return m;
+  }
+
+  // Older strings (formats "a"/"b"): text groups by origin.
+  function deserializeLegacy(s) {
+    var m = new Map();
+    s.split("\n").forEach(function (line) {
+      var parts = line.split("\t"), origin = parts[0];
+      if (!/^https?:\/\/[^\/?#\s]+$/i.test(origin)) return;
+      parts.slice(1).forEach(function (e) {
+        var x = e.match(/^(\d*)([\s\S]*)$/), count = parseInt(x[1] || "1", 10);
+        if (count > 0 && /^(?:[\/?#]|$)/.test(x[2]) && !/\s/.test(x[2])) {
+          var url = origin + x[2]; m.set(url, (m.get(url) || 0) + count);
+        }
+      });
+    });
+    return m;
+  }
+
+  function toB64(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromB64(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var r = atob(s), out = new Uint8Array(r.length);
+    for (var i = 0; i < r.length; i++) out[i] = r.charCodeAt(i);
+    return out;
+  }
+  async function pipe(bytes, stream) {
+    var res = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  // First character = format: c plain binary, d deflated binary (a/b = older text formats).
+  async function encode(m) {
+    var bin = encodeBin(m), best = "c" + toB64(bin);
+    if (typeof CompressionStream !== "undefined") {
+      try {
+        var z = "d" + toB64(await pipe(bin, new CompressionStream("deflate-raw")));
+        if (z.length < best.length) best = z;
+      } catch (e) {}
+    }
+    return best;
+  }
+  async function decode(code) {
+    var kind = code.charAt(0), data = fromB64(code.slice(1));
+    if (kind === "c") return decodeBin(data);
+    if (kind === "d") return decodeBin(await pipe(data, new DecompressionStream("deflate-raw")));
+    if (kind === "a") return deserializeLegacy(new TextDecoder().decode(data));
+    if (kind === "b") return deserializeLegacy(new TextDecoder().decode(await pipe(data, new DecompressionStream("deflate-raw"))));
+    throw new Error("Unknown format");
+  }
+
+  function parseInput(text, drop) {
+    var m = new Map();
+    text.split(/\s+/).forEach(function (tok) {
+      tok.split(/(?=https?:\/\/)/i).forEach(function (u) {
+        if (!/^https?:\/\/[^\/?#\s]+/i.test(u)) return;
+        if (drop) u = normalize(u);
+        m.set(u, (m.get(u) || 0) + 1);
+      });
+    });
+    return m;
+  }
+  // ==/CODEC==
+
+  function pick(m) {
+    var total = 0, last = null;
+    m.forEach(function (c, u) { total += c; last = u; });
+    var r = Math.random() * total, chosen = last;
+    for (var e of m) { r -= e[1]; if (r < 0) { chosen = e[0]; break; } }
+    return chosen;
+  }
+
+  // Shared with the repository script below. classify/build let it store URLs in their short form.
+  window.RRCodec = {
+    decode: decode,
+    encode: encode,
+    parseInput: parseInput,
+    pick: pick,
+    classify: classify,
+    build: build
+  };
+
+  // Full address of this page without ?query or #hash, so links keep the host and folder
+  // it is served from (e.g. https://user.github.io/repo/random-redirect.html).
+  function baseUrl() { return location.href.split(/[?#]/)[0]; }
+
+  // ---- Randomize-and-redirect mode ----
+  var param = new URLSearchParams(location.search).get("r");
+  if (param) {
+    $("app").hidden = true;
+    $("redirecting").hidden = false;
+    decode(param.trim()).then(function (m) {
+      if (!m.size) throw new Error("empty");
+      location.replace(pick(m));
+    }).catch(function () {
+      $("rtitle").textContent = "This link can’t be read";
+      var a = document.createElement("a");
+      a.href = baseUrl();
+      a.textContent = "Create a new redirect link";
+      $("rmsg").appendChild(document.createTextNode("The string in the link is damaged or incomplete. "));
+      $("rmsg").appendChild(a);
+    });
+    return;
+  }
+
+  // ---- Editor mode ----
+  var timer = null, current = null;
+
+  function render(m) {
+    var list = $("list"), total = 0;
+    list.textContent = "";
+    m.forEach(function (c) { total += c; });
+    if (!m.size) { $("stat").textContent = "No URLs yet."; return; }
+    $("stat").textContent = m.size + (m.size === 1 ? " unique URL" : " unique URLs") + ", total weight " + total + ".";
+    m.forEach(function (count, url) {
+      var pct = count / total * 100;
+      var item = document.createElement("div"); item.className = "item";
+      var fill = document.createElement("span"); fill.className = "fill"; fill.style.width = pct + "%";
+      var w = document.createElement("span"); w.className = "w"; w.textContent = "×" + count + "  " + pct.toFixed(pct % 1 ? 1 : 0) + "%";
+      var u = document.createElement("span"); u.className = "u"; u.textContent = url;
+      item.appendChild(fill); item.appendChild(w); item.appendChild(u);
+      list.appendChild(item);
+    });
+  }
+
+  async function update() {
+    var text = $("input").value;
+    var m = parseInput(text, $("drop").checked);
+    current = m;
+    render(m);
+    var has = m.size > 0;
+    if (!has) {
+      $("code").value = ""; $("link").value = ""; $("size").textContent = "";
+    } else {
+      var code = await encode(m);
+      if (current !== m) return; // a newer edit superseded this one
+      $("code").value = code;
+      $("link").value = baseUrl() + "?r=" + code;
+      $("size").textContent = code.length + " characters, from " + text.replace(/\s+/g, "").length + " characters pasted.";
+    }
+    ["copyCode", "copyLink", "open", "addCode"].forEach(function (id) { $(id).disabled = !has; });
+  }
+
+  function schedule() { clearTimeout(timer); timer = setTimeout(update, 120); }
+
+  function copy(inputId, btn) {
+    var v = $(inputId).value, label = btn.textContent;
+    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1200); };
+    var fallback = function () { $(inputId).select(); document.execCommand("copy"); done(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, fallback);
+    else fallback();
+  }
+
+  $("input").addEventListener("input", schedule);
+  $("drop").addEventListener("change", update);
+  $("clear").addEventListener("click", function () { $("input").value = ""; update(); $("input").focus(); });
+  $("sample").addEventListener("click", function () {
+    $("input").value =
+      "https://music.youtube.com/watch?v=ChXcD6Z4uvQ&si=4BYC3PhgXcIO8BVQ " +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805 " +
+      "https://youtu.be/WnxLlO29Jt0?si=YuzcE1OgAudIomvx" +
+      "https://www.instagram.com/p/DfIH0ZaGGjE/?xtok=eTd3bnJrcjd2YnZ2" +
+      "https://www.instagram.com/reel/De6EA-UTE-g/?srtk=YThjOGV2OWtraDdk" +
+      "https://github.com/mdr19ganseki95cf/stash/issues/805";
+    update();
+  });
+  $("copyCode").addEventListener("click", function () { copy("code", $("copyCode")); });
+  $("copyLink").addEventListener("click", function () { copy("link", $("copyLink")); });
+  $("open").addEventListener("click", function () { window.open($("link").value, "_blank", "noopener"); });
+
+  $("decodeBtn").addEventListener("click", async function () {
+    var v = $("decodeIn").value.trim(), err = $("decodeErr");
+    err.hidden = true;
+    var q = v.match(/[?&]r=([^&#\s]+)/);
+    if (q) v = q[1];
+    try {
+      var m = await decode(v);
+      if (!m.size) throw new Error("empty");
+      var lines = [];
+      m.forEach(function (c, u) { for (var i = 0; i < c; i++) lines.push(u); });
+      $("input").value = lines.join("\n");
+      $("drop").checked = false;
+      update();
+    } catch (e) {
+      err.textContent = "That string can’t be read. Check that you copied all of it.";
+      err.hidden = false;
+    }
+  });
+
+  update();
+})();
+</script>
+
+<script>
+// ---- Lean weight ledger (editor mode only; redirect mode never reaches here) ----
+(function () {
+  'use strict';
+  if (new URLSearchParams(location.search).get('r')) return;
+
+  const R = window.RRCodec;
+  const REDIRECT_PREFIX = 'https://sktoushi.github.io/su/random-redirect.html?r=';
+  const REMOTE_JSON = './random-redirect-db.json';
+  const EXPORT_NAME = 'random-redirect-db.json';
+  const GITHUB_EDIT_URL = 'https://github.com/sktoushi/su/edit/in/config/random-redirect-db.json';
+  const LEGACY_JSON = './all.json';
+  const LEGACY_KEY = 'repositories10x';
+
+  const DB_NAME = 'RandomRedirectLinksDB';
+  const DB_VERSION = 3;    // v3: the ledger lives in META; the old "links" store is only read once, for migration
+  const LINKS = 'links';
+  const META = 'meta';
+
+  const PREVIEW_LIMIT = 10;
+  const ALERT_PENDING_COUNT = 10;
+  const ALERT_EXPORT_DAYS = 14;
+
+  let db = null;
+  let ledger = emptyLedger();   // everything known locally
+  let state = { createdAt: Date.now(), lastSyncAt: null, lastExportAt: null, published: emptyLedger() };
+  let oldPublished = null;      // pre-v3 published counts, used once by migration
+  let lastSync = null;
+  let legacy = [];
+  let legacyStatus = null;
+  let lastOpened = null;        // { url, at }
+  let recent = [];              // [{ url, weight, at }], local-only preview of the latest additions
+  let randomDbPercent = 15;
+  let randomDbDraft = 15;
+
+  const $ = (id) => document.getElementById(id);
+  const buildUrl = (r) => REDIRECT_PREFIX + r;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ==LEDGER==
+  // A "run list" is sorted, non-overlapping, merged: [[start, end, weightPerIssue], ...].
+  // A ledger is { repos: {name: runs}, ext: {"owner/repo": runs}, urls: {key: weight} }.
+  //  repos: GitHub issues of repositories listed in all.json (name only; owner comes from all.json)
+  //  ext:   GitHub issues of any other repository
+  //  urls:  everything else, in the shortest form the codec knows (see urlToEntry)
+  const r6 = (x) => Math.round(x * 1e6) / 1e6;
+  function emptyLedger() { return { repos: {}, ext: {}, urls: {} }; }
+  let ownerOf = new Map();   // repo name -> username, from all.json
+
+  function pushRun(out, s, e, w) {
+    const l = out[out.length - 1];
+    if (l && l[1] + 1 === s && l[2] === w) l[1] = e; else out.push([s, e, w]);
+  }
+
+  // Sum of possibly overlapping/unsorted [s,e,w] items -> normalized run list.
+  function sweep(items) {
+    const ev = [];
+    items.forEach((x) => { ev.push([x[0], x[2]]); ev.push([x[1] + 1, -x[2]]); });
+    ev.sort((a, b) => a[0] - b[0]);
+    const out = [];
+    let cur = 0, prev = null, i = 0;
+    while (i < ev.length) {
+      const p = ev[i][0];
+      if (prev !== null && cur > 0) pushRun(out, prev, p - 1, cur);
+      while (i < ev.length && ev[i][0] === p) cur = r6(cur + ev[i++][1]);
+      prev = p;
+    }
+    return out;
+  }
+
+  // Pointwise f(a, b) of two run lists (missing = 0), keeping only positive results.
+  function stepOp(A, B, f) {
+    const pts = [];
+    A.forEach((x) => pts.push(x[0], x[1] + 1));
+    B.forEach((x) => pts.push(x[0], x[1] + 1));
+    pts.sort((a, b) => a - b);
+    const out = [];
+    let i = 0, j = 0;
+    for (let k = 0; k < pts.length - 1; k++) {
+      const p = pts[k], q = pts[k + 1] - 1;
+      if (q < p) continue;
+      while (i < A.length && A[i][1] < p) i++;
+      while (j < B.length && B[j][1] < p) j++;
+      const a = i < A.length && A[i][0] <= p ? A[i][2] : 0;
+      const b = j < B.length && B[j][0] <= p ? B[j][2] : 0;
+      const v = r6(f(a, b));
+      if (v > 0) pushRun(out, p, q, v);
+    }
+    return out;
+  }
+
+  function ledgerAdd(L, entries) {
+    const groups = new Map();
+    entries.forEach((x) => {
+      if (x.k === 'urls') { L.urls[x.name] = r6((L.urls[x.name] || 0) + x.w); return; }
+      const key = x.k + '\u0000' + x.name;
+      if (!groups.has(key)) groups.set(key, { k: x.k, name: x.name, items: [] });
+      groups.get(key).items.push([x.s, x.e, x.w]);
+    });
+    groups.forEach((g) => {
+      L[g.k][g.name] = stepOp(L[g.k][g.name] || [], sweep(g.items), (a, b) => a + b);
+    });
+    return L;
+  }
+
+  function ledgerOp(A, B, f) {
+    const out = emptyLedger();
+    ['repos', 'ext'].forEach((k) => {
+      new Set(Object.keys(A[k]).concat(Object.keys(B[k]))).forEach((n) => {
+        const runs = stepOp(A[k][n] || [], B[k][n] || [], f);
+        if (runs.length) out[k][n] = runs;
+      });
+    });
+    new Set(Object.keys(A.urls).concat(Object.keys(B.urls))).forEach((n) => {
+      const v = r6(f(A.urls[n] || 0, B.urls[n] || 0));
+      if (v > 0) out.urls[n] = v;
+    });
+    return out;
+  }
+
+  // cb(mass, kind, name, run|null). Unresolvable repos are skipped unless all === true.
+  function eachItem(L, cb, all) {
+    for (const n in L.repos) {
+      if (!all && !ownerOf.has(n)) continue;
+      L.repos[n].forEach((x) => cb(x[2] * (x[1] - x[0] + 1), 'repos', n, x));
+    }
+    for (const n in L.ext) L.ext[n].forEach((x) => cb(x[2] * (x[1] - x[0] + 1), 'ext', n, x));
+    for (const n in L.urls) cb(L.urls[n], 'urls', n, null);
+  }
+
+  function ledgerStats(L, all) {
+    let count = 0, mass = 0;
+    eachItem(L, (m, k, n, x) => { count += x ? x[1] - x[0] + 1 : 1; mass += m; }, all);
+    return { count, mass: r6(mass) };
+  }
+
+  // Move ext entries into repos once all.json says who owns the repository.
+  function canonicalize(L) {
+    Object.keys(L.ext).forEach((n) => {
+      const i = n.indexOf('/');
+      const owner = n.slice(0, i), repo = n.slice(i + 1);
+      if (ownerOf.get(repo) === owner) {
+        L.repos[repo] = stepOp(L.repos[repo] || [], L.ext[n], (a, b) => a + b);
+        delete L.ext[n];
+      }
+    });
+    return L;
+  }
+
+  const GH = /^https:\/\/github\.com\/([A-Za-z0-9-]+)\/([\w.-]+)\/issues\/(0|[1-9]\d{0,14})$/;
+
+  // url + weight -> ledger entry. Known shapes use the codec's compact key: type digit, id, optional ".token".
+  function urlToEntry(url, w) {
+    const m = url.match(GH);
+    if (m) {
+      const n = Number(m[3]);
+      return ownerOf.get(m[2]) === m[1]
+        ? { url, w, k: 'repos', name: m[2], s: n, e: n }
+        : { url, w, k: 'ext', name: m[1] + '/' + m[2], s: n, e: n };
+    }
+    const c = R.classify(url);
+    if (c.t >= 1 && c.t <= 5 && c.t !== 2) return { url, w, k: 'urls', name: c.t + c.id + (c.tok ? '.' + c.tok : '') };
+    return { url, w, k: 'urls', name: url };
+  }
+
+  function keyUrl(key) {
+    if (key.charCodeAt(0) >= 49 && key.charCodeAt(0) <= 53) {
+      const p = key.slice(1).split('.');
+      return R.build({ t: Number(key[0]), id: p[0], tok: p[1] || '' });
+    }
+    return key;
+  }
+
+  function entryUrl(k, name, n) {
+    if (k === 'repos') return 'https://github.com/' + ownerOf.get(name) + '/' + name + '/issues/' + n;
+    return 'https://github.com/' + name + '/issues/' + n;
+  }
+
+  // Weighted pick over every issue/URL; no per-item allocation, so it scales to millions.
+  function pickFromLedger(L) {
+    let total = 0;
+    eachItem(L, (m) => { total += m; });
+    if (!(total > 0)) return null;
+    let x = Math.random() * total, chosen = null, last = null;
+    eachItem(L, (m, k, n, run) => {
+      if (chosen) return;
+      last = [k, n, run];
+      x -= m;
+      if (x < 0) chosen = last;
+    });
+    const c = chosen || last;
+    if (c[0] === 'urls') return keyUrl(c[1]);
+    return entryUrl(c[0], c[1], c[2][0] + Math.floor(Math.random() * (c[2][1] - c[2][0] + 1)));
+  }
+
+  // ---- JSON v2:  {"version":2, "repos":{"stash8":[[12,3],[20,40,1]]}, "ext":{}, "urls":{}}
+  // run = [issue, weight] for one issue, [first, last, weight] for a range.
+  function parseV2(doc) {
+    const L = emptyLedger();
+    ['repos', 'ext'].forEach((k) => {
+      const src = doc[k] || {};
+      if (typeof src !== 'object' || Array.isArray(src)) throw new Error('"' + k + '" must be an object');
+      Object.keys(src).forEach((n) => {
+        if (!Array.isArray(src[n])) throw new Error(k + '/' + n + ' must be an array');
+        const items = src[n].map((x, i) => {
+          if (!Array.isArray(x) || (x.length !== 2 && x.length !== 3)) throw new Error(k + '/' + n + '[' + i + '] is malformed');
+          const s = x[0], e = x.length === 3 ? x[1] : x[0], w = x[x.length - 1];
+          if (!Number.isInteger(s) || !Number.isInteger(e) || s < 0 || e < s ||
+              typeof w !== 'number' || !Number.isFinite(w) || w <= 0) throw new Error(k + '/' + n + '[' + i + '] is invalid');
+          return [s, e, w];
+        });
+        const runs = sweep(items);
+        if (runs.length) L[k][n] = runs;
+      });
+    });
+    const u = doc.urls || {};
+    if (typeof u !== 'object' || Array.isArray(u)) throw new Error('"urls" must be an object');
+    Object.keys(u).forEach((n) => {
+      if (typeof u[n] !== 'number' || !Number.isFinite(u[n]) || u[n] <= 0) throw new Error('urls/' + n + ' has an invalid weight');
+      L.urls[n] = r6(u[n]);
+    });
+    return L;
+  }
+
+  // One line per repository keeps the file diff-friendly and compact.
+  function serialize(L) {
+    const run = (x) => (x[0] === x[1] ? '[' + x[0] + ',' + x[2] + ']' : '[' + x[0] + ',' + x[1] + ',' + x[2] + ']');
+    const sect = (o, fmt) => {
+      const ks = Object.keys(o).sort();
+      return ks.length ? '{\n' + ks.map((k) => JSON.stringify(k) + ':' + fmt(o[k])).join(',\n') + '\n}' : '{}';
+    };
+    const runs = (v) => '[' + v.map(run).join(',') + ']';
+    return '{"version":2,\n"repos":' + sect(L.repos, runs) + ',\n"ext":' + sect(L.ext, runs) +
+           ',\n"urls":' + sect(L.urls, String) + '\n}\n';
+  }
+  // ==/LEDGER==
+
+  // ---------- IndexedDB ----------
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const q = indexedDB.open(DB_NAME, DB_VERSION);
+      q.onupgradeneeded = () => {
+        if (!q.result.objectStoreNames.contains(META)) q.result.createObjectStore(META, { keyPath: 'key' });
+      };
+      q.onsuccess = () => resolve(q.result);
+      q.onerror = () => reject(q.error);
+    });
+  }
+
+  const reqP = (r) => new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+  async function getMeta(key) {
+    const row = await reqP(db.transaction(META).objectStore(META).get(key));
+    return row ? row.value : undefined;
+  }
+
+  function putMeta(key, value) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      tx.objectStore(META).put({ key, value });
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Failed to save metadata'));
+    });
+  }
+
+  const saveState = () => putMeta('state', state);
+  const saveLedger = () => putMeta('ledger', ledger);
+
+  async function loadState() {
+    const v = await getMeta('state');
+    if (v) state = Object.assign(state, v);
+    if (!state.published || !state.published.repos) {   // pre-v3 shape: { r: copies }
+      oldPublished = state.published || {};
+      state.published = emptyLedger();
+    }
+  }
+
+  // One-time import of the old per-record store into the ledger. The old store is left untouched.
+  async function migrateOld() {
+    if (await getMeta('ledgerMigrated')) return;
+    if (db.objectStoreNames.contains(LINKS)) {
+      const old = (await reqP(db.transaction(LINKS).objectStore(LINKS).getAll())).sort((a, b) => a.order - b.order);
+      const left = Object.assign({}, oldPublished || {});
+      const all = [], pub = [];
+      for (const rec of old) {
+        try {
+          const es = await entriesFromR(rec.r, rec.weight);
+          all.push(...es);
+          if ((left[rec.r] || 0) > 0) { left[rec.r]--; pub.push(...es); }
+        } catch (e) { /* unreadable record: skip */ }
+      }
+      ledgerAdd(ledger, all);
+      ledgerAdd(state.published, pub);
+      recent = all.slice(-PREVIEW_LIMIT).map(toRecent);
+      await putMeta('recent', recent);
+    }
+    await saveLedger();
+    await saveState();
+    await putMeta('ledgerMigrated', true);
+  }
+
+  // ---------- Entries from redirect strings ----------
+
+  // A record of weight W holding URLs with in-string counts c/C gives each URL weight W*c/C,
+  // which selects exactly like the old "pick record, then pick URL inside it" two-step.
+  async function entriesFromR(r, W) {
+    const m = await R.decode(r);
+    let C = 0;
+    m.forEach((c) => { C += c; });
+    const out = [];
+    m.forEach((c, u) => out.push(urlToEntry(u, W * c / C)));
+    return out;
+  }
+
+  const toRecent = (x) => ({ url: x.url, weight: r6(x.w), at: Date.now() });
+
+  async function remember(entries) {
+    recent = recent.concat(entries.slice(-PREVIEW_LIMIT).map(toRecent)).slice(-PREVIEW_LIMIT);
+    try { await putMeta('recent', recent); } catch (e) {}
+  }
+
+  // ---------- Remote JSON ----------
+
+  // Accepts v2 (ledger) and the old v1 (list of {r, order, weight}). Returns { ledger, version }.
+  async function parseDoc(doc) {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Not a JSON object');
+    if (doc.version === 2) return { ledger: parseV2(doc), version: 2 };
+    if (doc.version === 1) {
+      if (!Array.isArray(doc.links)) throw new Error('"links" must be an array');
+      const L = emptyLedger();
+      const all = [];
+      for (let i = 0; i < doc.links.length; i++) {
+        const x = doc.links[i];
+        if (!x || typeof x.r !== 'string' || typeof x.weight !== 'number' || !(x.weight > 0)) throw new Error('Record ' + (i + 1) + ' is invalid');
+        all.push(...await entriesFromR(x.r, x.weight));
+      }
+      ledgerAdd(L, all);
+      return { ledger: L, version: 1 };
+    }
+    throw new Error('Unsupported or missing "version" (expected 2 or 1)');
+  }
+
+  // Max-merge: never loses local data, and repeating a sync can never double count.
+  // (Two devices adding to the same URL before either syncs keep only the larger total.)
+  async function syncRemote() {
+    try {
+      const resp = await fetch(REMOTE_JSON, { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const parsed = await parseDoc(await resp.json());
+      const remote = canonicalize(parsed.ledger);
+      const fresh = ledgerStats(ledgerOp(remote, ledger, (a, b) => Math.max(0, a - b)), true);
+      ledger = ledgerOp(ledger, remote, Math.max);
+      state.published = ledgerOp(state.published, remote, Math.max);
+      state.lastSyncAt = Date.now();
+      await saveLedger();
+      await saveState();
+      return { ok: true, added: fresh.count, version: parsed.version, remoteTotal: ledgerStats(remote, true).count };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  const pending = () => ledgerStats(ledgerOp(ledger, state.published, (a, b) => Math.max(0, a - b)), true).count;
+
+  // ---------- Legacy regions (all.json -> repositories10x) ----------
+
+  function parseLegacy(doc) {
+    const repos = doc && doc[LEGACY_KEY];
+    if (!repos || typeof repos !== 'object' || Array.isArray(repos)) throw new Error('Missing ' + LEGACY_KEY + ' in all.json');
+    const regions = [];
+    Object.keys(repos).forEach((name) => {
+      const v = repos[name];
+      const start = Number(v && v.issueStartNumber);
+      const end = Number(v && v.issueEndNumber);
+      if (!v || typeof v.username !== 'string' || !v.username ||
+          !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) return;
+      const m = name.match(/x(2|3|10)$/);
+      regions.push({ legacy: true, username: v.username, repo: name, start, end,
+                     weight: m ? Number(m[1]) : 1, order: regions.length });
+    });
+    if (!regions.length) throw new Error('No usable regions in ' + LEGACY_KEY);
+    return regions;
+  }
+
+  function setLegacy(list) {
+    legacy = list;
+    ownerOf = new Map(list.map((x) => [x.repo, x.username]));
+  }
+
+  function legacyIssueUrl(region) {
+    const n = region.start + Math.floor(Math.random() * (region.end - region.start + 1));
+    return 'https://github.com/' + encodeURIComponent(region.username) + '/' + encodeURIComponent(region.repo) + '/issues/' + n;
+  }
+
+  async function refreshLegacy() {
+    try {
+      const resp = await fetch(LEGACY_JSON, { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      setLegacy(parseLegacy(await resp.json()));
+      try { await putMeta('legacy', legacy); } catch (e) {}
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ---------- Random selection ----------
+
+  const ALGORITHMS = {
+    uniform(list) { return list[Math.floor(Math.random() * list.length)]; },
+    weighted(list) {
+      const total = list.reduce((s, l) => s + l.weight, 0);
+      let x = Math.random() * total;
+      for (const l of list) { x -= l.weight; if (x < 0) return l; }
+      return list[list.length - 1];
+    }
+  };
+  const DEFAULT_ALGORITHM = 'weighted';
+
+  function pickRandomLink(list, algorithm = DEFAULT_ALGORITHM) {
+    const fn = ALGORITHMS[algorithm];
+    if (!fn) throw new Error('Unknown algorithm: ' + algorithm);
+    return list.length ? fn(list) : null;
+  }
+
+  // ---------- Rendering ----------
+
+  async function copyToClipboard(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+  }
+
+  function showStatus(type, message) {
+    const s = $('status');
+    s.className = 'status ' + type;
+    s.textContent = message;
+    s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function renderSync() {
+    const fmt = (t) => (t ? new Date(t).toLocaleString() : 'never');
+    const pend = pending();
+    const box = $('syncInfo');
+    box.textContent = '';
+
+    const legacyText = legacy.length
+      ? 'Legacy regions (all.json): ' + legacy.length + (legacyStatus && !legacyStatus.ok ? ' (cached, all.json unavailable)' : '')
+      : 'Legacy regions (all.json): none' + (legacyStatus && !legacyStatus.ok ? ' (' + legacyStatus.error + ')' : '');
+    let remoteText = 'Syncing...';
+    if (lastSync) {
+      remoteText = lastSync.ok
+        ? 'Deployed JSON (format v' + lastSync.version + '): ' + lastSync.remoteTotal + ' entries, ' + lastSync.added + ' new'
+        : 'Deployed JSON unavailable (' + lastSync.error + '). Using local data.';
+    }
+    [remoteText,
+     'Last successful sync: ' + fmt(state.lastSyncAt),
+     'Last export: ' + fmt(state.lastExportAt),
+     'Local entries not in deployed/exported JSON: ' + pend,
+     legacyText
+    ].forEach((t) => box.appendChild(el('div', 'idb-row', t)));
+
+    const alerts = [];
+    if (lastSync && lastSync.ok && lastSync.version === 1) alerts.push('The deployed JSON uses the old format. Export to convert it to the lean format.');
+    if (lastSync && lastSync.ok && lastSync.added > 0) alerts.push(lastSync.added + ' new entr' + (lastSync.added === 1 ? 'y' : 'ies') + ' from the deployed JSON were merged.');
+    const lost = Object.keys(ledger.repos).filter((n) => !ownerOf.has(n));
+    if (lost.length) alerts.push('Not in all.json (skipped by Random): ' + lost.slice(0, 5).join(', ') + (lost.length > 5 ? ', ...' : ''));
+    if (pend >= ALERT_PENDING_COUNT) alerts.push(pend + ' local entries are not in the deployed JSON. Export and commit the file.');
+    const days = (Date.now() - (state.lastExportAt || state.createdAt)) / 864e5;
+    if (pend > 0 && days >= ALERT_EXPORT_DAYS) alerts.push('It has been ' + Math.floor(days) + ' days since the last export, with ' + pend + ' unexported entr' + (pend === 1 ? 'y' : 'ies') + '.');
+    const ab = $('alerts');
+    ab.textContent = '';
+    alerts.forEach((t) => ab.appendChild(el('div', 'warning show', t)));
+    $('exportBtn').classList.toggle('btn-primary', pend > 0 || (lastSync && lastSync.ok && lastSync.version === 1));
+  }
+
+  function renderList() {
+    const box = $('linkList');
+    box.textContent = '';
+    if (!recent.length) { box.appendChild(el('div', 'link-meta', 'Nothing added on this device yet.')); return; }
+    const frag = document.createDocumentFragment();
+    recent.slice().reverse().forEach((l) => {
+      const item = el('div', 'link-item');
+      const info = el('div');
+      info.appendChild(el('div', 'link-r', l.url));
+      info.appendChild(el('div', 'link-meta', 'weight added ' + l.weight));
+      const btn = el('button', 'btn btn-small', 'Copy link');
+      btn.type = 'button';
+      btn.addEventListener('click', async () => {
+        const ok = await copyToClipboard(buildUrl(await R.encode(new Map([[l.url, 1]]))));
+        showStatus(ok ? 'success' : 'error', ok ? 'Link copied to clipboard.' : 'Failed to copy link.');
+      });
+      item.appendChild(info);
+      item.appendChild(btn);
+      frag.appendChild(item);
+    });
+    box.appendChild(frag);
+  }
+
+  function render() {
+    const s = ledgerStats(ledger, true);
+    $('totalCount').textContent = s.count;
+    $('totalWeight').textContent = s.mass;
+    renderSync();
+    renderList();
+    renderLast();
+  }
+
+  // ---------- Random source probability gauge ----------
+
+  function renderRandomGauge() {
+    $('randomDbGauge').value = randomDbDraft;
+    $('randomDbValue').textContent = randomDbDraft + '%';
+    $('randomDbSaved').textContent = randomDbPercent + '%';
+    $('randomLegacySaved').textContent = (100 - randomDbPercent) + '%';
+  }
+
+  $('randomDbGauge').addEventListener('input', () => {
+    randomDbDraft = Number($('randomDbGauge').value);
+    $('randomDbValue').textContent = randomDbDraft + '%';
+  });
+
+  $('saveRandomDbGauge').addEventListener('click', async () => {
+    try {
+      randomDbPercent = randomDbDraft;
+      await putMeta('randomDbPercent', randomDbPercent);
+      renderRandomGauge();
+      showStatus('success', 'Random probability saved: ' + randomDbPercent + '% database-only, ' + (100 - randomDbPercent) + '% legacy + database.');
+    } catch (e) {
+      showStatus('error', 'Failed to save random probability: ' + e.message);
+    }
+  });
+
+  // ---------- Actions ----------
+
+  function extractR(token) {
+    const m = token.match(/[?&]r=([^&#]*)/);
+    return m ? m[1] : token.trim();
+  }
+
+  let weightMultiplier = 1;
+  function setMultiplier(n) {
+    weightMultiplier = n;
+    document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+      b.classList.toggle('btn-primary', Number(b.dataset.mult) === n);
+    });
+  }
+
+  // Each line is a URL series, or "r [weight]". Weight defaults to the number of URLs on the line.
+  async function addLines(lines) {
+    const wDef = $('weightIn').value.trim();
+    const entries = [], rs = [];
+    for (const line of lines) {
+      const t = line.trim().split(/[\s,]+/).filter(Boolean);
+      if (!t.length) continue;
+      let r, m, tokW;
+      if (/https?:\/\//i.test(line) && !/[?&]r=/.test(line)) {
+        m = R.parseInput(line, $('drop').checked);
+        if (!m.size) throw new Error('No valid URLs found in: ' + line.trim().slice(0, 40));
+        r = await R.encode(m);
+      } else {
+        r = extractR(t[0]);
+        tokW = t[1];
+        try { m = await R.decode(r); }
+        catch (e) { throw new Error('Not a valid redirect string: ' + r.slice(0, 16) + '...'); }
+      }
+      let C = 0;
+      m.forEach((c) => { C += c; });
+      const W = (tokW !== undefined ? Number(tokW) : (wDef !== '' ? Number(wDef) : C)) * weightMultiplier;
+      if (!Number.isFinite(W) || W <= 0) throw new Error('Weight must be a positive number.');
+      m.forEach((c, u) => entries.push(urlToEntry(u, W * c / C)));
+      rs.push(r);
+    }
+    if (!entries.length) throw new Error('Nothing to add.');
+    ledgerAdd(ledger, entries);
+    await saveLedger();
+    await remember(entries);
+    render();
+    return { added: entries.length, urls: Array.from(new Set(rs.map(buildUrl))) };
+  }
+
+  async function runAdd(lines, inputId, copy) {
+    // The clipboard write starts inside the click gesture (iOS Safari requires this).
+    let setText = null, setFail = null, copied = null;
+    if (copy && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      const blobP = new Promise((res, rej) => {
+        setText = (t) => res(new Blob([t], { type: 'text/plain' }));
+        setFail = rej;
+      });
+      copied = navigator.clipboard.write([new ClipboardItem({ 'text/plain': blobP })]).then(() => true, () => false);
+    }
+    try {
+      const { added, urls } = await addLines(lines);
+      if (added > 0 && inputId) $(inputId).value = '';
+      let msg = 'Added ' + added + ' link(s).';
+      if (copy && urls.length) {
+        const text = urls.join('\n');
+        if (setText) setText(text);
+        let ok = copied ? await copied : false;
+        if (!ok) ok = await copyToClipboard(text);
+        msg += ok ? (urls.length > 1 ? ' ' + urls.length + ' links copied to clipboard.' : ' Link copied to clipboard.') : ' Could not copy to clipboard.';
+      } else if (setFail) {
+        setFail(new Error('nothing to copy'));
+      }
+      showStatus('success', msg);
+      setMultiplier(1);
+    } catch (e) {
+      if (setFail) setFail(e);
+      showStatus('error', e.message);
+    }
+  }
+
+  async function importFile(file) {
+    try {
+      let doc;
+      try { doc = JSON.parse(await file.text()); }
+      catch (e) { throw new Error('File is not valid JSON.'); }
+      const incoming = canonicalize((await parseDoc(doc)).ledger);
+      const fresh = ledgerStats(ledgerOp(incoming, ledger, (a, b) => Math.max(0, a - b)), true);
+      ledger = ledgerOp(ledger, incoming, Math.max);
+      await saveLedger();
+      render();
+      showStatus('success', 'Imported ' + fresh.count + ' new entr' + (fresh.count === 1 ? 'y' : 'ies') + '. Total entries: ' + ledgerStats(ledger, true).count + '.');
+    } catch (e) {
+      showStatus('error', 'Import rejected: ' + e.message);
+    }
+  }
+
+  async function exportJson() {
+    try {
+      canonicalize(ledger);
+      const text = serialize(ledger);
+      const blob = new Blob([text], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = EXPORT_NAME;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+      state.lastExportAt = Date.now();
+      state.published = ledgerOp(state.published, ledger, Math.max);
+      await saveLedger();
+      await saveState();
+      render();
+      showStatus('success', 'Exported ' + ledgerStats(ledger, true).count + ' entries (' + (text.length / 1024).toFixed(1) + ' KB) as ' + EXPORT_NAME + '. Redirecting to GitHub...');
+      setTimeout(() => { window.location.href = GITHUB_EDIT_URL; }, 2000);
+    } catch (e) {
+      showStatus('error', 'Export failed: ' + e.message);
+    }
+  }
+
+  async function randomRedirect() {
+    try {
+      const dbMass = ledgerStats(ledger, false).mass;
+      const legacyMass = legacy.reduce((s, l) => s + l.weight, 0);
+      const databaseOnly = Math.random() * 100 < randomDbPercent;
+      const fromLegacy = !databaseOnly && legacyMass > 0 && Math.random() * (legacyMass + dbMass) < legacyMass;
+
+      let url = null;
+      if (fromLegacy) url = legacyIssueUrl(pickRandomLink(legacy));
+      else url = pickFromLedger(ledger);
+      if (!url && !databaseOnly && legacy.length) url = legacyIssueUrl(pickRandomLink(legacy));
+      if (!url) { showStatus('error', 'No links available in the selected source.'); return; }
+
+      lastOpened = { url, at: Date.now() };
+      await putMeta('lastOpened', lastOpened);
+      renderLast();
+      window.location.href = url;
+    } catch (e) {
+      showStatus('error', 'Random redirect failed: ' + e.message);
+    }
+  }
+
+  function renderLast() {
+    $('lastInfo').textContent = lastOpened
+      ? 'Last opened: ' + lastOpened.url
+      : 'Press Random, then come back to add the opened link with a weight.';
+    document.querySelectorAll('#weightRow [data-w]').forEach((b) => { b.disabled = !lastOpened; });
+  }
+
+  async function addLastOpened(weight) {
+    if (!lastOpened) { showStatus('error', 'No link opened yet. Press Random first.'); return; }
+    try {
+      const entries = [urlToEntry(lastOpened.url, weight)];
+      ledgerAdd(ledger, entries);
+      await saveLedger();
+      await remember(entries);
+      render();
+      showStatus('success', 'Added the last opened link with weight ' + weight + '.');
+    } catch (e) {
+      showStatus('error', e.message);
+    }
+  }
+
+  // ---------- Init ----------
+
+  async function init() {
+    try {
+      db = await openDB();
+      db.onversionchange = () => db.close();
+      await loadState();
+      setLegacy((await getMeta('legacy')) || []);
+      ledger = (await getMeta('ledger')) || emptyLedger();
+      lastOpened = (await getMeta('lastOpened')) || null;
+      recent = (await getMeta('recent')) || [];
+      await migrateOld();
+      const g = await getMeta('randomDbPercent');
+      if (Number.isInteger(g) && g >= 0 && g <= 100) randomDbPercent = g;
+    } catch (e) {
+      showStatus('error', 'IndexedDB error: ' + e.message);
+      return;
+    }
+    randomDbDraft = randomDbPercent;
+    renderRandomGauge();
+    canonicalize(ledger);
+    render();
+    // all.json first (it tells which repositories are shortened), then the deployed JSON.
+    legacyStatus = await refreshLegacy();
+    canonicalize(ledger);
+    canonicalize(state.published);
+    lastSync = await syncRemote();
+    try { render(); } catch (e) { showStatus('error', e.message); }
+  }
+
+  $('addBtn').addEventListener('click', () => runAdd([$('rIn').value], 'rIn'));
+  $('bulkBtn').addEventListener('click', () => runAdd($('bulkIn').value.split(/\r?\n/), 'bulkIn', true));
+  $('addCode').addEventListener('click', () => runAdd([$('code').value], null));
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) await importFile(f);
+  });
+  $('exportBtn').addEventListener('click', exportJson);
+  $('randomBtn').addEventListener('click', randomRedirect);
+  document.querySelectorAll('#weightRow [data-w]').forEach((b) => {
+    b.addEventListener('click', () => addLastOpened(Number(b.dataset.w)));
+  });
+  document.querySelectorAll('#multRow [data-mult]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const n = Number(b.dataset.mult);
+      setMultiplier(weightMultiplier === n ? 1 : n);
+    });
+  });
+  init();
+})();
+</script>
+</body>
+</html>
