@@ -135,6 +135,8 @@
       Paste URLs separated by spaces, new lines, or nothing at all. Repeated URLs count as extra weight.
     </p>
 
+    <div id="status" class="status" role="status"></div>
+
     <div class="card">
       <div class="random-gauge">
         <input type="range" id="randomDbGauge" min="0" max="100" step="1" value="15" aria-label="Random database-only probability">
@@ -189,8 +191,6 @@
       </div>
       <div class="actions"><button id="addBtn" class="btn" type="button">Add link</button></div>
     </div>
-
-    <div id="status" class="status"></div>
 
     <div class="card">
       <div class="stats">
@@ -1270,7 +1270,6 @@
     const s = $('status');
     s.className = 'status ' + type;
     s.textContent = message;
-    s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   function renderSync() {
