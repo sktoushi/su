@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Random URL Redirect — Adaptive Discovery</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0c10;--card:#13171d;--fg:#d9e2e7;--muted:#9aaeb9;--accent:#b72a92;--border:#34404a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,Arial,sans-serif}
+main{max-width:850px;margin:auto;padding:25px 16px}h1{font-size:1.8rem;margin:0 0 6px}h2{font-size:1.1rem;margin:0 0 14px}
+p,.hint{color:var(--muted);line-height:1.5}.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin:17px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:1}button,input,textarea,select{font:inherit}
+button{background:#432039;color:var(--fg);border:1px solid #633353;border-radius:8px;padding:10px 13px;cursor:pointer;font-weight:650}
+button:hover{background:#5c2851}button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:var(--accent);color:white}.primary:hover{background:#ca3aa4}
+input:not([type=checkbox]):not([type=range]),textarea,select{background:#0d1217;border:1px solid #47515b;color:var(--fg);padding:11px;border-radius:7px;width:100%;min-width:0}
+textarea{min-height:100px;resize:vertical;font:13px ui-monospace,monospace}
+label{display:block;margin:12px 0 6px;font-weight:600}.hint{font-size:.85rem}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
+.stat{background:#0c1117;border-radius:9px;padding:12px}.stat strong{display:block;font-size:1.5rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto}.chip{font-size:.8rem;padding:6px 10px}
+.chip.active{background:var(--accent)}.item{padding:9px 0;border-bottom:1px solid #35404a;overflow-wrap:anywhere}
+.muted{color:var(--muted)}.message{padding:12px;border:1px solid #6d4a6a;border-radius:8px;margin:12px 0}
+[hidden]{display:none!important}input[type=range]{width:100%;accent-color:var(--accent)}
+small{color:var(--muted)}a{color:#e58ad0}code{color:#e58ad0}
+</style></head><body>
+<main id="redirecting" hidden><h1>Redirecting…</h1><p id="redirectMessage"></p></main>
+<main id="app">
+<h1>Random URL Redirect</h1><p>Adaptive discovery · weighted legacy repositories · premium ledger · novelty and source diversity</p>
+<div id="message" class="message" role="status" hidden></div>
+<section class="card" id="feedbackCard" hidden><h2>Was the last selection interesting?</h2>
+<p id="feedbackInfo"></p><div class="row"><button class="primary" id="yes">Yes — more like this</button><button id="no">No — diversify</button><button id="dismiss">Dismiss</button></div></section>
+<section class="card"><h2>Discover</h2>
+<label for="dbGauge">Database-only probability: <output id="dbPct">15%</output></label>
+<input id="dbGauge" type="range" min="0" max="100" value="15"><div class="row"><button id="saveGauge">Save probability</button><button id="random" class="primary">Random →</button></div>
+<p class="hint">Remaining probability selects from the combined legacy + database pools. Unavailable pools automatically fall back.</p>
+<label for="tagIn">Tags for last selection / tagged discovery</label><input id="tagIn" placeholder="pm,jp,psychology" autocomplete="off"><div class="chips" id="tagChips"></div>
+<div class="row" style="margin-top:10px"><button id="tagRandom">Random from selected tags</button><button id="x1">Add ×1</button><button id="x2">Add ×2</button><button id="x3">Add ×3</button><button id="x10">Add ×10</button></div>
+<div class="row" style="margin-top:10px"><input id="customWeight" type="number" min=".000001" step="any" placeholder="Custom weight"><button id="customAdd">Add custom weight to last selection</button></div>
+<p id="lastInfo" class="hint">No selection yet.</p></section>
+<section class="card"><h2>Adaptive tuning</h2>
+<label>Exploration probability: <output id="exploreOut"></output></label><input id="explore" type="range" min="0" max="60">
+<label>Recent-repeat window: <output id="windowOut"></output></label><input id="window" type="range" min="5" max="100" step="5">
+<label>Same-source diversity multiplier: <output id="diversityOut"></output></label><input id="diversity" type="range" min="10" max="100" step="5">
+<label>New-weight ramp: <output id="rampOut"></output></label><input id="rampDraws" type="range" min="50" max="1000" step="50">
+<div class="row"><button id="saveTuning">Save tuning</button><button id="resetTuning">Reset defaults</button></div>
+<p class="hint">Selection uses cryptographically strong randomness when available. Adaptive scoring reduces immediate repeats, diversifies repositories, and learns from explicit Yes/No feedback.</p></section>
+<section class="card"><h2>Repository</h2>
+<div class="stats"><div class="stat">Unique entries<strong id="count">0</strong></div><div class="stat">Total weight<strong id="mass">0</strong></div><div class="stat">Total draws<strong id="draws">0</strong></div><div class="stat">Ramping batches<strong id="batches">0</strong></div></div>
+<label for="bulk">Add URLs or encoded redirect strings, one per line (optional weight after encoded string)</label>
+<textarea id="bulk" placeholder="https://github.com/owner/repo/issues/123&#10;cBASE64... 5"></textarea>
+<div class="row"><input id="weight" type="number" min=".000001" step="any" placeholder="Default weight (blank = number of URLs)"><input id="addTags" placeholder="Tags for additions (comma-separated)"></div>
+<div class="row"><button class="primary" id="add">Add multiple</button><button id="undo">Undo last addition</button></div>
+<p class="hint">New entries are introduced progressively over the configured ramp period. Your existing JSON v2 structure remains compatible.</p></section>
+<section class="card"><h2>Sync and JSON</h2><div id="syncInfo" class="hint"></div>
+<div class="row"><button id="refresh">Refresh remote data</button><button id="import">Import JSON</button><button id="export" class="primary">Export JSON</button></div><input id="file" type="file" accept=".json,application/json" hidden>
+<p class="hint">Export downloads <code>random-redirect-db.json</code> locally. It does not modify the hosted file or automatically publish to GitHub.</p></section>
+<section class="card"><h2>Standalone short redirect links</h2>
+<textarea id="urls" placeholder="Paste URLs (repeated URLs increase weight)"></textarea>
+<div class="row"><button id="encode">Generate short link</button><button id="decode">Load encoded string</button></div>
+<input id="short" placeholder="Short string or redirect URL" aria-label="Short redirect string" style="margin-top:10px">
+<div class="row" style="margin-top:10px"><button id="copy">Copy link</button><button id="open">Open link</button></div>
+<p class="hint">Existing <code>?r=c…</code> and <code>?r=d…</code> binary links remain supported, as do legacy <code>a</code>/<code>b</code> strings.</p></section>
+<section class="card"><h2>Tag leaderboard</h2><div id="tagBoard"></div></section>
+<section class="card"><h2>Recently added</h2><div id="recent"></div></section>
+<section class="card"><h2>Alternative URLs</h2><div id="alternatives"></div><div class="row"><input id="altInput" placeholder="https://…"><button id="addAlt">Add</button><button id="resetAlts">Defaults</button></div>
+<p class="hint">Alternative URLs are preserved for manual opening; No feedback now improves discovery rather than automatically forcing a different site.</p></section>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id), enc=new TextEncoder(), dec=new TextDecoder('utf-8',{fatal:true});
+const defaults={exploration:.22,window:30,diversity:.45,rampDraws:500};
+const altDefaults=['https://sktoushi.github.io/su/all503020-scheduler.html?max=8','https://sktoushi.github.io/su/schedule-balancer.html?skedNames=all503020_skyway_spy_img_loop&maxWeights=4_87_6_1_1&allocation=24_23_16_33_14'];
+const DB='RandomRedirectLinksDB', META='meta', PREFIX='https://sktoushi.github.io/su/random-redirect.html?r=';
+const empty=()=>({repos:{},ext:{},urls:{}}), clone=x=>structuredClone(x);
+const round=x=>Math.round(x*1e6)/1e6;
+const random=()=>{if(crypto?.getRandomValues){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]/4294967296}return Math.random()};
+const index=n=>Math.floor(random()*n);
+let db,ledger=empty(),tags={},legacy=[],owners=new Map(),clock={},ramp=[],dev='',state={},recent=[],last=null,feedbackPending=null,alternatives=altDefaults.slice(),dbPercent=15,tuning={...defaults},discovery={history:[],interests:{},draws:0},undo=null;
+const msg=(s)=>{$('message').hidden=false;$('message').textContent=s};
+const run=(s,e,w)=>[s,e,w];
+function push(out,s,e,w){let a=out.at(-1);if(a&&a[1]+1===s&&a[2]===w)a[1]=e;else out.push([s,e,w])}
+function sweep(items){let ev=[];for(const [s,e,w] of items){ev.push([s,w],[e+1,-w])}ev.sort((a,b)=>a[0]-b[0]);let out=[],prev=null,cur=0;for(let i=0;i<ev.length;){let p=ev[i][0];if(prev!==null&&cur>0)push(out,prev,p-1,round(cur));while(i<ev.length&&ev[i][0]===p)cur=round(cur+ev[i++][1]);prev=p}return out}
+function op(A,B,f){const out=empty();for(const k of ['repos','ext'])for(const name of new Set([...Object.keys(A[k]||{}),...Object.keys(B[k]||{})])){const a=A[k]?.[name]||[],b=B[k]?.[name]||[],pts=[...new Set([...a.flatMap(x=>[x[0],x[1]+1]),...b.flatMap(x=>[x[0],x[1]+1])])].sort((x,y)=>x-y);let i=0,j=0,res=[];for(let z=0;z<pts.length-1;z++){let s=pts[z],e=pts[z+1]-1;if(e<s)continue;while(i<a.length&&a[i][1]<s)i++;while(j<b.length&&b[j][1]<s)j++;let v=round(f(i<a.length&&a[i][0]<=s?a[i][2]:0,j<b.length&&b[j][0]<=s?b[j][2]:0));if(v>0)push(res,s,e,v)}if(res.length)out[k][name]=res}for(const n of new Set([...Object.keys(A.urls||{}),...Object.keys(B.urls||{})])){let v=round(f(A.urls?.[n]||0,B.urls?.[n]||0));if(v>0)out.urls[n]=v}return out}
+function add(L,entries){const groups=new Map();for(const x of entries){if(x.k==='urls'){L.urls[x.name]=round((L.urls[x.name]||0)+x.w);continue}const key=x.k+'\0'+x.name;if(!groups.has(key))groups.set(key,{k:x.k,name:x.name,items:[]});groups.get(key).items.push([x.s,x.e,x.w])}for(const g of groups.values())L[g.k][g.name]=op({repos:g.k==='repos'?{[g.name]:L[g.k][g.name]||[]}:{},ext:g.k==='ext'?{[g.name]:L[g.k][g.name]||[]}: {},urls:{}},{repos:g.k==='repos'?{[g.name]:sweep(g.items)}:{},ext:g.k==='ext'?{[g.name]:sweep(g.items)}:{},urls:{}},(a,b)=>a+b)[g.k][g.name]||[];return L}
+function canon(L){for(const name of Object.keys(L.ext||{})){const p=name.indexOf('/'),owner=name.slice(0,p),repo=name.slice(p+1);if(owners.get(repo)===owner){const x=empty();x.repos[repo]=L.ext[name];const y=empty();y.repos[repo]=L.repos[repo]||[];L.repos[repo]=op(x,y,(a,b)=>a+b).repos[repo]||[];delete L.ext[name]}}return L}
+function parseLedger(doc){let L=empty();for(const k of ['repos','ext'])for(const [name,rows] of Object.entries(doc[k]||{})){if(!Array.isArray(rows))throw Error('Invalid runs '+name);let a=rows.map(x=>{let s=x[0],e=x.length===3?x[1]:s,w=x.at(-1);if(!Number.isSafeInteger(s)||!Number.isSafeInteger(e)||s<0||e<s||!Number.isFinite(w)||w<=0)throw Error('Invalid run '+name);return [s,e,w]});if(a.length)L[k][name]=sweep(a)}for(const [key,w] of Object.entries(doc.urls||{})){if(!Number.isFinite(w)||w<=0)throw Error('Invalid URL weight');L.urls[key]=w}return L}
+function parseTags(doc){const T={};for(const [t,v] of Object.entries(doc.tags||{})){let L=empty();for(const k of ['repos','ext'])for(const [name,rows] of Object.entries(v[k]||{})){L[k][name]=sweep(rows.map(x=>[x[0],x.at(-1),1])).map(x=>[x[0],x[1],1])}for(const key of v.urls||[])L.urls[key]=1;T[t]=L}return T}
+function mergeTags(a,b){const out={};for(const t of new Set([...Object.keys(a),...Object.keys(b)]))out[t]=op(a[t]||empty(),b[t]||empty(),Math.max);return out}
+function compact(L){let out={};for(const k of ['repos','ext']){if(Object.keys(L[k]).length){out[k]={};for(const [n,r] of Object.entries(L[k]))out[k][n]=r.map(x=>x[0]===x[1]?[x[0],x[2]]:x)}}if(Object.keys(L.urls).length)out.urls=L.urls;return out}
+function tagJson(T){let o={};for(const [name,L] of Object.entries(T)){let v={};for(const k of ['repos','ext'])if(Object.keys(L[k]).length){v[k]={};for(const [n,rs] of Object.entries(L[k]))v[k][n]=rs.map(x=>x[0]===x[1]?[x[0]]:[x[0],x[1]])}if(Object.keys(L.urls).length)v.urls=Object.keys(L.urls);if(Object.keys(v).length)o[name]=v}return o}
+function parseDoc(doc){if(doc.version!==2)throw Error('Expected JSON v2');return {ledger:parseLedger(doc),tags:parseTags(doc),clock:doc.clock||{},ramp:(doc.ramp||[]).map(b=>({id:b.id,d:b.d,l:parseLedger(b.l)}))}}
+function validURL(u){try{return /^https?:$/.test(new URL(u).protocol)}catch{return false}}
+const GH=/^https:\/\/github\.com\/([A-Za-z0-9-]+)\/([\w.-]+)\/issues\/([1-9]\d*)$/;
+const pats=[[1,/^https:\/\/music\.youtube\.com\/watch\?v=([\w-]{11})(?:&si=([\w-]{16}))?$/],[3,/^https:\/\/youtu\.be\/([\w-]{11})(?:\?si=([\w-]{16}))?$/],[4,/^https:\/\/www\.instagram\.com\/p\/([\w-]{11})\/(?:\?xtok=([\w-]{16}))?$/],[5,/^https:\/\/www\.instagram\.com\/reel\/([\w-]{11})\/(?:\?srtk=([\w-]{16}))?$/]];
+function classify(u){for(const [t,p] of pats){let m=u.match(p);if(m)return {t,id:m[1],tok:m[2]||''}}let m=u.match(GH);if(m)return {t:2,repo:m[1]+'/'+m[2],n:Number(m[3])};return {t:0,url:u}}
+function build(r){switch(r.t){case 1:return 'https://music.youtube.com/watch?v='+r.id+(r.tok?'&si='+r.tok:'');case 2:return 'https://github.com/'+r.repo+'/issues/'+r.n;case 3:return 'https://youtu.be/'+r.id+(r.tok?'?si='+r.tok:'');case 4:return 'https://www.instagram.com/p/'+r.id+'/'+(r.tok?'?xtok='+r.tok:'');case 5:return 'https://www.instagram.com/reel/'+r.id+'/'+(r.tok?'?srtk='+r.tok:'');default:return r.url}}
+function keyUrl(k){if(/^[1345][\w-]{11}(?:\.[\w-]{16})?$/.test(k)){const a=k.slice(1).split('.');return build({t:Number(k[0]),id:a[0],tok:a[1]||''})}return k}
+function entry(u,w){const m=u.match(GH);if(m){const name=owners.get(m[2])===m[1]?m[2]:m[1]+'/'+m[2];return {k:owners.get(m[2])===m[1]?'repos':'ext',name,s:Number(m[3]),e:Number(m[3]),w,url:u}}const r=classify(u);return {k:'urls',name:r.t&&r.t!==2?r.t+r.id+(r.tok?'.'+r.tok:''):u,w,url:u}}
+function itemUrl(k,n,i){return k==='urls'?keyUrl(n):'https://github.com/'+(k==='repos'?owners.get(n)+'/'+n:n)+'/issues/'+i}
+function each(L,cb,includeUnknown=false){for(const k of ['repos','ext'])for(const [n,rs] of Object.entries(L[k]||{})){if(k==='repos'&&!owners.has(n)&&!includeUnknown)continue;for(const r of rs)cb(r[2]*(r[1]-r[0]+1),k,n,r)}for(const [n,w] of Object.entries(L.urls||{}))cb(w,'urls',n,null)}
+function stats(L,all=true){let count=0,mass=0;each(L,(w,k,n,r)=>{mass+=w;count+=r?r[1]-r[0]+1:1},all);return {count,mass:round(mass)}}
+function draws(){return Object.values(clock).reduce((s,n)=>s+n,0)}
+function activeRamp(){return ramp.filter(b=>draws()-b.d<tuning.rampDraws)}
+function effective(){let L=ledger;for(const b of activeRamp()){const t=Math.min(1,Math.max(0,(draws()-b.d)/tuning.rampDraws)),factor=1-(t*t*(3-2*t));L=op(L,canon(clone(b.l)),(a,x)=>Math.max(0,a-x*factor))}return L}
+function randId(){const a=new Uint32Array(2);crypto.getRandomValues(a);return [...a].map(x=>x.toString(36)).join('-')}
+function source(u){const m=u.match(GH);if(m)return m[1]+'/'+m[2];try{return new URL(u).hostname}catch{return 'unknown'}}
+function matchingTags(u){const x=entry(u,1),out=[];for(const [t,L] of Object.entries(tags)){if(x.k==='urls'?!!L.urls[x.name]:(L[x.k][x.name]||[]).some(r=>r[0]<=x.s&&x.s<=r[1]))out.push(t)}return out}
+function novelty(u){let h=discovery.history,i=h.lastIndexOf(u);if(i<0)return 1;let d=h.length-1-i;return d>=tuning.window?1:.06+.94*d/tuning.window}
+function adjust(u,explore){const s=source(u),recent=discovery.history.slice(-12),reps=recent.filter(x=>source(x)===s).length,div=Math.pow(tuning.diversity,reps),intr=discovery.interests[s]||1,ts=matchingTags(u);for(const t of ts)intr*=Math.pow(discovery.interests['tag:'+t]||1,.25);return novelty(u)*div*(explore?1:Math.max(.5,Math.min(2,intr)))}
+function sampleLedger(L){let total=0;each(L,w=>total+=w);if(!(total>0))return null;let r=random()*total,chosen=null;each(L,(w,k,n,run)=>{if(chosen)return;r-=w;if(r<0)chosen={k,n,run}});if(!chosen)return null;const {k,n,run}=chosen;return itemUrl(k,n,run?run[0]+index(run[1]-run[0]+1):0)}
+function sampleLegacy(){if(!legacy.length)return null;let mass=legacy.reduce((s,x)=>s+x.weight,0),r=random()*mass,l=legacy.at(-1);for(const x of legacy){r-=x.weight;if(r<0){l=x;break}}return 'https://github.com/'+l.username+'/'+l.repo+'/issues/'+(l.start+index(l.end-l.start+1))}
+function sampleCombined(L,dbOnly){const dm=stats(L,false).mass,lm=dbOnly?0:legacy.reduce((s,x)=>s+x.weight,0);if(dm+lm<=0)return sampleLegacy()||sampleLedger(L);return random()*(dm+lm)<lm?sampleLegacy():sampleLedger(L)}
+function adaptivePick(L,dbOnly){const explore=random()<tuning.exploration;let best=null,bestKey=Infinity;for(let i=0;i<48;i++){const u=sampleCombined(L,dbOnly);if(!u)continue;const weight=adjust(u,explore);if(weight<=0)continue;const key=-Math.log(Math.max(Number.MIN_VALUE,random()))/weight;if(key<bestKey){bestKey=key;best=u}}return {url:best||sampleCombined(L,dbOnly),mode:explore?'exploration':'adaptive'}}
+function learn(u,yes){if(!u)return;for(const k of [source(u),...matchingTags(u).map(t=>'tag:'+t)]){const old=discovery.interests[k]||1;discovery.interests[k]=Math.max(.5,Math.min(2,old+(yes?.15:-.12)))}}
+function record(u,mode){discovery.history.push(u);discovery.history=discovery.history.slice(-120);discovery.draws++;feedbackPending={url:u,mode,at:Date.now()}}
+function masked(L,selected){let result=empty();for(const t of selected){const T=tags[t];if(!T)continue;let part=empty();for(const k of ['repos','ext'])for(const [n,r] of Object.entries(T[k]||{})){let base=empty();base[k][n]=L[k][n]||[];let mask=empty();mask[k][n]=r;const v=op(base,mask,(a,b)=>b>0?a:0)[k][n];if(v?.length)part[k][n]=v}for(const n of Object.keys(T.urls))if(L.urls[n])part.urls[n]=L.urls[n];result=op(result,part,Math.max)}return result}
+function req(r){return new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function metaGet(k){return req(db.transaction(META).objectStore(META).get(k)).then(x=>x?.value)}
+function metaPut(k,v){return new Promise((res,rej)=>{const tx=db.transaction(META,'readwrite');tx.objectStore(META).put({key:k,value:v});tx.oncomplete=res;tx.onerror=tx.onabort=()=>rej(tx.error)})}
+async function save(){await Promise.all([metaPut('ledger',ledger),metaPut('tags',tags),metaPut('clock',clock),metaPut('ramp',ramp),metaPut('discoveryV1',discovery),metaPut('momentum',feedbackPending),metaPut('lastOpened',last),metaPut('recent',recent)])}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open(DB,3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains(META))q.result.createObjectStore(META,{keyPath:'key'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function v(n){return Number(n).toLocaleString(undefined,{maximumFractionDigits:2})}
+function showFeedback(){$('feedbackCard').hidden=!feedbackPending;if(feedbackPending)$('feedbackInfo').textContent=feedbackPending.url+' ('+feedbackPending.mode+')'}
+function render(){const s=stats(ledger);$('count').textContent=v(s.count);$('mass').textContent=v(s.mass);$('draws').textContent=v(draws());$('batches').textContent=activeRamp().length;$('lastInfo').textContent=last?'Last opened: '+last.url:'No selection yet.';showFeedback();renderTags();$('recent').replaceChildren(...recent.slice(-10).reverse().map(x=>{const d=document.createElement('div');d.className='item';d.textContent=x.url+' · +'+v(x.w);return d}));$('alternatives').replaceChildren(...alternatives.map((u,i)=>{const d=document.createElement('div');d.className='item';const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';a.textContent=u;const b=document.createElement('button');b.textContent='Remove';b.style.marginLeft='10px';b.onclick=async()=>{alternatives.splice(i,1);await metaPut('altUrls',alternatives);render()};d.append(a,b);return d}));$('syncInfo').textContent='Legacy regions: '+legacy.length+' · Premium entries: '+s.count+' · Unpublished local changes require exporting and committing JSON.'}
+function renderTags(){const chips=$('tagChips'),board=$('tagBoard');chips.replaceChildren();board.replaceChildren();const names=Object.keys(tags).sort(),selected=new Set(readTagInput());for(const t of names){const b=document.createElement('button');b.className='chip'+(selected.has(t)?' active':'');b.textContent=t;b.onclick=()=>{const a=new Set(readTagInput());a.has(t)?a.delete(t):a.add(t);$('tagIn').value=[...a].join(',');renderTags()};chips.append(b)}const rows=names.map(t=>[t,stats(masked(ledger,[t])).mass]).sort((a,b)=>b[1]-a[1]).slice(0,10);for(const [t,w] of rows){const d=document.createElement('div');d.className='item';const b=document.createElement('button');b.textContent=t+' · '+v(w);b.onclick=()=>openTagged([t]);d.append(b);board.append(d)}}
+function readTagInput(){return [...new Set($('tagIn').value.split(',').map(x=>x.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'')).filter(Boolean))]}
+function tuneUI(){for(const [id,val,out] of [['explore',tuning.exploration*100,'exploreOut'],['window',tuning.window,'windowOut'],['diversity',tuning.diversity*100,'diversityOut'],['rampDraws',tuning.rampDraws,'rampOut']]){$(id).value=Math.round(val);$(out).textContent=Math.round(val)+(id==='explore'||id==='diversity'?'%':' draws')}}
+async function navigate(u,mode){if(!validURL(u))throw Error('Invalid selected URL');clock[dev]=(clock[dev]||0)+1;ramp=activeRamp();last={url:u,at:Date.now()};record(u,mode);await save();location.assign(u)}
+async function randomRedirect(){const L=effective(),p=adaptivePick(L,random()*100<dbPercent);if(!p.url){msg('No selectable URLs. Check all.json and the premium database.');return}await navigate(p.url,p.mode)}
+async function openTagged(ts){const L=masked(effective(),ts);const p=adaptivePick(L,true);if(!p.url){msg('No available URLs for the selected tags.');return}await navigate(p.url,'tagged')}
+async function answer(yes){if(feedbackPending?.url)learn(feedbackPending.url,yes);feedbackPending=null;await save();render();msg(yes?'Preference updated: more related content.':'Preference updated: less related content.')}
+function makeMask(es){return add(empty(),es.map(x=>({...x,w:1})))}
+async function addEntries(es,tagNames){if(!es.length)throw Error('No valid entries');undo={ledger:clone(ledger),tags:clone(tags),ramp:clone(ramp),recent:clone(recent)};add(ledger,es);const mask=makeMask(es);for(const t of tagNames)tags[t]=op(tags[t]||empty(),mask,Math.max);ramp.push({id:randId(),d:draws(),l:add(empty(),es)});recent.push(...es.slice(-10).map(x=>({url:x.url,w:x.w,at:Date.now()})));recent=recent.slice(-10);await save();render()}
+async function addBulk(){try{let es=[],def=$('weight').value.trim(),mult=def===''?null:Number(def);if(mult!==null&&!(mult>0))throw Error('Invalid default weight');for(const raw of $('bulk').value.split(/\r?\n/)){const line=raw.trim();if(!line)continue;if(/^https?:\/\//i.test(line)&&!/[?&]r=/.test(line)){const urls=splitUrls(line);const W=mult??urls.length;for(const u of urls)es.push(entry(u,W/urls.length));continue}const parts=line.split(/\s+/),m=await decode(extractCode(parts[0])),W=parts[1]!==undefined?Number(parts[1]):(mult??[...m.values()].reduce((a,b)=>a+b,0));if(!(W>0))throw Error('Invalid weight');const C=[...m.values()].reduce((a,b)=>a+b,0);for(const [u,c] of m)es.push(entry(u,W*c/C))}const ts=[...new Set($('addTags').value.split(',').map(x=>x.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'')).filter(Boolean))];await addEntries(es,ts);$('bulk').value='';msg('Added '+es.length+' entries. Export JSON when ready to publish.')}catch(e){msg('Add failed: '+e.message)}}
+function splitUrls(t){return t.split(/\s+/).flatMap(s=>s.split(/(?=https?:\/\/)/i)).filter(validURL)}
+async function addLast(w){try{if(!last)throw Error('No last opened link');if(!(w>0)||!Number.isFinite(w))throw Error('Invalid weight');const ts=readTagInput();if(!ts.length)throw Error('Select at least one tag');await addEntries([entry(last.url,w)],ts);msg('Last opened link added with weight '+w)}catch(e){msg(e.message)}}
+function varint(w,n){while(n>=128){w.push((n%128)|128);n=Math.floor(n/128)}w.push(n)}
+const alpha='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',idx=Object.fromEntries([...alpha].map((c,i)=>[c,i]));
+function pack(w,s){let a=0,b=0;for(const c of s){a=(a<<6)|idx[c];b+=6;if(b>=8){b-=8;w.push((a>>b)&255);a&=(1<<b)-1}}if(b)w.push((a<<(8-b))&255)}
+function encodeBin(m){let w=[],repos=[],ridx=new Map(),recs=[];for(const [u,c] of m){let r=classify(u);r.c=c;if(r.t===2&&!ridx.has(r.repo)){ridx.set(r.repo,repos.length);repos.push(r.repo)}recs.push(r)}varint(w,repos.length);for(const s of repos){const b=enc.encode(s);varint(w,b.length);w.push(...b)}varint(w,recs.length);for(const r of recs){w.push(r.t|(r.tok?8:0)|(r.c>1?16:0));if(r.c>1)varint(w,r.c-2);if(r.t===0){const b=enc.encode(r.url);varint(w,b.length);w.push(...b)}else if(r.t===2){varint(w,ridx.get(r.repo));varint(w,r.n)}else{pack(w,r.id);if(r.tok)pack(w,r.tok)}}return new Uint8Array(w)}
+class Reader{constructor(b){this.b=b;this.p=0}byte(){if(this.p>=this.b.length)throw Error('Short data');return this.b[this.p++]}varint(){let v=0,m=1,x;do{x=this.byte();v+=(x&127)*m;m*=128;if(m>1e17)throw Error('Invalid integer')}while(x&128);return v}bytes(n){if(n<0||this.p+n>this.b.length)throw Error('Short data');const v=this.b.subarray(this.p,this.p+n);this.p+=n;return v}chars(n){let s='',a=0,b=0;while(s.length<n){if(b<6){a=(a<<8)|this.byte();b+=8}b-=6;s+=alpha[(a>>b)&63];a&=(1<<b)-1}return s}}
+function decodeBin(bytes){const r=new Reader(bytes),repos=[],m=new Map(),nr=r.varint();if(nr>100000)throw Error('Too many repos');for(let i=0;i<nr;i++)repos.push(dec.decode(r.bytes(r.varint())));const count=r.varint();if(count>100000)throw Error('Too many URLs');for(let i=0;i<count;i++){const h=r.byte(),t=h&7,tok=!!(h&8),c=h&16?r.varint()+2:1;let u;if(t===0)u=dec.decode(r.bytes(r.varint()));else if(t===2){const ri=r.varint();if(ri>=repos.length)throw Error('Bad repo index');u=build({t,repo:repos[ri],n:r.varint()})}else if([1,3,4,5].includes(t))u=build({t,id:r.chars(11),tok:tok?r.chars(16):''});else throw Error('Unknown type');if(!validURL(u)||!(c>0))throw Error('Invalid URL or weight');m.set(u,(m.get(u)||0)+c)}return m}
+function b64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function unb64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+async function pipe(bytes,stream){return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer())}
+async function encode(m){const bytes=encodeBin(m);let best='c'+b64(bytes);if(typeof CompressionStream!=='undefined')try{const z='d'+b64(await pipe(bytes,new CompressionStream('deflate-raw')));if(z.length<best.length)best=z}catch{}return best}
+async function decode(code){const t=code[0],bytes=unb64(code.slice(1));if(t==='c')return decodeBin(bytes);if(t==='d')return decodeBin(await pipe(bytes,new DecompressionStream('deflate-raw')));if(t==='a'||t==='b'){const text=dec.decode(t==='b'?await pipe(bytes,new DecompressionStream('deflate-raw')):bytes),m=new Map();for(const line of text.split('\n')){const [origin,...items]=line.split('\t');if(!validURL(origin))continue;for(const s of items){const x=s.match(/^(\d*)([\s\S]*)$/),c=Number(x[1]||1),u=origin+x[2];if(c>0&&validURL(u))m.set(u,(m.get(u)||0)+c)}}return m}throw Error('Unsupported encoded format')}
+function extractCode(s){try{const u=new URL(s);return u.searchParams.get('r')||s}catch{return s}}
+async function refreshLegacy(){const response=await fetch('./all.json',{cache:'no-store'});if(!response.ok)throw Error('all.json HTTP '+response.status);const doc=await response.json(),list=doc.repositories10x;if(!list)throw Error('Missing repositories10x');legacy=Object.entries(list).flatMap(([repo,x])=>{const start=Number(x.issueStartNumber),end=Number(x.issueEndNumber);if(!x.username||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<1||end<start)return[];const suffix=repo.match(/x(2|3|10)$/);return [{repo,username:x.username,start,end,weight:Number(x.probabilityBooster||1)*(suffix?Number(suffix[1]):1)}]});owners=new Map(legacy.map(x=>[x.repo,x.username]));await metaPut('legacy',legacy);canon(ledger);for(const T of Object.values(tags))canon(T)}
+async function refreshRemote(){const resp=await fetch('./random-redirect-db.json',{cache:'no-store'});if(!resp.ok)throw Error('JSON HTTP '+resp.status);const data=parseDoc(await resp.json());ledger=op(ledger,canon(data.ledger),Math.max);tags=mergeTags(tags,data.tags);for(const [k,n] of Object.entries(data.clock))clock[k]=Math.max(clock[k]||0,n);const ids=new Set(ramp.map(x=>x.id));for(const b of data.ramp)if(!ids.has(b.id)){ramp.push(b);ids.add(b.id)}ramp=activeRamp();await save();render()}
+async function init(){try{db=await openDB();state=await metaGet('state')||{};ledger=await metaGet('ledger')||empty();tags=await metaGet('tags')||{};legacy=await metaGet('legacy')||[];owners=new Map(legacy.map(x=>[x.repo,x.username]));clock=await metaGet('clock')||{};ramp=await metaGet('ramp')||[];recent=await metaGet('recent')||[];last=await metaGet('lastOpened')||null;dev=await metaGet('dev')||randId();await metaPut('dev',dev);if(!(dev in clock))clock[dev]=await metaGet('draws')||0;dbPercent=await metaGet('randomDbPercent')??15;tuning={...defaults,...(await metaGet('adaptiveTuning')||{})};discovery={...discovery,...(await metaGet('discoveryV1')||{})};discovery.history=Array.isArray(discovery.history)?discovery.history.slice(-120):[];feedbackPending=await metaGet('momentum')||null;if(feedbackPending&&!feedbackPending.url)feedbackPending=null;alternatives=await metaGet('altUrls')||altDefaults.slice();$('dbGauge').value=dbPercent;$('dbPct').textContent=dbPercent+'%';tuneUI();render();try{await refreshLegacy()}catch(e){msg('Using cached legacy config: '+e.message)}try{await refreshRemote()}catch(e){msg('Using local premium data: '+e.message)}render()}catch(e){msg('Initialization error: '+e.message)}}
+const param=new URLSearchParams(location.search).get('r');if(param){$('app').hidden=true;$('redirecting').hidden=false;decode(param).then(m=>{let total=0;for(const c of m.values())total+=c;if(!(total>0))throw Error('Empty redirect');let r=random()*total;for(const [u,c] of m){r-=c;if(r<0){location.replace(u);return}}location.replace(m.keys().next().value)}).catch(e=>{$('redirectMessage').textContent='Cannot decode redirect: '+e.message});return}
+$('dbGauge').oninput=()=>$('dbPct').textContent=$('dbGauge').value+'%';
+$('saveGauge').onclick=async()=>{dbPercent=Number($('dbGauge').value);await metaPut('randomDbPercent',dbPercent);msg('Probability saved.')};
+$('random').onclick=()=>randomRedirect().catch(e=>msg(e.message));
+$('tagRandom').onclick=()=>openTagged(readTagInput()).catch(e=>msg(e.message));
+$('tagIn').oninput=renderTags;
+for(const n of [1,2,3,10])$('x'+n).onclick=()=>addLast(n);
+$('customAdd').onclick=()=>addLast(Number($('customWeight').value));
+$('yes').onclick=()=>answer(true);$('no').onclick=()=>answer(false);$('dismiss').onclick=async()=>{feedbackPending=null;await save();render()};
+for(const [id,out] of [['explore','exploreOut'],['window','windowOut'],['diversity','diversityOut'],['rampDraws','rampOut']])$(id).oninput=()=>$(out).textContent=$(id).value+(['explore','diversity'].includes(id)?'%':' draws');
+$('saveTuning').onclick=async()=>{tuning={exploration:Number($('explore').value)/100,window:Number($('window').value),diversity:Number($('diversity').value)/100,rampDraws:Number($('rampDraws').value)};await metaPut('adaptiveTuning',tuning);render();msg('Tuning saved.')};
+$('resetTuning').onclick=async()=>{tuning={...defaults};await metaPut('adaptiveTuning',tuning);tuneUI();render()};
+$('add').onclick=addBulk;
+$('undo').onclick=async()=>{if(!undo)return msg('Nothing to undo.');({ledger,tags,ramp,recent}=undo);undo=null;await save();render();msg('Undid last addition.')};
+$('refresh').onclick=async()=>{try{await refreshLegacy();await refreshRemote();msg('Remote configuration refreshed.')}catch(e){msg(e.message)}};
+$('import').onclick=()=>$('file').click();
+$('file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const d=parseDoc(JSON.parse(await f.text()));ledger=op(ledger,canon(d.ledger),Math.max);tags=mergeTags(tags,d.tags);for(const [k,n] of Object.entries(d.clock))clock[k]=Math.max(clock[k]||0,n);const ids=new Set(ramp.map(x=>x.id));for(const b of d.ramp)if(!ids.has(b.id)){ramp.push(b);ids.add(b.id)}await save();render();msg('JSON imported and merged.')}catch(e){msg('Import failed: '+e.message)}e.target.value=''};
+$('export').onclick=()=>{const doc={version:2,repos:compact(ledger).repos||{},ext:compact(ledger).ext||{},urls:ledger.urls,tags:tagJson(tags),clock,ramp:activeRamp().map(b=>({id:b.id,d:b.d,l:compact(b.l)}))};const blob=new Blob([JSON.stringify(doc,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='random-redirect-db.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);msg('JSON downloaded. Hosted JSON remains unchanged.')};
+$('encode').onclick=async()=>{try{const m=new Map();for(const u of splitUrls($('urls').value))m.set(u,(m.get(u)||0)+1);if(!m.size)throw Error('No valid URLs');$('short').value=location.href.split(/[?#]/)[0]+'?r='+await encode(m);msg('Short redirect link generated.')}catch(e){msg(e.message)}};
+$('decode').onclick=async()=>{try{const m=await decode(extractCode($('short').value.trim()));$('urls').value=[...m].flatMap(([u,n])=>Array(Math.min(n,10000)).fill(u)).join('\n');msg('Loaded '+m.size+' unique URLs.')}catch(e){msg(e.message)}};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('short').value);msg('Copied.')}catch(e){msg('Clipboard permission denied.')}};
+$('open').onclick=()=>{if($('short').value)window.open($('short').value,'_blank','noopener')};
+$('addAlt').onclick=async()=>{const u=$('altInput').value.trim();if(!validURL(u))return msg('Invalid URL');if(!alternatives.includes(u))alternatives.push(u);await metaPut('altUrls',alternatives);$('altInput').value='';render()};
+$('resetAlts').onclick=async()=>{alternatives=altDefaults.slice();await metaPut('altUrls',alternatives);render()};
+window.addEventListener('pageshow',e=>{if(e.persisted&&db)metaGet('momentum').then(x=>{feedbackPending=x?.url?x:null;showFeedback()})});
+init();
+})();
+</script></body></html>
