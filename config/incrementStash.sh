@@ -51,4 +51,4 @@ fi
 echo ""
 echo "Done! The PowerShell script has completed."
 
-# Made with Bob
+# Made with Claude Code

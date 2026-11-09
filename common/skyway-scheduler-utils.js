@@ -347,4 +347,4 @@
 
 })(typeof window !== 'undefined' ? window : global);
 
-// Made with Bob
+// Made with Claude Code

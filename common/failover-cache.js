@@ -359,4 +359,4 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = FailoverCache;
 }
 
-// Made with Bob
+// Made with Claude Code

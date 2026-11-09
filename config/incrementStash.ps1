@@ -265,4 +265,4 @@ Write-Host ""
 Write-Host "Backup files created with .backup extension"
 Write-Host ""
 
-# Made with Bob
+# Made with Claude Code
