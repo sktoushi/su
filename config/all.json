@@ -1,4 +1,4 @@
-﻿{
+{
   "skyway": {
     "scheduler-max": 87
   },
@@ -169,20 +169,20 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10,
+      "issueEndNumber": 32,
       "images": true
     },
     "stash10x2": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10
+      "issueEndNumber": 15
     },
     "stash10x3": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10
+      "issueEndNumber": 16
     },
     "stash10x10": {
       "username": "needacounto",
@@ -352,20 +352,20 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10,
+      "issueEndNumber": 32,
       "images": true
     },
     "stash10x2": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10
+      "issueEndNumber": 15
     },
     "stash10x3": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10
+      "issueEndNumber": 16
     }
   },
   "repositories2x": {
@@ -512,14 +512,14 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10,
+      "issueEndNumber": 32,
       "images": true
     },
     "stash10x2": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10
+      "issueEndNumber": 15
     }
   },
   "repositories": {
@@ -650,7 +650,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 10,
+      "issueEndNumber": 32,
       "images": true
     }
   },
