@@ -1,4 +1,4 @@
-{
+﻿{
   "skyway": {
     "scheduler-max": 87
   },
@@ -164,6 +164,31 @@
       "issueStartNumber": 1,
       "probabilityBooster": 3,
       "issueEndNumber": 36
+    },
+    "stash10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10,
+      "images": true
+    },
+    "stash10x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
+    },
+    "stash10x3": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
+    },
+    "stash10x10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
     }
   },
   "repositories3x": {
@@ -322,6 +347,25 @@
       "issueStartNumber": 1,
       "probabilityBooster": 3,
       "issueEndNumber": 280
+    },
+    "stash10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10,
+      "images": true
+    },
+    "stash10x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
+    },
+    "stash10x3": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
     }
   },
   "repositories2x": {
@@ -463,6 +507,19 @@
       "issueStartNumber": 1,
       "probabilityBooster": 3,
       "issueEndNumber": 472
+    },
+    "stash10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10,
+      "images": true
+    },
+    "stash10x2": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10
     }
   },
   "repositories": {
@@ -587,6 +644,13 @@
       "issueStartNumber": 1,
       "probabilityBooster": 3,
       "issueEndNumber": 1996,
+      "images": true
+    },
+    "stash10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "probabilityBooster": 3,
+      "issueEndNumber": 10,
       "images": true
     }
   },

@@ -64,6 +64,11 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "issueEndNumber": 890
+    },
+    "stash9": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
+      "issueEndNumber": 890
     }
   },
   "formulas": [

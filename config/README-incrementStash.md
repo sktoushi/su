@@ -478,5 +478,5 @@ For issues or questions:
 
 **Last Updated**: 2026-07-04
 **Version**: 1.1
-**Author**: Bob (AI Assistant)
+**Author**: Claude Code(AI Assistant)
 **Scripts**: incrementStash.sh (bash wrapper) + incrementStash.ps1 (PowerShell core)

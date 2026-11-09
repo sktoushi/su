@@ -68,6 +68,11 @@
     "stash9": {
       "username": "needacounto",
       "issueStartNumber": 1,
+      "issueEndNumber": 1956
+    },
+    "stash10": {
+      "username": "needacounto",
+      "issueStartNumber": 1,
       "issueEndNumber": 890
     }
   },

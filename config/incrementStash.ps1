@@ -1,6 +1,8 @@
 # incrementStash.ps1
-# Script to add a new stash repository following the stash7 pattern
-# Usage: .\config\incrementStash.ps1 -StashName "stash8" -GitHubUser "sktoushi"
+# Add a stash to the repository groups in the current all.json schema.
+# Usage: .\config\incrementStash.ps1 -StashName "stash10" -GitHubUser "needacounto"
+# Mapping: repositories10x = base/x2/x3/x10; repositories3x = base/x2/x3;
+#          repositories2x = base/x2; repositories = base.
 
 param(
     [Parameter(Mandatory=$true)]
@@ -17,6 +19,27 @@ if ($StashName -notmatch '^stash(\d+)$') {
 }
 
 $StashNum = $Matches[1]
+$ErrorActionPreference = 'Stop'
+
+# Validate direct PowerShell calls as well as calls through the Bash wrapper.
+if ($GitHubUser -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$') {
+    throw "Invalid GitHub username: $GitHubUser"
+}
+
+# Resolve paths from the script, not from the shell's current directory.
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'all.json') -PathType Leaf) {
+    $configDir = $PSScriptRoot
+    $projectRoot = if ((Split-Path -Leaf $PSScriptRoot) -ieq 'config') {
+        Split-Path -Parent $PSScriptRoot
+    } else {
+        $PSScriptRoot
+    }
+} elseif (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'config/all.json') -PathType Leaf) {
+    $configDir = Join-Path $PSScriptRoot 'config'
+    $projectRoot = $PSScriptRoot
+} else {
+    throw "Cannot find all.json beside the script or in its config/ directory."
+}
 
 Write-Host "Creating new stash configuration for: $StashName" -ForegroundColor Green
 Write-Host "GitHub username: $GitHubUser"
@@ -42,102 +65,142 @@ Write-Host "  $StashEighty = $EightyValue"
 Write-Host "  $StashNinety = $NinetyValue"
 Write-Host ""
 
-# Function to update JSON files
+# JSON mutation helper: validate before backing up and writing.
 function Update-JsonFile {
     param(
         [string]$FilePath,
-        [scriptblock]$UpdateScript
+        [scriptblock]$UpdateScript,
+        [switch]$Required
     )
-    
-    if (Test-Path $FilePath) {
-        Copy-Item $FilePath "$FilePath.backup" -Force
-        $json = Get-Content $FilePath -Raw -Encoding UTF8 | ConvertFrom-Json
-        & $UpdateScript $json
-        $json | ConvertTo-Json -Depth 100 | Set-Content $FilePath -Encoding UTF8
-        Write-Host "  OK Updated $FilePath" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "  WARNING $FilePath not found" -ForegroundColor Yellow
+
+    if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) {
+        if ($Required) { throw "Required configuration file not found: $FilePath" }
+        Write-Warning "File not found; skipping: $FilePath"
         return $false
     }
+
+    $json = Get-Content -LiteralPath $FilePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    & $UpdateScript $json
+    Copy-Item -LiteralPath $FilePath -Destination "$FilePath.backup" -Force
+    $json | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $FilePath -Encoding UTF8
+    Write-Host "  OK Updated $FilePath" -ForegroundColor Green
+    return $true
+}
+
+# Add only missing repository entries. Never reset counts on an existing stash.
+function Add-RepositoryEntry {
+    param(
+        [object]$Group,
+        [string]$Name,
+        [switch]$Images
+    )
+
+    if ($null -ne $Group.PSObject.Properties[$Name]) {
+        Write-Host "  SKIP Existing entry: $Name"
+        return
+    }
+
+    $entry = [ordered]@{
+        username = $GitHubUser
+        issueStartNumber = 1
+        probabilityBooster = 3
+        issueEndNumber = [int]$EndingValue
+    }
+    if ($Images) { $entry['images'] = $true }
+    $Group | Add-Member -NotePropertyName $Name -NotePropertyValue ([PSCustomObject]$entry)
+    Write-Host "  ADD $Name"
 }
 
 # 1. Update config/values.json
 Write-Host "Step 1: Updating config/values.json..."
-$valuesPath = if (Test-Path "values.json") { "values.json" } else { "config\values.json" }
+$valuesPath = Join-Path $configDir 'values.json'
 Update-JsonFile -FilePath $valuesPath -UpdateScript {
     param($json)
-    $baseKeys = $json.base.PSObject.Properties.Name
-    $newBase = [ordered]@{}
-    foreach ($key in $baseKeys) {
-        $newBase[$key] = $json.base.$key
-        if ($key -eq "stash7Ending") {
-            $newBase[$StashEighty] = $EightyValue
-            $newBase[$StashNinety] = $NinetyValue
-            $newBase[$StashEnding] = $EndingValue
-        }
-        if ($key -eq "stash7Starting") {
-            $newBase[$StashStarting] = $StartingValue
+    if ($null -eq $json.PSObject.Properties['base'] -or $null -eq $json.base) {
+        throw "Invalid values.json: missing base object"
+    }
+    $base = $json.base
+
+    # Unlike the old script, this is not anchored to stash7. It works for stash10+.
+    $newValues = [ordered]@{}
+    $newValues[$StashStarting] = $StartingValue
+    $newValues[$StashEighty] = $EightyValue
+    $newValues[$StashNinety] = $NinetyValue
+    $newValues[$StashEnding] = $EndingValue
+    foreach ($key in $newValues.Keys) {
+        if ($null -eq $base.PSObject.Properties[$key]) {
+            $base | Add-Member -NotePropertyName $key -NotePropertyValue $newValues[$key]
         }
     }
-    $json.base = [PSCustomObject]$newBase
-    if ($json.base.progressCurrentValueFormula -notlike "*$StashEnding*") {
-        $json.base.progressCurrentValueFormula = $json.base.progressCurrentValueFormula + " + $StashEnding"
+
+    $formulaProperty = $base.PSObject.Properties['progressCurrentValueFormula']
+    $formula = if ($null -ne $formulaProperty) { [string]$formulaProperty.Value } else { '' }
+    $escapedName = [regex]::Escape($StashEnding)
+    if ($formula -notmatch "(?<![A-Za-z0-9_])$escapedName(?![A-Za-z0-9_])") {
+        $formula = if ([string]::IsNullOrWhiteSpace($formula)) { $StashEnding } else { "$formula + $StashEnding" }
+        if ($null -eq $formulaProperty) {
+            $base | Add-Member -NotePropertyName 'progressCurrentValueFormula' -NotePropertyValue $formula
+        } else {
+            $formulaProperty.Value = $formula
+        }
     }
+
     $csvUrl = "skyway-$StashName.csv"
-    $exists = $false
-    foreach ($setting in $json.base.recent5Settings) {
-        if ($setting.csvUrl -eq $csvUrl) {
-            $exists = $true
-            break
-        }
+    $recentProperty = $base.PSObject.Properties['recent5Settings']
+    $settings = @()
+    if ($null -ne $recentProperty -and $null -ne $recentProperty.Value) {
+        $settings = @($recentProperty.Value)
     }
+    $exists = @($settings | Where-Object { $_.csvUrl -eq $csvUrl }).Count -gt 0
     if (-not $exists) {
-        $json.base.recent5Settings += @{csvUrl = $csvUrl}
+        $settings += [PSCustomObject]@{ csvUrl = $csvUrl }
+        if ($null -eq $recentProperty) {
+            $base | Add-Member -NotePropertyName 'recent5Settings' -NotePropertyValue $settings
+        } else {
+            $recentProperty.Value = $settings
+        }
     }
 }
 
 # 2. Update config/all.json
 Write-Host "Step 2: Updating config/all.json..."
-$allPath = if (Test-Path "all.json") { "all.json" } else { "config\all.json" }
-Update-JsonFile -FilePath $allPath -UpdateScript {
+$allPath = Join-Path $configDir 'all.json'
+Update-JsonFile -FilePath $allPath -Required -UpdateScript {
     param($json)
-    $repoConfig = @{
-        username = $GitHubUser
-        images = $true
-        issueStartNumber = 1
-        issueEndNumber = [int]$EndingValue
-        probabilityBooster = 3
+
+    # Each group's name denotes the highest supported variant, not a multiplier
+    # to apply to issueEndNumber. All new variants start at 1..10.
+    $groupVariants = [ordered]@{
+        repositories10x = @('', 'x2', 'x3', 'x10')
+        repositories3x  = @('', 'x2', 'x3')
+        repositories2x  = @('', 'x2')
+        repositories    = @('')
     }
-    $repoConfigX2 = @{
-        username = $GitHubUser
-        issueStartNumber = 1
-        issueEndNumber = [int]$EndingValue
-        probabilityBooster = 3
+
+    # Fail without overwriting all.json if the expected schema is absent.
+    foreach ($groupName in $groupVariants.Keys) {
+        if ($null -eq $json.PSObject.Properties[$groupName] -or
+            $null -eq $json.PSObject.Properties[$groupName].Value) {
+            throw "Invalid all.json schema: missing '$groupName'"
+        }
     }
-    $repoConfigX3 = @{
-        username = $GitHubUser
-        issueStartNumber = 1
-        issueEndNumber = [int]$EndingValue
-        probabilityBooster = 3
-    }
-    if ($json.repositories3x) {
-        $json.repositories3x | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig) -Force
-        $json.repositories3x | Add-Member -NotePropertyName "${StashName}x2" -NotePropertyValue ([PSCustomObject]$repoConfigX2) -Force
-        $json.repositories3x | Add-Member -NotePropertyName "${StashName}x3" -NotePropertyValue ([PSCustomObject]$repoConfigX3) -Force
-    }
-    if ($json.repositories2x) {
-        $json.repositories2x | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig) -Force
-        $json.repositories2x | Add-Member -NotePropertyName "${StashName}x2" -NotePropertyValue ([PSCustomObject]$repoConfigX2) -Force
-    }
-    if ($json.repositories) {
-        $json.repositories | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig) -Force
+
+    foreach ($groupName in $groupVariants.Keys) {
+        $group = $json.PSObject.Properties[$groupName].Value
+        foreach ($suffix in $groupVariants[$groupName]) {
+            $entryName = "$StashName$suffix"
+            if ($suffix -eq '') {
+                Add-RepositoryEntry -Group $group -Name $entryName -Images
+            } else {
+                Add-RepositoryEntry -Group $group -Name $entryName
+            }
+        }
     }
 }
 
 # 3. Update config/allrecent100.json
 Write-Host "Step 3: Updating config/allrecent100.json..."
-$allrecent100Path = if (Test-Path "allrecent100.json") { "allrecent100.json" } else { "config\allrecent100.json" }
+$allrecent100Path = Join-Path $configDir 'allrecent100.json'
 Update-JsonFile -FilePath $allrecent100Path -UpdateScript {
     param($json)
     $repoConfig = @{
@@ -145,14 +208,14 @@ Update-JsonFile -FilePath $allrecent100Path -UpdateScript {
         issueStartNumber = 1
         issueEndNumber = 890
     }
-    if ($json.repositories) {
-        $json.repositories | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig) -Force
+    if ($json.repositories -and $null -eq $json.repositories.PSObject.Properties[$StashName]) {
+        $json.repositories | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig)
     }
 }
 
 # 4. Update config/allrecent.json
 Write-Host "Step 4: Updating config/allrecent.json..."
-$allrecentPath = if (Test-Path "allrecent.json") { "allrecent.json" } else { "config\allrecent.json" }
+$allrecentPath = Join-Path $configDir 'allrecent.json'
 Update-JsonFile -FilePath $allrecentPath -UpdateScript {
     param($json)
     $repoConfig = @{
@@ -160,8 +223,8 @@ Update-JsonFile -FilePath $allrecentPath -UpdateScript {
         issueStartNumber = 1
         issueEndNumber = 890
     }
-    if ($json.repositories) {
-        $json.repositories | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig) -Force
+    if ($json.repositories -and $null -eq $json.repositories.PSObject.Properties[$StashName]) {
+        $json.repositories | Add-Member -NotePropertyName $StashName -NotePropertyValue ([PSCustomObject]$repoConfig)
     }
 }
 
@@ -197,12 +260,14 @@ $htmlContent = @'
 '@
 
 $htmlContent = $htmlContent.Replace('GITHUB_USER', $GitHubUser).Replace('STASH_NAME', $StashName)
-Set-Content -Path "$GitHubUser-$StashName.html" -Value $htmlContent -Encoding UTF8
+$redirectHtmlPath = Join-Path $projectRoot "$GitHubUser-$StashName.html"
+Set-Content -LiteralPath $redirectHtmlPath -Value $htmlContent -Encoding UTF8
 Write-Host "  OK Created $GitHubUser-$StashName.html" -ForegroundColor Green
 
 # Read the common template
-$templatePath = if (Test-Path "..\common\stash-images-template.html") { "..\common\stash-images-template.html" } elseif (Test-Path "common\stash-images-template.html") { "common\stash-images-template.html" } else { $null }
-if (Test-Path $templatePath) {
+$templatePath = Join-Path $projectRoot 'common/stash-images-template.html'
+$imagesHtmlPath = Join-Path $projectRoot "$StashName-images.html"
+if (Test-Path -LiteralPath $templatePath -PathType Leaf) {
     $imagesHtmlContent = Get-Content $templatePath -Raw -Encoding UTF8
     
     # Replace placeholders
@@ -212,7 +277,7 @@ if (Test-Path $templatePath) {
     $imagesHtmlContent = $imagesHtmlContent.Replace('GITHUB_PREFIX_PLACEHOLDER', $githubPrefix)
     $imagesHtmlContent = $imagesHtmlContent.Replace('IMAGES_ARRAY_PLACEHOLDER', $imagesArray)
     
-    Set-Content -Path "$StashName-images.html" -Value $imagesHtmlContent -Encoding UTF8
+    Set-Content -LiteralPath $imagesHtmlPath -Value $imagesHtmlContent -Encoding UTF8
     Write-Host "  OK Created $StashName-images.html (using common template)" -ForegroundColor Green
 } else {
     Write-Host "  WARNING Template not found at $templatePath, creating basic version" -ForegroundColor Yellow
@@ -245,7 +310,7 @@ if (Test-Path $templatePath) {
     $githubPrefix = "https://github.com/$GitHubUser/$StashName/blob/main/"
     $imagesHtmlContent = $imagesHtmlContent.Replace('GITHUB_PREFIX', $githubPrefix)
     
-    Set-Content -Path "$StashName-images.html" -Value $imagesHtmlContent -Encoding UTF8
+    Set-Content -LiteralPath $imagesHtmlPath -Value $imagesHtmlContent -Encoding UTF8
     Write-Host "  OK Created $StashName-images.html (fallback)" -ForegroundColor Green
 }
 
@@ -256,7 +321,7 @@ Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Files created/updated:"
 Write-Host "  - config\values.json"
-Write-Host "  - config\all.json"
+Write-Host "  - config\all.json (repositories10x / repositories3x / repositories2x / repositories)"
 Write-Host "  - config\allrecent100.json"
 Write-Host "  - config\allrecent.json"
 Write-Host "  - $GitHubUser-$StashName.html"

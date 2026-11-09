@@ -50,7 +50,7 @@
     "theSnackbarEnding": "33",
     "imgStarting": "1",
     "imgEnding": "195",
-    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending + stash7Ending + stash8Ending + stash9Ending",
+    "progressCurrentValueFormula": "publicRepoEnding + stashEnding + stash1p5Ending + stash2Ending + stash3Ending + stash5Ending + stash6Ending + stash7Ending + stash8Ending + stash9Ending + stash10Ending",
     "progressTargetValueFormula": "18393",
     "progressBasis": "687",
     "dbviewerLinks": {
@@ -87,8 +87,15 @@
       },
       {
         "csvUrl": "skyway-stash9.csv"
+      },
+      {
+        "csvUrl": "skyway-stash10.csv"
       }
-    ]
+    ],
+    "stash10Starting": "1",
+    "stash10EightyPercent": "8",
+    "stash10NinetyPercent": "9",
+    "stash10Ending": "10"
   },
   "patches": [
     {
