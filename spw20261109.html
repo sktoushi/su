@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Random Redirect</title>
+</head>
+<body>
+  <script>
+    const prefix = "https://drive.google.com/file/d/";
+    const suffix = "/view?usp=drivesdk";
+
+    const list = [
+"16hjHzYHQ2nf9aaWjx2HAJH0rL5xOyGgO",
+"1-1_ApbZXcFPiVecuTQK9GDQL_NwgAjdP",
+"1Sh85Z4Exyx04SX8eU-c-mbyx2XEv8jV8",
+"1O9tugnRuqInY0osI68y7FpkUgcQ7onHi",
+"1O88FjKvrXZxICPH9du1oVz7y0jLsTHEW",
+"1Z7bakP8iSJBj1z8amcHGymS3IcePbKVX",
+"1heUpOB78y3yTAJLOn4wRP7ipHJtX1I75",
+"1MTrLwWa_DW8MGiiTEpnOuntH3B3DbLi7",
+"1RkrGcNBfAMkB8KIjDhvWzm_FqJ6-iD4m",
+"1qT2mQi83m7ZLmub3T9sHfGaR5gVC4y1w",
+"1gSYZ9ji8fzKEE_cYkmi9_4-m-I5u3Fii",
+"1vr-MqBvlkkPk1ok6p6kiOBkLQ0w4uyq7",
+"1ItiK-q4H-fDfcE44r0cHdP-DkVejKxct",
+"1kQH3Dnsh5IElwsDPWwiXsnCV06O3d4By",
+"1ukxMLeDSfxPP_xN3iyV2K1W6vdYFtSOC",
+"1_9GHYj3wTU5TUm52HRDhpByLM5UYR2l_",
+"1IAFaUTuJqF46ZtkcvglUmTZn_k7TAD5C",
+"1WueSnRjpGF4Ntja05R_q29IPu78TE1x5",
+"1TVlpQK4SAXI2qTTXFOcO0nQCo7zSjGYD",
+"1-8jcWrdaWlxVjPWnNNMpCj7wJKC55yJz",
+"1ODRqzSoWjZVnQo2mHgBHj6ANITQQPML0",
+"1EpUJYZBTPedJAiFtc-_rb6-XnO7wRP38",
+"1-lKzQcWZ19qsXO01XSg3T0Mtw_-xxrfN",
+"1saEF5a7XbCXziOw5tI8tSYGijZptkF1z",
+"1Ruf19lhaVCEHw2_LgaMJfh9IVrpN42nK",
+"1K9VtbFNh-_vBBhWcWBX-TeaRhMqfvW0O",
+"1yCabdCTHskrmGJYAg9-sbpnexCXs3IdL",
+"15sFRxuu4ysU4zaBfkDvRDnafNOYnBxyK",
+"1f5hCPzEY6FjE7qiR46NNBfUX0gb2FWi5",
+"1v05QdpfYbOTjzawVPX7MU8cOHf07UtIi",
+"1n6Ukp_I2VsEEUoM_gwWmQ2nhn24kRbR8",
+"1F5xipPDopp3ZLkmMiOOS6iHN9BMRuGyd",
+"1xH2dF6CiGtG_gS5vlXpuNc8B5njsKZqb",
+"1YA8J2IluC13Ljr4iOdc_Gs4qF58hBr1m",
+"1bdGfpinne6Q0q04J5SP6EmhUaKA5UH1d",
+"1TNa1l4NwzMgC3GLmEW_QywGwwZbLmAXt",
+"1P0d3dppZSqqd-b0X0zcYVfrQr6Eiviqp",
+"1ssTzvpsslqwAwnqg06ddQ3znPtrl5dEl",
+"15tV4xHMtdJy08JakJA1Di05U2uDboy58",
+"1V1LzIJZztYG81rJt4RKADteTEnnzrz_O",
+"18cY-zHel95rvZcierT17ryv425Xu18TI",
+"1fY2_hP989PMqDhZIYOILstmDj8yl9-xE",
+"1JJpVMrEJigRigo4RTjLEleIfxdBIQ6Zb",
+"1bvC3nEY_pFrM2wT2xJqIHz0x4iq2FSnu",
+"16zwP4cNSqpCor_D0X6pP4Qekl2x4ZLcQ",
+"1FiWVbH3sX3o3tS5GQaw1WzHeTYhuhmZS",
+"1vIMTcSbno9pNMeHz-ZtZJQEdEFSnSQqx",
+"1Eib04eH2t_L-ykw_aHKmD-SxPh5A5jko",
+"1tJ_gKeU3Yxr3ZJguN154Cpa2tJoe9QGY",
+"1xRS25NvGYKfVERtLQ-LURWbHhYaTX5l2",
+"1yzEArrjp_uVSJQSd_edss9D1_ZlyyQb1",
+"1RJ6jg2VMvn_P0wrRxZepv27FlSevdqQM",
+"1sLg06ToAUHvSJh4Nf3HGwsBTVpmbLeCm",
+"1hp3DSKAYbzD7Jo_qTpuGKvuvpGLP0kec",
+"1VvkrSyVe_Sk_XTyq-WgaUrqUJzkNh33s",
+"1iQe_Z27Py_uBRpDE2jRm4JJXcqvceMZy",
+"1qMFviwc5wd3gn1sN6JRDgJHmfCixVzAT",
+"1GQ_19wUN0t61f5r74I8KgNBJoOBXea3A",
+"1Z_Mr7evP5Bx5BH0vRrPRuxF1xxE8ewOS",
+"1LkhtAmB5XGyYluRVd7blP0qclKG1Q--1"
+    ];
+
+    const chosen = list[
+      Math.floor(Math.random() * list.length)
+    ];
+
+    window.location.replace(prefix + chosen + suffix);
+  </script>
+</body>
+</html>
