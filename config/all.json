@@ -176,13 +176,13 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 148
+      "issueEndNumber": 169
     },
     "stash10x3": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 90
+      "issueEndNumber": 93
     },
     "stash10x10": {
       "username": "needacounto",
@@ -359,13 +359,13 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 148
+      "issueEndNumber": 169
     },
     "stash10x3": {
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 90
+      "issueEndNumber": 93
     }
   },
   "repositories2x": {
@@ -519,7 +519,7 @@
       "username": "needacounto",
       "issueStartNumber": 1,
       "probabilityBooster": 3,
-      "issueEndNumber": 148
+      "issueEndNumber": 169
     }
   },
   "repositories": {
