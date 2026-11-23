@@ -1073,7 +1073,7 @@
       ],
       [
         35,
-        136
+        139
       ],
       [
         36,
@@ -1428,7 +1428,9 @@
     "https://ryspare25.github.io/ref2603/view-now.html?fileName=Friedrich-Von-Hayek-the-Constitution-of-Liberty-1-574.pdf": 574,
     "https://ryspare25.github.io/ref2603/view-now.html?fileName=the-cambridge-companion-to-machiavelli-1-304.pdf": 304,
     "https://ryspare25.github.io/ref2603/view-now.html?fileName=the-cambridge-companion-to-rawls-1-598.pdf": 598,
-    "https://sktoushi.github.io/su/bucket.html?target=bucket-nicomachean-ethics": 171
+    "https://sktoushi.github.io/su/bucket.html?target=bucket-nicomachean-ethics": 171,
+    "https://sktoushi.github.io/su/bucket.html?target=bucket-skin-in-the-game": 202,
+    "https://sktoushi.github.io/ref2611/view-now.html?fileName=master-of-the-senate.pdf": 1880
   },
   "tags": {
     "canonical": {
@@ -2281,7 +2283,8 @@
         ]
       },
       "urls": [
-        "http://needacounto.github.io/img9/all.html?stash=stash11"
+        "http://needacounto.github.io/img9/all.html?stash=stash11",
+        "https://sktoushi.github.io/su/bucket.html?target=bucket-skin-in-the-game"
       ]
     },
     "machiavelli": {
@@ -3310,326 +3313,19 @@
       "urls": [
         "https://ryspare25.github.io/ref2603/view-now.html?fileName=Friedrich-Von-Hayek-the-Constitution-of-Liberty-1-574.pdf",
         "https://ryspare25.github.io/ref2603/view-now.html?fileName=the-cambridge-companion-to-machiavelli-1-304.pdf",
-        "https://ryspare25.github.io/ref2603/view-now.html?fileName=the-cambridge-companion-to-rawls-1-598.pdf"
+        "https://ryspare25.github.io/ref2603/view-now.html?fileName=the-cambridge-companion-to-rawls-1-598.pdf",
+        "https://sktoushi.github.io/ref2611/view-now.html?fileName=master-of-the-senate.pdf"
       ]
     }
   },
   "clock": {
-    "1oienhv-1c0rq86": 609,
+    "1oienhv-1c0rq86": 735,
     "izcylk": 79,
     "sissfy": 226,
     "dj9fv2": 112,
     "7kbwui": 5
   },
   "ramp": [
-    {
-      "id": "k08bcd-1k9vv6l",
-      "d": 535,
-      "l": {
-        "repos": {
-          "stash7": [
-            [
-              1033,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "1ugezva-1rcci5w",
-      "d": 540,
-      "l": {
-        "repos": {
-          "stash": [
-            [
-              3581,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "18ms7bj-19bb919",
-      "d": 541,
-      "l": {
-        "repos": {
-          "log": [
-            [
-              162,
-              2
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "1520sn0-pjprqb",
-      "d": 543,
-      "l": {
-        "repos": {
-          "four-star-knowledge": [
-            [
-              87,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "eblou8-12m1jjf",
-      "d": 549,
-      "l": {
-        "repos": {
-          "stash2": [
-            [
-              3403,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "11ivaxg-16ijeyd",
-      "d": 550,
-      "l": {
-        "repos": {
-          "the-snackbar": [
-            [
-              19,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "v3q4up-4whe11",
-      "d": 551,
-      "l": {
-        "repos": {
-          "one-star-knowledge": [
-            [
-              285,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "4roron-18bn1bu",
-      "d": 553,
-      "l": {
-        "repos": {
-          "one-star-knowledge": [
-            [
-              326,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "fig1pr-s8ved1",
-      "d": 555,
-      "l": {
-        "repos": {
-          "stash6": [
-            [
-              3734,
-              3
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "vqlj9a-rn7hse",
-      "d": 556,
-      "l": {
-        "repos": {
-          "stash6": [
-            [
-              2146,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "n5apwd-1xn7es",
-      "d": 559,
-      "l": {
-        "repos": {
-          "stash": [
-            [
-              206,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "77uysv-oj65w5",
-      "d": 561,
-      "l": {
-        "repos": {
-          "stash8": [
-            [
-              1466,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "rcauuj-1mhxewv",
-      "d": 565,
-      "l": {
-        "repos": {
-          "stash2": [
-            [
-              976,
-              2
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "gbird9-a0k9t7",
-      "d": 565,
-      "l": {
-        "repos": {
-          "stash9": [
-            [
-              1956,
-              60
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "1xzhyxt-1wmqv7f",
-      "d": 565,
-      "l": {
-        "repos": {
-          "stash10": [
-            [
-              2,
-              660
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "1q7mduf-sajgza",
-      "d": 566,
-      "l": {
-        "repos": {
-          "stash8": [
-            [
-              1140,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "rlp5un-1u5a9er",
-      "d": 573,
-      "l": {
-        "repos": {
-          "stash8": [
-            [
-              980,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "wam9mh-gv7up7",
-      "d": 574,
-      "l": {
-        "repos": {
-          "stash8": [
-            [
-              2125,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "qs3h41-1rb6r54",
-      "d": 575,
-      "l": {
-        "repos": {
-          "stash9": [
-            [
-              1891,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "1e11oka-1csjw26",
-      "d": 576,
-      "l": {
-        "repos": {
-          "stash9x2": [
-            [
-              115,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "gpw0b6-1ptuwll",
-      "d": 577,
-      "l": {
-        "repos": {
-          "stash9": [
-            [
-              578,
-              1
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "g8gup-482q3u",
-      "d": 654,
-      "l": {
-        "repos": {
-          "stash6": [
-            [
-              3215,
-              1
-            ]
-          ]
-        }
-      }
-    },
     {
       "id": "c9igva-1skk5iv",
       "d": 667,
@@ -4069,6 +3765,38 @@
               372
             ]
           ]
+        }
+      }
+    },
+    {
+      "id": "1vsebrr-z8y5qr",
+      "d": 1059,
+      "l": {
+        "urls": {
+          "https://sktoushi.github.io/su/bucket.html?target=bucket-skin-in-the-game": 202
+        }
+      }
+    },
+    {
+      "id": "yyfpo7-1pix98h",
+      "d": 1147,
+      "l": {
+        "repos": {
+          "stash9x10": [
+            [
+              35,
+              3
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "13j891p-18w2xku",
+      "d": 1157,
+      "l": {
+        "urls": {
+          "https://sktoushi.github.io/ref2611/view-now.html?fileName=master-of-the-senate.pdf": 1880
         }
       }
     }
